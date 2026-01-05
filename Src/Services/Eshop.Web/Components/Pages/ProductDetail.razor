@@ -1,0 +1,1094 @@
+@page "/product/{id:int}"
+@using Eshop.Web.Models
+@using Eshop.Web.Services
+@inject ProductService ProductService
+@inject CartService CartService
+@inject NavigationManager Navigation
+
+<PageTitle>@(product?.Name ?? "??????") - ???? ??????</PageTitle>
+
+<div class="container">
+    @if (product == null)
+ {
+  <div class="loading-container">
+            <div class="spinner-large"></div>
+            <p>Loading product details...</p>
+        </div>
+    }
+    else
+    {
+        <div class="product-detail">
+    <div class="breadcrumb">
+  <a href="/">Home</a> 
+    <span class="separator">/</span>
+           <a href="/products">Products</a> 
+    <span class="separator">/</span>
+    <a href="/products?category=@product.Category">@product.Category</a>
+     <span class="separator">/</span>
+           <span class="current">@product.Name</span>
+        </div>
+
+            <div class="product-detail-content">
+                <!-- Image Gallery Section -->
+     <div class="product-gallery">
+    <div class="main-image">
+          <img src="@selectedImage" alt="@product.Name" />
+   @if (product.IsFeatured)
+     {
+     <span class="badge-featured">? Featured</span>
+       }
+ @if (!product.InStock)
+      {
+         <span class="badge-out-of-stock">Out of Stock</span>
+       }
+   </div>
+         <div class="thumbnail-images">
+        @foreach (var img in productImages)
+          {
+       <div class="thumbnail @(img == selectedImage ? "active" : "")" 
+    @onclick="() => SelectImage(img)">
+            <img src="@img" alt="Product thumbnail" />
+  </div>
+   }
+</div>
+      </div>
+
+        <!-- Product Info Section -->
+                <div class="product-detail-info">
+                    <span class="product-category">@product.Category</span>
+        <h1 class="product-detail-title">@product.Name</h1>
+          
+        <div class="product-rating">
+      <span class="stars">@GetStars(product.Rating)</span>
+    <span class="rating-number">@product.Rating</span>
+         <span class="review-count">(@product.ReviewCount reviews)</span>
+                <a href="#reviews" class="write-review-link">Write a review</a>
+    </div>
+
+             <div class="product-price-section">
+    <span class="product-detail-price">$@product.Price.ToString("F2")</span>
+   @if (product.InStock)
+     {
+        <span class="stock-status in-stock">? In Stock</span>
+       }
+          else
+            {
+       <span class="stock-status out-of-stock">? Out of Stock</span>
+       }
+          </div>
+
+           <div class="product-short-description">
+          <p>@product.Description</p>
+ </div>
+
+  <!-- Quantity and Actions -->
+             <div class="product-actions">
+       <div class="quantity-selector">
+                <label for="quantity">Quantity:</label>
+           <div class="quantity-controls">
+     <button class="btn-quantity" @onclick="DecreaseQuantity" disabled="@(quantity <= 1)">?</button>
+             <input type="number" id="quantity" @bind="quantity" @bind:event="oninput" min="1" max="10" />
+      <button class="btn-quantity" @onclick="IncreaseQuantity" disabled="@(quantity >= 10)">+</button>
+       </div>
+      </div>
+
+        <button class="btn btn-primary btn-lg btn-add-to-cart" 
+               @onclick="AddToCart"
+           disabled="@(!product.InStock)">
+    <span class="btn-icon">??</span>
+      @(product.InStock ? "Add to Cart" : "Out of Stock")
+   </button>
+
+    <button class="btn btn-outline btn-wishlist" @onclick="AddToWishlist" title="Add to wishlist">
+           <span class="icon">@(isInWishlist ? "??" : "??")</span>
+     </button>
+          </div>
+
+      <!-- Product Features -->
+           <div class="product-features">
+                <div class="feature-item">
+         <span class="feature-icon">??</span>
+     <span class="feature-text">Free shipping on orders over $50</span>
+          </div>
+    <div class="feature-item">
+                <span class="feature-icon">??</span>
+        <span class="feature-text">30-day money-back guarantee</span>
+         </div>
+  <div class="feature-item">
+       <span class="feature-icon">???</span>
+          <span class="feature-text">1-year warranty included</span>
+   </div>
+          <div class="feature-item">
+              <span class="feature-icon">?</span>
+          <span class="feature-text">Authentic & high quality</span>
+    </div>
+            </div>
+
+                <!-- Share Section -->
+    <div class="product-share">
+               <span class="share-label">Share:</span>
+              <button class="share-btn" @onclick="ShareOnFacebook" title="Share on Facebook">??</button>
+       <button class="share-btn" @onclick="ShareOnTwitter" title="Share on Twitter">??</button>
+       <button class="share-btn" @onclick="ShareOnWhatsApp" title="Share on WhatsApp">??</button>
+               <button class="share-btn" @onclick="CopyLink" title="Copy link">??</button>
+      </div>
+     </div>
+            </div>
+
+            <!-- Tabs Section -->
+  <div class="product-tabs" id="product-tabs">
+   <div class="tabs-header">
+    <button class="tab-button @(activeTab == "description" ? "active" : "")" 
+             @onclick='() => SetActiveTab("description")'>
+     Description
+      </button>
+      <button class="tab-button @(activeTab == "specifications" ? "active" : "")" 
+           @onclick='() => SetActiveTab("specifications")'>
+      Specifications
+      </button>
+ <button class="tab-button @(activeTab == "reviews" ? "active" : "")" 
+         @onclick='() => SetActiveTab("reviews")'>
+    Reviews (@product.ReviewCount)
+</button>
+          <button class="tab-button @(activeTab == "shipping" ? "active" : "")" 
+         @onclick='() => SetActiveTab("shipping")'>
+      Shipping & Returns
+        </button>
+   </div>
+
+   <div class="tab-content">
+          @if (activeTab == "description")
+             {
+          <div class="tab-panel fade-in">
+       <h3>Product Description</h3>
+  <p>@product.Description</p>
+      <p>This is a premium @product.Category.ToLower() product that offers excellent value for money. Our products are carefully selected to ensure they meet the highest standards of quality and performance.</p>
+          <h4>Key Benefits</h4>
+   <ul>
+      <li>Superior quality materials and construction</li>
+        <li>Designed for durability and long-lasting performance</li>
+  <li>Perfect balance of style and functionality</li>
+         <li>Backed by our satisfaction guarantee</li>
+        </ul>
+    </div>
+           }
+    else if (activeTab == "specifications")
+         {
+          <div class="tab-panel fade-in">
+    <h3>Product Specifications</h3>
+     <table class="specs-table">
+     <tr>
+        <td class="spec-label">Product ID:</td>
+          <td class="spec-value">@product.Id</td>
+       </tr>
+      <tr>
+     <td class="spec-label">Category:</td>
+          <td class="spec-value">@product.Category</td>
+     </tr>
+            <tr>
+         <td class="spec-label">Availability:</td>
+          <td class="spec-value">@(product.InStock ? "In Stock" : "Out of Stock")</td>
+  </tr>
+          <tr>
+    <td class="spec-label">Rating:</td>
+        <td class="spec-value">@product.Rating / 5.0</td>
+         </tr>
+           <tr>
+          <td class="spec-label">Warranty:</td>
+              <td class="spec-value">1 Year Manufacturer Warranty</td>
+       </tr>
+        </table>
+   </div>
+    }
+           else if (activeTab == "reviews")
+     {
+    <div class="tab-panel fade-in" id="reviews">
+      <h3>Customer Reviews</h3>
+ <div class="reviews-summary">
+   <div class="average-rating">
+           <div class="rating-number">@product.Rating</div>
+         <div class="stars-large">@GetStars(product.Rating)</div>
+       <div class="review-count-text">Based on @product.ReviewCount reviews</div>
+   </div>
+         <button class="btn btn-primary">Write a Review</button>
+        </div>
+ <div class="reviews-list">
+  <p class="no-reviews">No reviews yet. Be the first to review this product!</p>
+     </div>
+       </div>
+      }
+  else if (activeTab == "shipping")
+         {
+  <div class="tab-panel fade-in">
+         <h3>Shipping & Returns</h3>
+          <h4>?? Shipping Information</h4>
+    <ul>
+      <li><strong>Free Standard Shipping:</strong> On all orders over $50</li>
+       <li><strong>Standard Delivery:</strong> 5-7 business days ($5.99)</li>
+    <li><strong>Express Delivery:</strong> 2-3 business days ($12.99)</li>
+              <li><strong>Next Day Delivery:</strong> Available in select areas ($24.99)</li>
+         </ul>
+ <h4>?? Returns Policy</h4>
+       <ul>
+      <li>30-day money-back guarantee on all products</li>
+    <li>Items must be unused and in original packaging</li>
+       <li>Free return shipping on defective items</li>
+        <li>Refund processed within 5-7 business days</li>
+     </ul>
+       </div>
+          }
+  </div>
+     </div>
+
+            <!-- Related Products -->
+            @if (relatedProducts != null && relatedProducts.Any())
+            {
+          <div class="related-products-section">
+            <h2>You May Also Like</h2>
+   <div class="related-products-grid">
+     @foreach (var relatedProduct in relatedProducts.Take(4))
+ {
+                <div class="related-product-card" @onclick="() => NavigateToProduct(relatedProduct.Id)">
+   <div class="related-product-image">
+       <img src="@relatedProduct.ImageUrl" alt="@relatedProduct.Name" />
+      </div>
+             <div class="related-product-info">
+      <h4>@relatedProduct.Name</h4>
+          <div class="rating-small">@GetStars(relatedProduct.Rating)</div>
+       <span class="price">$@relatedProduct.Price.ToString("F2")</span>
+     </div>
+     </div>
+  }
+          </div>
+           </div>
+        }
+    </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private Product? product;
+  private List<Product>? relatedProducts;
+    private int quantity = 1;
+    private string selectedImage = "";
+    private List<string> productImages = new();
+    private string activeTab = "description";
+    private bool isInWishlist = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProduct();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+if (product?.Id != Id)
+ {
+       await LoadProduct();
+        }
+    }
+
+    private async Task LoadProduct()
+    {
+        product = await ProductService.GetProductByIdAsync(Id);
+        
+      if (product != null)
+        {
+            // Initialize product images (using same image for demo, you can add multiple)
+            productImages = new List<string> 
+        { 
+              product.ImageUrl, 
+                product.ImageUrl, 
+         product.ImageUrl,
+           product.ImageUrl 
+         };
+      selectedImage = product.ImageUrl;
+
+   // Load related products from same category
+            var allProducts = await ProductService.GetAllProductsAsync();
+     relatedProducts = allProducts?
+         .Where(p => p.Category == product.Category && p.Id != product.Id)
+        .Take(4)
+     .ToList();
+        }
+    }
+
+    private void SelectImage(string imageUrl)
+    {
+        selectedImage = imageUrl;
+}
+
+    private void SetActiveTab(string tab)
+    {
+        activeTab = tab;
+    }
+
+    private void IncreaseQuantity()
+    {
+      if (quantity < 10) quantity++;
+    }
+
+    private void DecreaseQuantity()
+    {
+    if (quantity > 1) quantity--;
+    }
+
+    private async Task AddToCart()
+    {
+        if (product != null && product.InStock)
+        {
+        await CartService.AddToCartAsync(product, quantity);
+         // Could show a toast notification here
+        }
+    }
+
+    private void AddToWishlist()
+    {
+        isInWishlist = !isInWishlist;
+        // TODO: Implement wishlist functionality
+    }
+
+    private void NavigateToProduct(int productId)
+    {
+   Navigation.NavigateTo($"/product/{productId}", forceLoad: true);
+    }
+
+    private void ShareOnFacebook()
+    {
+      var url = Navigation.Uri;
+        // TODO: Implement Facebook share
+    }
+
+    private void ShareOnTwitter()
+    {
+        var url = Navigation.Uri;
+    // TODO: Implement Twitter share
+    }
+
+    private void ShareOnWhatsApp()
+    {
+        var url = Navigation.Uri;
+        // TODO: Implement WhatsApp share
+    }
+
+private void CopyLink()
+    {
+    // TODO: Implement copy to clipboard
+    }
+
+    private string GetStars(double rating)
+    {
+        var fullStars = (int)rating;
+    var hasHalfStar = rating % 1 >= 0.5;
+    var emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
+
+ return new string('?', fullStars) + 
+               (hasHalfStar ? "?" : "") + 
+       new string('?', emptyStars);
+    }
+}
+
+<style>
+    .container {
+ max-width: 1400px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+    }
+
+    .loading-container {
+     display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 50vh;
+     gap: 1rem;
+    }
+
+    .spinner-large {
+        width: 60px;
+        height: 60px;
+        border: 4px solid #f3f3f3;
+border-top: 4px solid #667eea;
+    border-radius: 50%;
+      animation: spin 1s linear infinite;
+  }
+
+    @@keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    /* Breadcrumb */
+    .breadcrumb {
+        margin-bottom: 2rem;
+    font-size: 0.875rem;
+        color: #666;
+    }
+
+    .breadcrumb a {
+        color: #667eea;
+        text-decoration: none;
+ transition: color 0.2s;
+    }
+
+    .breadcrumb a:hover {
+     color: #5568d3;
+        text-decoration: underline;
+    }
+
+ .breadcrumb .separator {
+  margin: 0 0.5rem;
+        color: #999;
+    }
+
+    .breadcrumb .current {
+        color: #333;
+        font-weight: 500;
+    }
+
+    /* Product Detail Content */
+    .product-detail-content {
+display: grid;
+    grid-template-columns: 1fr 1fr;
+        gap: 3rem;
+        margin-bottom: 3rem;
+    }
+
+/* Image Gallery */
+    .product-gallery {
+      position: sticky;
+        top: 2rem;
+        height: fit-content;
+    }
+
+    .main-image {
+        position: relative;
+        background: #f8f9fa;
+        border-radius: 12px;
+        overflow: hidden;
+        margin-bottom: 1rem;
+   aspect-ratio: 1;
+    }
+
+    .main-image img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .badge-featured {
+     position: absolute;
+        top: 1rem;
+        left: 1rem;
+        background: linear-gradient(135deg, #ffd700, #ffed4e);
+        color: #333;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        box-shadow: 0 2px 8px rgba(255, 215, 0, 0.3);
+    }
+
+    .badge-out-of-stock {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        background-color: #dc3545;
+     color: white;
+   padding: 0.5rem 1rem;
+        border-radius: 20px;
+     font-size: 0.875rem;
+   font-weight: 600;
+    }
+
+    .thumbnail-images {
+      display: grid;
+        grid-template-columns: repeat(4, 1fr);
+ gap: 0.75rem;
+    }
+
+    .thumbnail {
+        cursor: pointer;
+ border-radius: 8px;
+  overflow: hidden;
+        border: 2px solid transparent;
+    transition: all 0.3s;
+        aspect-ratio: 1;
+   background: #f8f9fa;
+    }
+
+    .thumbnail:hover {
+        border-color: #667eea;
+        transform: scale(1.05);
+    }
+
+    .thumbnail.active {
+        border-color: #667eea;
+        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+    }
+
+    .thumbnail img {
+     width: 100%;
+  height: 100%;
+        object-fit: cover;
+}
+
+    /* Product Info */
+    .product-category {
+        color: #667eea;
+        font-size: 0.875rem;
+        font-weight: 600;
+  text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .product-detail-title {
+        margin: 0.5rem 0 1rem;
+        font-size: 2rem;
+        font-weight: 700;
+        color: #333;
+        line-height: 1.2;
+    }
+
+    .product-rating {
+display: flex;
+  align-items: center;
+ gap: 0.75rem;
+        margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    }
+
+    .stars {
+        color: #ffc107;
+        font-size: 1.25rem;
+    }
+
+    .rating-number {
+     font-weight: 600;
+        color: #333;
+    }
+
+    .review-count {
+        color: #666;
+        font-size: 0.875rem;
+    }
+
+ .write-review-link {
+        color: #667eea;
+text-decoration: none;
+        font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+    .write-review-link:hover {
+        text-decoration: underline;
+    }
+
+    .product-price-section {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+        padding: 1.5rem;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+      border-radius: 12px;
+    }
+
+    .product-detail-price {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: #28a745;
+    }
+
+    .stock-status {
+        padding: 0.5rem 1rem;
+      border-radius: 20px;
+    font-size: 0.875rem;
+        font-weight: 600;
+    }
+
+    .stock-status.in-stock {
+   background-color: #d4edda;
+        color: #155724;
+    }
+
+    .stock-status.out-of-stock {
+    background-color: #f8d7da;
+        color: #721c24;
+    }
+
+    .product-short-description {
+     margin-bottom: 2rem;
+        color: #666;
+line-height: 1.6;
+    }
+
+    /* Product Actions */
+    .product-actions {
+        display: flex;
+        align-items: flex-end;
+        gap: 1rem;
+     margin-bottom: 2rem;
+        flex-wrap: wrap;
+    }
+
+    .quantity-selector {
+        display: flex;
+   flex-direction: column;
+ gap: 0.5rem;
+    }
+
+    .quantity-selector label {
+   font-weight: 500;
+      color: #333;
+     font-size: 0.875rem;
+    }
+
+    .quantity-controls {
+  display: flex;
+        align-items: center;
+        border: 2px solid #e0e0e0;
+  border-radius: 8px;
+    overflow: hidden;
+    }
+
+.btn-quantity {
+        width: 40px;
+        height: 48px;
+        border: none;
+    background: #f8f9fa;
+        color: #333;
+     font-size: 1.25rem;
+        cursor: pointer;
+    transition: background-color 0.2s;
+    }
+
+    .btn-quantity:hover:not(:disabled) {
+        background-color: #e9ecef;
+    }
+
+    .btn-quantity:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .quantity-controls input {
+        width: 60px;
+      height: 48px;
+    border: none;
+        text-align: center;
+ font-size: 1rem;
+        font-weight: 600;
+    }
+
+    .quantity-controls input::-webkit-inner-spin-button,
+  .quantity-controls input::-webkit-outer-spin-button {
+   -webkit-appearance: none;
+        margin: 0;
+    }
+
+    .btn {
+        padding: 0.875rem 2rem;
+ border: none;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: 600;
+     cursor: pointer;
+   transition: all 0.3s;
+        display: inline-flex;
+        align-items: center;
+      justify-content: center;
+    gap: 0.5rem;
+    }
+
+    .btn-lg {
+        padding: 1rem 2.5rem;
+     font-size: 1.125rem;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+   transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+    }
+
+    .btn-primary:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+ .btn-add-to-cart {
+        flex: 1;
+        min-width: 200px;
+    }
+
+    .btn-outline {
+        background: white;
+        border: 2px solid #e0e0e0;
+  color: #333;
+    }
+
+    .btn-outline:hover {
+        border-color: #667eea;
+        transform: translateY(-2px);
+    }
+
+    .btn-wishlist {
+        width: 56px;
+     height: 56px;
+     padding: 0;
+        font-size: 1.5rem;
+    }
+
+    .btn-icon {
+        font-size: 1.25rem;
+    }
+
+    /* Product Features */
+    .product-features {
+        background: #f8f9fa;
+     border-radius: 12px;
+        padding: 1.5rem;
+ margin-bottom: 2rem;
+    }
+
+    .feature-item {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #e0e0e0;
+    }
+
+    .feature-item:last-child {
+        border-bottom: none;
+    }
+
+  .feature-icon {
+    font-size: 1.5rem;
+        width: 32px;
+ text-align: center;
+    }
+
+    .feature-text {
+        color: #666;
+      font-size: 0.875rem;
+ }
+
+    /* Share Section */
+    .product-share {
+ display: flex;
+   align-items: center;
+        gap: 0.75rem;
+        padding-top: 1.5rem;
+    border-top: 1px solid #e0e0e0;
+    }
+
+    .share-label {
+    font-weight: 500;
+        color: #333;
+   font-size: 0.875rem;
+    }
+
+    .share-btn {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        border: 1px solid #e0e0e0;
+        background: white;
+        font-size: 1.25rem;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .share-btn:hover {
+        border-color: #667eea;
+        transform: translateY(-2px);
+    }
+
+    /* Tabs */
+    .product-tabs {
+        background: white;
+     border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        margin-bottom: 3rem;
+    }
+
+    .tabs-header {
+        display: flex;
+        border-bottom: 2px solid #e0e0e0;
+overflow-x: auto;
+    }
+
+    .tab-button {
+        padding: 1.25rem 2rem;
+        background: none;
+        border: none;
+  border-bottom: 3px solid transparent;
+        color: #666;
+        font-size: 1rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+   white-space: nowrap;
+    }
+
+    .tab-button:hover {
+        color: #333;
+  background-color: #f8f9fa;
+    }
+
+    .tab-button.active {
+        color: #667eea;
+     border-bottom-color: #667eea;
+    }
+
+    .tab-content {
+        padding: 2rem;
+    }
+
+    .tab-panel {
+        animation: fadeIn 0.3s ease;
+    }
+
+    .fade-in {
+        animation: fadeIn 0.3s ease;
+    }
+
+@@keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+    }
+
+    .tab-panel h3 {
+        margin: 0 0 1.5rem;
+        color: #333;
+        font-size: 1.5rem;
+    }
+
+    .tab-panel h4 {
+   margin: 1.5rem 0 1rem;
+        color: #333;
+        font-size: 1.125rem;
+    }
+
+    .tab-panel ul {
+     list-style: none;
+     padding: 0;
+    }
+
+    .tab-panel ul li {
+ padding: 0.5rem 0;
+      color: #666;
+        position: relative;
+        padding-left: 1.5rem;
+    }
+
+    .tab-panel ul li:before {
+        content: "?";
+position: absolute;
+     left: 0;
+        color: #28a745;
+        font-weight: bold;
+    }
+
+  .specs-table {
+   width: 100%;
+    border-collapse: collapse;
+    }
+
+    .specs-table tr {
+        border-bottom: 1px solid #e0e0e0;
+    }
+
+    .specs-table td {
+     padding: 1rem 0;
+    }
+
+    .spec-label {
+        font-weight: 600;
+        color: #333;
+        width: 30%;
+    }
+
+    .spec-value {
+        color: #666;
+    }
+
+    /* Reviews */
+    .reviews-summary {
+        display: flex;
+        justify-content: space-between;
+align-items: center;
+        padding: 2rem;
+  background: #f8f9fa;
+        border-radius: 12px;
+      margin-bottom: 2rem;
+    }
+
+    .average-rating {
+    text-align: center;
+    }
+
+    .rating-number {
+        font-size: 3rem;
+        font-weight: 700;
+    color: #333;
+    }
+
+    .stars-large {
+        font-size: 1.5rem;
+        color: #ffc107;
+        margin: 0.5rem 0;
+    }
+
+    .review-count-text {
+        color: #666;
+        font-size: 0.875rem;
+    }
+
+    .reviews-list {
+   padding: 2rem 0;
+    }
+
+    .no-reviews {
+        text-align: center;
+        color: #999;
+        font-style: italic;
+ padding: 2rem;
+    }
+
+    /* Related Products */
+    .related-products-section {
+        margin-top: 4rem;
+    }
+
+    .related-products-section h2 {
+        margin-bottom: 2rem;
+        font-size: 1.75rem;
+        color: #333;
+    }
+
+    .related-products-grid {
+   display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+   gap: 1.5rem;
+    }
+
+    .related-product-card {
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        cursor: pointer;
+        transition: transform 0.3s, box-shadow 0.3s;
+    }
+
+    .related-product-card:hover {
+        transform: translateY(-4px);
+   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    }
+
+    .related-product-image {
+        aspect-ratio: 1;
+        overflow: hidden;
+        background: #f8f9fa;
+    }
+
+    .related-product-image img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.3s;
+    }
+
+    .related-product-card:hover .related-product-image img {
+   transform: scale(1.1);
+    }
+
+.related-product-info {
+        padding: 1rem;
+    }
+
+    .related-product-info h4 {
+        margin: 0 0 0.5rem;
+  font-size: 1rem;
+ color: #333;
+        overflow: hidden;
+     text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .rating-small {
+        font-size: 0.875rem;
+        color: #ffc107;
+   margin-bottom: 0.5rem;
+    }
+
+    .related-product-info .price {
+    font-size: 1.125rem;
+  font-weight: 700;
+  color: #28a745;
+    }
+
+ /* Responsive */
+    @@media (max-width: 1024px) {
+     .product-detail-content {
+     grid-template-columns: 1fr;
+            gap: 2rem;
+    }
+
+        .product-gallery {
+         position: static;
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .container {
+            padding: 1rem;
+        }
+
+    .product-detail-title {
+            font-size: 1.5rem;
+        }
+
+        .product-detail-price {
+            font-size: 2rem;
+        }
+
+        .product-actions {
+            flex-direction: column;
+     align-items: stretch;
+  }
+
+  .btn-add-to-cart {
+     width: 100%;
+        }
+
+  .thumbnail-images {
+         grid-template-columns: repeat(3, 1fr);
+    }
+
+        .tabs-header {
+            flex-wrap: wrap;
+        }
+
+        .tab-button {
+      flex: 1;
+     min-width: 120px;
+  padding: 1rem;
+   font-size: 0.875rem;
+   }
+
+        .related-products-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+     }
+    }
+</style>

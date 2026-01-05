@@ -1,0 +1,416 @@
+﻿@page "/admin"
+@using Eshop.Web.Models
+
+<PageTitle>لوحة التحكم - متجر المسلم</PageTitle>
+
+<div class="admin-container">
+    <div class="admin-header">
+        <h1>لوحة التحكم</h1>
+ <p>إدارة متجرك</p>
+    </div>
+
+    <div class="admin-tabs">
+   <button class="tab-button @(activeTab == "overview" ? "active" : "")" @onclick='() => activeTab = "overview"'>
+    [نظرة عامة]
+        </button>
+<button class="tab-button @(activeTab == "products" ? "active" : "")" @onclick='() => activeTab = "products"'>
+            [المنتجات]
+        </button>
+        <button class="tab-button @(activeTab == "categories" ? "active" : "")" @onclick='() => activeTab = "categories"'>
+            [التصنيفات]
+        </button>
+        <button class="tab-button @(activeTab == "orders" ? "active" : "")" @onclick='() => activeTab = "orders"'>
+            [الطلبات]
+    </button>
+        <button class="tab-button @(activeTab == "users" ? "active" : "")" @onclick='() => activeTab = "users"'>
+       [المستخدمين]
+        </button>
+    </div>
+
+    <div class="admin-content">
+        @if (activeTab == "overview")
+    {
+   <div class="stats-grid">
+  <div class="stat-card">
+   <div class="stat-icon">[$]</div>
+   <div class="stat-info">
+       <h3>24,567 ر.س</h3>
+         <p>إجمالي الإيرادات</p>
+   </div>
+       <div class="stat-trend positive">+12.5%</div>
+      </div>
+         <div class="stat-card">
+   <div class="stat-icon">[BOX]</div>
+               <div class="stat-info">
+           <h3>1,234</h3>
+         <p>إجمالي المنتجات</p>
+</div>
+       <div class="stat-trend positive">+8.3%</div>
+        </div>
+     <div class="stat-card">
+         <div class="stat-icon">[CART]</div>
+   <div class="stat-info">
+<h3>567</h3>
+      <p>إجمالي الطلبات</p>
+                </div>
+             <div class="stat-trend negative">-3.2%</div>
+     </div>
+     <div class="stat-card">
+ <div class="stat-icon">[USERS]</div>
+              <div class="stat-info">
+         <h3>8,901</h3>
+         <p>إجمالي المستخدمين</p>
+         </div>
+        <div class="stat-trend positive">+15.7%</div>
+     </div>
+            </div>
+
+   <div class="recent-section">
+      <h2>الطلبات الأخيرة</h2>
+        <div class="table-container">
+        <table class="data-table">
+ <thead>
+     <tr>
+             <th>رقم الطلب</th>
+          <th>العميل</th>
+    <th>التاريخ</th>
+      <th>المبلغ</th>
+   <th>الحالة</th>
+    <th>الإجراءات</th>
+       </tr>
+         </thead>
+    <tbody>
+          <tr>
+     <td>#12345</td>
+          <td>أحمد محمد</td>
+           <td>2024-01-15</td>
+       <td>299.99 ر.س</td>
+               <td><span class="badge badge-success">مكتمل</span></td>
+ <td>
+         <button class="btn-icon" title="عرض">[VIEW]</button>
+  </td>
+        </tr>
+    <tr>
+  <td>#12344</td>
+    <td>فاطمة أحمد</td>
+   <td>2024-01-15</td>
+             <td>159.99 ر.س</td>
+     <td><span class="badge badge-warning">قيد المعالجة</span></td>
+      <td>
+        <button class="btn-icon" title="عرض">[VIEW]</button>
+       </td>
+       </tr>
+      <tr>
+               <td>#12343</td>
+ <td>خالد علي</td>
+         <td>2024-01-14</td>
+    <td>89.99 ر.س</td>
+     <td><span class="badge badge-info">تم الشحن</span></td>
+          <td>
+    <button class="btn-icon" title="عرض">[VIEW]</button>
+    </td>
+       </tr>
+      </tbody>
+  </table>
+              </div>
+            </div>
+        }
+        else if (activeTab == "products")
+        {
+  <ProductsManagement />
+    }
+     else if (activeTab == "categories")
+ {
+ <CategoriesManagement />
+        }
+    else if (activeTab == "orders")
+        {
+   <div class="coming-soon">
+     <div class="coming-soon-icon">[ORDERS]</div>
+    <h2>إدارة الطلبات</h2>
+              <p>قريباً...</p>
+      </div>
+        }
+        else if (activeTab == "users")
+        {
+   <div class="coming-soon">
+    <div class="coming-soon-icon">[USERS]</div>
+        <h2>إدارة المستخدمين</h2>
+    <p>قريباً...</p>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private string activeTab = "overview";
+}
+
+<style>
+    .admin-container {
+        padding: 2rem;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+
+    .admin-header {
+        margin-bottom: 2rem;
+    }
+
+    .admin-header h1 {
+ margin: 0 0 0.5rem;
+     color: #333;
+        font-size: 2rem;
+        font-weight: 700;
+    }
+
+    .admin-header p {
+        margin: 0;
+        color: #666;
+        font-size: 1rem;
+  }
+
+    .admin-tabs {
+        display: flex;
+    gap: 0.5rem;
+        margin-bottom: 2rem;
+      border-bottom: 2px solid #e0e0e0;
+        overflow-x: auto;
+    }
+
+    .tab-button {
+      padding: 1rem 1.5rem;
+        background: none;
+        border: none;
+        border-bottom: 3px solid transparent;
+     color: #666;
+        font-size: 1rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        white-space: nowrap;
+    }
+
+    .tab-button:hover {
+ color: #333;
+        background-color: #f8f8f8;
+    }
+
+    .tab-button.active {
+        color: #667eea;
+        border-bottom-color: #667eea;
+    }
+
+    .admin-content {
+        animation: fadeIn 0.3s ease;
+    }
+
+    @@keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .stat-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+     display: flex;
+        align-items: center;
+      gap: 1rem;
+     position: relative;
+        transition: transform 0.2s;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    }
+
+    .stat-icon {
+        font-size: 2.5rem;
+        color: #667eea;
+        font-weight: bold;
+    }
+
+    .stat-info {
+flex: 1;
+    }
+
+    .stat-info h3 {
+        margin: 0 0 0.25rem;
+        font-size: 1.75rem;
+        font-weight: 700;
+    color: #333;
+    }
+
+    .stat-info p {
+        margin: 0;
+        color: #666;
+        font-size: 0.875rem;
+    }
+
+    .stat-trend {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        font-size: 0.875rem;
+font-weight: 600;
+        padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+    }
+
+    .stat-trend.positive {
+        background-color: #d4edda;
+        color: #155724;
+    }
+
+    .stat-trend.negative {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+
+    .recent-section {
+        background: white;
+        border-radius: 12px;
+      padding: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .recent-section h2 {
+     margin: 0 0 1.5rem;
+    font-size: 1.25rem;
+      font-weight: 600;
+        color: #333;
+    }
+
+    .table-container {
+    overflow-x: auto;
+    }
+
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .data-table thead {
+        background-color: #f8f9fa;
+    }
+
+    .data-table th {
+  padding: 1rem;
+ text-align: right;
+  font-weight: 600;
+     color: #333;
+        font-size: 0.875rem;
+      border-bottom: 2px solid #e0e0e0;
+    }
+
+ .data-table td {
+        padding: 1rem;
+  border-bottom: 1px solid #e0e0e0;
+        color: #666;
+    font-size: 0.875rem;
+        text-align: right;
+    }
+
+ .data-table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+
+    .badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+  font-size: 0.75rem;
+        font-weight: 600;
+        display: inline-block;
+    }
+
+    .badge-success {
+        background-color: #d4edda;
+        color: #155724;
+    }
+
+    .badge-warning {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+
+    .badge-info {
+   background-color: #d1ecf1;
+     color: #0c5460;
+}
+
+    .badge-danger {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+
+    .btn-icon {
+     background: none;
+        border: none;
+   padding: 0.5rem;
+        font-size: 1rem;
+        cursor: pointer;
+  border-radius: 4px;
+        transition: background-color 0.2s;
+        color: #667eea;
+   font-weight: bold;
+    }
+
+    .btn-icon:hover {
+        background-color: #e9ecef;
+    }
+
+    .coming-soon {
+    text-align: center;
+        padding: 4rem 2rem;
+        background: white;
+        border-radius: 12px;
+     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .coming-soon-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        color: #667eea;
+        font-weight: bold;
+    }
+
+    .coming-soon h2 {
+        margin: 0 0 0.5rem;
+        color: #333;
+   font-size: 1.5rem;
+    }
+
+    .coming-soon p {
+        margin: 0;
+    color: #666;
+ }
+
+    @@media (max-width: 768px) {
+        .admin-container {
+ padding: 1rem;
+     }
+
+     .stats-grid {
+   grid-template-columns: 1fr;
+   }
+
+        .admin-tabs {
+  gap: 0.25rem;
+        }
+
+      .tab-button {
+    padding: 0.75rem 1rem;
+       font-size: 0.875rem;
+        }
+    }
+</style>

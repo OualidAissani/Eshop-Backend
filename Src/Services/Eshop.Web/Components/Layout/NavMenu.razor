@@ -1,0 +1,82 @@
+﻿@using Eshop.Web.Services
+@inject CartService CartService
+@implements IDisposable
+
+<nav class="navbar">
+    <div class="container navbar-content">
+        <a href="/" class="navbar-brand">
+  <span class="brand-icon">
+    <svg viewBox="0 0 24 24" fill="currentColor">
+ <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
+    </svg>
+            </span>
+            <span class="brand-name">متجر المسلم</span>
+      </a>
+
+        <div class="navbar-menu">
+            <NavLink class="nav-link" href="/" Match="NavLinkMatch.All">
+          الرئيسية
+     </NavLink>
+<NavLink class="nav-link" href="/products">
+             المنتجات
+            </NavLink>
+      <div class="nav-dropdown">
+    <button class="nav-link">
+        الأقسام
+         <svg class="dropdown-icon" viewBox="0 0 20 20" fill="currentColor">
+  <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
+    </svg>
+ </button>
+   </div>
+          <NavLink class="nav-link" href="/admin">
+           <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor">
+    <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/>
+          </svg>
+  الإدارة
+            </NavLink>
+          <NavLink class="nav-link nav-link-cart" href="/cart">
+       <span class="cart-icon">
+     <svg viewBox="0 0 24 24" fill="currentColor">
+               <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
+   </svg>
+ </span>
+          السلة
+    @if (cartCount > 0)
+    {
+       <span class="cart-badge">@cartCount</span>
+     }
+     </NavLink>
+       <NavLink class="nav-link nav-link-auth" href="/login">
+     <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor">
+         <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
+           </svg>
+           تسجيل الدخول
+            </NavLink>
+            <NavLink class="nav-link nav-link-register" href="/register">
+      حساب جديد
+       </NavLink>
+        </div>
+    </div>
+</nav>
+
+@code {
+    private int cartCount = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+ cartCount = await CartService.GetCartCountAsync();
+CartService.OnChange += OnCartChanged;
+    }
+
+    private async void OnCartChanged()
+    {
+        cartCount = await CartService.GetCartCountAsync();
+   await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+    CartService.OnChange -= OnCartChanged;
+    }
+}
+

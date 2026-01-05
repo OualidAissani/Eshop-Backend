@@ -1,0 +1,218 @@
+@if (IsVisible)
+{
+    <div class="confirm-backdrop">
+        <div class="confirm-dialog">
+     <div class="confirm-icon @IconClass">
+   @IconSymbol
+ </div>
+    <h3 class="confirm-title">@Title</h3>
+          <p class="confirm-message">@Message</p>
+            <div class="confirm-actions">
+         <button class="btn btn-secondary" @onclick="Cancel">@CancelText</button>
+      <button class="btn @ConfirmButtonClass" @onclick="Confirm">@ConfirmText</button>
+            </div>
+     </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsVisible { get; set; }
+    [Parameter] public string Title { get; set; } = "Confirm Action";
+    [Parameter] public string Message { get; set; } = "Are you sure you want to proceed?";
+    [Parameter] public string ConfirmText { get; set; } = "Confirm";
+    [Parameter] public string CancelText { get; set; } = "Cancel";
+    [Parameter] public string Type { get; set; } = "warning"; // warning, danger, info, success
+    [Parameter] public EventCallback<bool> OnResult { get; set; }
+
+    private string IconClass => Type switch
+    {
+        "danger" => "icon-danger",
+        "success" => "icon-success",
+   "info" => "icon-info",
+        _ => "icon-warning"
+    };
+
+    private string IconSymbol => Type switch
+    {
+        "danger" => "?",
+        "success" => "?",
+        "info" => "?",
+    _ => "?"
+    };
+
+    private string ConfirmButtonClass => Type switch
+    {
+      "danger" => "btn-danger",
+        "success" => "btn-success",
+        "info" => "btn-primary",
+      _ => "btn-warning"
+    };
+
+    private async Task Confirm()
+    {
+        IsVisible = false;
+        await OnResult.InvokeAsync(true);
+    }
+
+    private async Task Cancel()
+    {
+        IsVisible = false;
+        await OnResult.InvokeAsync(false);
+    }
+}
+
+<style>
+    .confirm-backdrop {
+      position: fixed;
+        top: 0;
+   left: 0;
+        width: 100%;
+     height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+   justify-content: center;
+        align-items: center;
+     z-index: 1060;
+ animation: fadeIn 0.2s ease;
+    }
+
+    @@keyframes fadeIn {
+     from { opacity: 0; }
+  to { opacity: 1; }
+    }
+
+    .confirm-dialog {
+        background: white;
+border-radius: 12px;
+        padding: 2rem;
+        max-width: 450px;
+        width: 90%;
+        text-align: center;
+     animation: slideIn 0.3s ease;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    }
+
+    @@keyframes slideIn {
+        from {
+            transform: translateY(-30px);
+          opacity: 0;
+        }
+     to {
+          transform: translateY(0);
+   opacity: 1;
+        }
+    }
+
+    .confirm-icon {
+        width: 64px;
+    height: 64px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      margin: 0 auto 1.5rem;
+      font-size: 2rem;
+        font-weight: bold;
+    }
+
+    .icon-warning {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+
+    .icon-danger {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+
+.icon-success {
+        background-color: #d4edda;
+        color: #155724;
+    }
+
+    .icon-info {
+      background-color: #d1ecf1;
+        color: #0c5460;
+  }
+
+    .confirm-title {
+        margin: 0 0 1rem;
+  font-size: 1.5rem;
+        color: #333;
+font-weight: 600;
+    }
+
+  .confirm-message {
+        margin: 0 0 2rem;
+  color: #666;
+        font-size: 1rem;
+line-height: 1.5;
+    }
+
+    .confirm-actions {
+    display: flex;
+    gap: 0.75rem;
+        justify-content: center;
+ }
+
+    .btn {
+    padding: 0.75rem 1.5rem;
+   border: none;
+        border-radius: 6px;
+        font-size: 1rem;
+        font-weight: 500;
+ cursor: pointer;
+        transition: all 0.2s;
+     min-width: 100px;
+    }
+
+    .btn-secondary {
+        background-color: #6c757d;
+     color: white;
+    }
+
+    .btn-secondary:hover {
+      background-color: #5a6268;
+   transform: translateY(-1px);
+    }
+
+    .btn-warning {
+        background-color: #ffc107;
+        color: #000;
+    }
+
+    .btn-warning:hover {
+        background-color: #e0a800;
+        transform: translateY(-1px);
+    }
+
+    .btn-danger {
+        background-color: #dc3545;
+        color: white;
+    }
+
+    .btn-danger:hover {
+        background-color: #c82333;
+transform: translateY(-1px);
+    }
+
+    .btn-success {
+        background-color: #28a745;
+      color: white;
+    }
+
+ .btn-success:hover {
+        background-color: #218838;
+        transform: translateY(-1px);
+    }
+
+    .btn-primary {
+      background-color: #007bff;
+color: white;
+    }
+
+    .btn-primary:hover {
+  background-color: #0056b3;
+        transform: translateY(-1px);
+    }
+</style>

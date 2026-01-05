@@ -1,0 +1,267 @@
+﻿@page "/products"
+@using Eshop.Web.Models
+@using Eshop.Web.Services
+@inject ProductService ProductService
+@inject CartService CartService
+@inject NavigationManager Navigation
+
+<PageTitle>المنتجات - متجر المسلم</PageTitle>
+
+<div class="container">
+    <div class="page-header">
+        <h1>جميع المنتجات</h1>
+        <p>تصفحي مجموعتنا الواسعة من المنتجات عالية الجودة</p>
+  </div>
+
+    <div class="products-container">
+        <aside class="filters-sidebar">
+      <h3>التصنيفات</h3>
+    <div class="filter-group">
+  <button class="filter-btn @(selectedCategory == null ? "active" : "")" @onclick="() => FilterByCategory(null)">
+      <span class="filter-icon">[ALL]</span>
+      جميع المنتجات
+       </button>
+      @if (categories != null)
+   {
+      @foreach (var category in categories)
+       {
+   <button class="filter-btn @(selectedCategory == category ? "active" : "")" @onclick="() => FilterByCategory(category)">
+         <span class="filter-icon">@GetCategoryIcon(category)</span>
+         @GetArabicCategoryName(category)
+         </button>
+           }
+        }
+            </div>
+  </aside>
+
+        <div class="products-main">
+ @if (filteredProducts == null)
+ {
+              <div class="loading">
+              <div class="loading-spinner"></div>
+        <p>جاري تحميل المنتجات...</p>
+        </div>
+            }
+       else if (filteredProducts.Count == 0)
+  {
+        <div class="no-products">
+     <div class="no-products-icon">[SEARCH]</div>
+          <h3>لم نجد منتجات في هذا القسم</h3>
+    <p>جربي البحث في قسم آخر</p>
+   </div>
+     }
+            else
+            {
+<div class="products-count">
+          <p>عرض <strong>@filteredProducts.Count</strong> منتج</p>
+                </div>
+       <div class="products-grid">
+ @foreach (var product in filteredProducts)
+            {
+                   <div class="product-card" @onclick="() => NavigateToProduct(product.Id)">
+       <div class="product-image">
+           <img src="@product.ImageUrl" alt="@product.Name" />
+    @if (product.IsFeatured)
+            {
+       <span class="badge-featured">مميز</span>
+     }
+        @if (!product.InStock)
+     {
+    <span class="badge-out-of-stock">غير متوفر</span>
+        }
+    <div class="product-overlay">
+    <button class="btn-quick-view" @onclick:stopPropagation="true" @onclick="() => QuickView(product)">
+         معاينة سريعة
+             </button>
+             </div>
+    <div class="quick-actions">
+ <button class="quick-action-btn" @onclick:stopPropagation="true" @onclick="() => AddToWishlist(product)" title="أضف للمفضلة">
+           <svg viewBox="0 0 20 20" fill="currentColor">
+  <path fill-rule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clip-rule="evenodd"/>
+              </svg>
+        </button>
+       </div>
+        </div>
+        <div class="product-info">
+     <span class="product-category">@GetArabicCategoryName(product.Category)</span>
+                 <h3 class="product-name">@product.Name</h3>
+     <div class="product-rating">
+                 <span class="stars">@GetStars(product.Rating)</span>
+              <span class="review-count">(@product.ReviewCount تقييم)</span>
+           </div>
+          <div class="product-footer">
+          <div class="product-price-section">
+   <span class="product-price">@product.Price.ToString("F2") ر.س</span>
+    </div>
+         <button class="btn btn-primary btn-sm btn-add" 
+            @onclick:stopPropagation="true" 
+                @onclick="() => AddToCart(product)"
+    disabled="@(!product.InStock)">
+          <svg viewBox="0 0 20 20" fill="currentColor">
+             <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/>
+      </svg>
+        @(product.InStock ? "أضف للسلة" : "غير متوفر")
+            </button>
+            </div>
+  </div>
+        </div>
+        }
+           </div>
+    }
+  </div>
+    </div>
+</div>
+
+@if (showQuickView && selectedProduct != null)
+{
+    <div class="quick-view-backdrop" @onclick="CloseQuickView">
+        <div class="quick-view-modal" @onclick:stopPropagation="true">
+  <button class="modal-close-btn" @onclick="CloseQuickView">×</button>
+        <div class="quick-view-content">
+    <div class="quick-view-image">
+   <img src="@selectedProduct.ImageUrl" alt="@selectedProduct.Name" />
+   </div>
+         <div class="quick-view-info">
+             <span class="product-category">@GetArabicCategoryName(selectedProduct.Category)</span>
+               <h2>@selectedProduct.Name</h2>
+       <div class="product-rating">
+          <span class="stars">@GetStars(selectedProduct.Rating)</span>
+<span class="rating-number">@selectedProduct.Rating</span>
+    <span class="review-count">(@selectedProduct.ReviewCount تقييم)</span>
+     </div>
+   <div class="quick-view-price">
+  <span class="price">@selectedProduct.Price.ToString("F2") ر.س</span>
+  @if (selectedProduct.InStock)
+                 {
+    <span class="stock-badge in-stock">[متوفر]</span>
+            }
+            else
+       {
+ <span class="stock-badge out-of-stock">[غير متوفر]</span>
+}
+       </div>
+        <p class="quick-view-description">@selectedProduct.Description</p>
+           <div class="quick-view-actions">
+   <button class="btn btn-primary btn-lg" 
+  @onclick="() => AddToCart(selectedProduct)"
+          disabled="@(!selectedProduct.InStock)">
+        <svg viewBox="0 0 20 20" fill="currentColor">
+      <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/>
+     </svg>
+          أضف للسلة
+     </button>
+         <button class="btn btn-outline" @onclick="() => NavigateToProduct(selectedProduct.Id)">
+  عرض التفاصيل الكاملة
+    </button>
+           </div>
+        </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Product>? allProducts;
+    private List<Product>? filteredProducts;
+    private List<string>? categories;
+    private string? selectedCategory;
+    private bool showQuickView = false;
+    private Product? selectedProduct;
+
+ [SupplyParameterFromQuery(Name = "category")]
+    public string? CategoryQuery { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        allProducts = await ProductService.GetAllProductsAsync();
+      categories = await ProductService.GetCategoriesAsync();
+    selectedCategory = CategoryQuery;
+ FilterProducts();
+    }
+
+    private void FilterByCategory(string? category)
+    {
+        selectedCategory = category;
+      FilterProducts();
+    }
+
+    private void FilterProducts()
+    {
+        if (allProducts == null) return;
+        filteredProducts = selectedCategory == null 
+     ? allProducts 
+          : allProducts.Where(p => p.Category.Equals(selectedCategory, StringComparison.OrdinalIgnoreCase)).ToList();
+    }
+
+    private void QuickView(Product product)
+ {
+        selectedProduct = product;
+        showQuickView = true;
+    }
+
+    private void CloseQuickView()
+    {
+        showQuickView = false;
+  selectedProduct = null;
+    }
+
+    private void NavigateToProduct(int productId)
+    {
+        Navigation.NavigateTo($"/product/{productId}");
+    }
+
+    private async Task AddToCart(Product product)
+    {
+        if (product.InStock)
+        {
+  await CartService.AddToCartAsync(product);
+          if (showQuickView)
+            {
+      CloseQuickView();
+            }
+        }
+    }
+
+    private void AddToWishlist(Product product)
+    {
+        // TODO: Implement wishlist functionality
+ }
+
+    private string GetStars(double rating)
+    {
+        var fullStars = (int)rating;
+    var hasHalfStar = rating % 1 >= 0.5;
+        var emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
+        return new string('★', fullStars) + 
+      (hasHalfStar ? "⯨" : "") + 
+               new string('☆', emptyStars);
+    }
+
+    private string GetCategoryIcon(string category)
+    {
+ return category switch
+  {
+        "Hijabs" or "حجاب" => "[H]",
+            "Abayas" or "عبايات" => "[A]",
+     "Modest Wear" or "أزياء محتشمة" => "[M]",
+            "Accessories" or "إكسسوارات" => "[ACC]",
+   "Electronics" => "[E]",
+         "Home" => "[HOME]",
+            _ => "[*]"
+        };
+    }
+
+    private string GetArabicCategoryName(string category)
+    {
+        return category switch
+        {
+            "Electronics" => "إلكترونيات",
+    "Accessories" => "إكسسوارات",
+      "Home" => "منزل",
+ "Hijabs" => "حجاب",
+            "Abayas" => "عبايات",
+   "Modest Wear" => "أزياء محتشمة",
+            _ => category
+        };
+    }
+}

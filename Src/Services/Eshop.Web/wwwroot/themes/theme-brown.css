@@ -1,0 +1,106 @@
+﻿/* Root Variables - Modern E-commerce Theme (Warm Brown - Matjar Albarae Style) */
+:root {
+    /* Primary Colors - Warm & Elegant */
+    --primary-color: #8B7355;
+    --primary-hover: #6B5744;
+    --primary-light: #C4B5A0;
+    --secondary-color: #2C3539;
+    --secondary-hover: #1a2024;
+    --accent-warm: #D4A574;
+    --accent-gold: #C9A961;
+    
+    /* Neutral Colors */
+    --text-dark: #2C3539;
+    --text-medium: #5A6C7D;
+    --text-light: #95A5B3;
+    --bg-light: #F8F7F4;
+    --bg-cream: #FAF9F6;
+    --bg-white: #FFFFFF;
+  --border-color: #E8E6E1;
+    
+    /* Status Colors */
+    --success-color: #52B788;
+    --danger-color: #D95D39;
+    --warning-color: #F2B441;
+    --info-color: #5B8A94;
+    
+    /* Shadows */
+    --shadow-sm: 0 2px 8px rgba(44, 53, 57, 0.06);
+    --shadow: 0 4px 16px rgba(44, 53, 57, 0.08);
+    --shadow-lg: 0 12px 32px rgba(44, 53, 57, 0.12);
+    --shadow-hover: 0 8px 24px rgba(139, 115, 85, 0.2);
+}
+
+/* Hero Section - Elegant & Minimalist */
+.hero-section {
+    background: linear-gradient(135deg, rgba(139, 115, 85, 0.95) 0%, rgba(107, 87, 68, 0.95) 100%),
+        url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 600"><defs><pattern id="pattern" x="0" y="0" width="50" height="50" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="2" fill="rgba(255,255,255,0.1)"/></pattern></defs><rect fill="url(%23pattern)" width="1200" height="600"/></svg>');
+}
+
+/* Categories Showcase - Instagram-inspired */
+.category-card-elegant {
+    background: linear-gradient(135deg, var(--primary-light) 0%, var(--primary-color) 100%);
+}
+
+.category-overlay {
+ background: linear-gradient(180deg, transparent 0%, rgba(44, 53, 57, 0.7) 100%);
+}
+
+.category-card-elegant:hover .category-overlay {
+    background: linear-gradient(180deg, transparent 0%, rgba(44, 53, 57, 0.85) 100%);
+}
+
+/* Section Headers */
+.section-title::after {
+    background: linear-gradient(90deg, var(--primary-color), var(--accent-warm));
+}
+
+/* Filters */
+.filter-btn:hover {
+    background-color: rgba(139, 115, 85, 0.05);
+}
+
+.filter-btn.active {
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+}
+
+/* Footer - Elegant Dark Theme */
+.footer {
+    background: linear-gradient(135deg, var(--secondary-color) 0%, var(--secondary-hover) 100%);
+}
+
+.footer-section h4 {
+    color: var(--accent-warm);
+}
+
+.footer-section a:hover {
+    color: var(--accent-warm);
+}
+
+.social-icon:hover {
+    background: var(--accent-warm);
+}
+
+.newsletter-form button {
+    background: var(--accent-warm);
+}
+
+.newsletter-form button:hover {
+    background: var(--accent-gold);
+}
+
+/* Quick View Price */
+.quick-view-price {
+    background: linear-gradient(135deg, rgba(139, 115, 85, 0.05) 0%, rgba(139, 115, 85, 0.1) 100%);
+    border: 2px solid rgba(139, 115, 85, 0.2);
+}
+
+/* Product Overlay */
+.product-overlay {
+    background: rgba(44, 53, 57, 0.4);
+}
+
+/* Quick View Backdrop */
+.quick-view-backdrop {
+    background-color: rgba(44, 53, 57, 0.75);
+}

@@ -1,0 +1,24 @@
+# EditorConfig: https://EditorConfig.org
+
+root = true
+
+# All files
+[*]
+charset = utf-8-bom
+end_of_line = crlf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Code files
+[*.{cs,csx,razor}]
+charset = utf-8-bom
+indent_style = space
+indent_size = 4
+
+# JSON files
+[*.json]
+indent_size = 2
+
+# Web files
+[*.{html,css,scss,js,ts}]
+indent_size = 2

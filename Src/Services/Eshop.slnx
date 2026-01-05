@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path="note.txt" />
+  </Folder>
+  <Folder Name="/Src/" />
+  <Folder Name="/Src/Services/">
+    <Project Path="Eshop.Auth/Eshop.Auth.csproj" />
+    <Project Path="Eshop.Catalog/Eshop.Catalog.csproj" />
+    <Project Path="Eshop.Events/Eshop.Events.csproj" />
+    <Project Path="Eshop.Gateway/Eshop.Gateway.csproj" />
+    <Project Path="Eshop.Inventory/Eshop.Inventory.csproj" />
+    <Project Path="Eshop.Orders/Eshop.Orders.csproj" />
+    <Project Path="Eshop.Web/Eshop.Web.csproj" />
+  </Folder>
+</Solution>

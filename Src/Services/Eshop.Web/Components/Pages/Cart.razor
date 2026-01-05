@@ -1,0 +1,178 @@
+﻿@page "/cart"
+@using Eshop.Web.Models
+@using Eshop.Web.Services
+@inject CartService CartService
+@inject NavigationManager Navigation
+@implements IDisposable
+
+<PageTitle>سلة التسوق - متجر المسلم</PageTitle>
+
+<div class="container">
+<div class="page-header">
+        <h1>سلة التسوق</h1>
+    </div>
+
+    @if (cartItems == null)
+    {
+    <div class="loading">
+        <div class="loading-spinner"></div>
+            <p>جاري تحميل السلة...</p>
+        </div>
+    }
+    else if (cartItems.Count == 0)
+    {
+        <div class="empty-cart">
+            <div class="empty-cart-icon">[CART]</div>
+ <h2>سلة التسوق فارغة</h2>
+     <p>أضف بعض المنتجات للبدء بالتسوق!</p>
+   <button class="btn btn-primary" @onclick="NavigateToProducts">تابع التسوق</button>
+        </div>
+    }
+    else
+  {
+    <div class="cart-container">
+            <div class="cart-items">
+       @foreach (var item in cartItems)
+       {
+      <div class="cart-item">
+        <div class="cart-item-image">
+         <img src="@item.Product.ImageUrl" alt="@item.Product.Name" />
+           </div>
+          <div class="cart-item-details">
+    <h3 class="cart-item-name" @onclick="() => NavigateToProduct(item.Product.Id)">
+    @item.Product.Name
+         </h3>
+   <p class="cart-item-category">@GetArabicCategoryName(item.Product.Category)</p>
+  <span class="cart-item-price">@item.Product.Price.ToString("F2") ر.س</span>
+     </div>
+               <div class="cart-item-quantity">
+         <button class="btn-quantity" @onclick="() => DecreaseQuantity(item)">−</button>
+        <span class="quantity-value">@item.Quantity</span>
+         <button class="btn-quantity" @onclick="() => IncreaseQuantity(item)">+</button>
+    </div>
+            <div class="cart-item-total">
+      <span class="item-total-price">@item.Total.ToString("F2") ر.س</span>
+     </div>
+      <div class="cart-item-remove">
+          <button class="btn-remove" @onclick="() => RemoveItem(item.Product.Id)" title="حذف">×</button>
+              </div>
+              </div>
+            }
+ </div>
+
+    <div class="cart-summary">
+          <div class="summary-card">
+         <h2>ملخص الطلب</h2>
+    
+      <div class="summary-row">
+            <span>المجموع الفرعي:</span>
+          <span>@cartTotal.ToString("F2") ر.س</span>
+     </div>
+<div class="summary-row">
+ <span>الشحن:</span>
+            <span>@(cartTotal >= 200 ? "مجاني" : "25.00 ر.س")</span>
+      </div>
+            <div class="summary-row">
+           <span>الضريبة (15%):</span>
+        <span>@((cartTotal * 0.15m).ToString("F2")) ر.س</span>
+      </div>
+         <hr />
+        <div class="summary-row summary-total">
+    <span>المجموع الكلي:</span>
+         <span class="total-price">@GetFinalTotal().ToString("F2") ر.س</span>
+       </div>
+
+   <button class="btn btn-primary btn-lg btn-checkout" @onclick="Checkout">
+        إتمام الشراء
+  </button>
+    <button class="btn btn-secondary btn-continue" @onclick="NavigateToProducts">
+     متابعة التسوق
+    </button>
+        </div>
+       </div>
+   </div>
+    }
+</div>
+
+@code {
+    private List<CartItem>? cartItems;
+    private decimal cartTotal = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCart();
+        CartService.OnChange += OnCartChanged;
+    }
+
+    private async Task LoadCart()
+    {
+        cartItems = await CartService.GetCartItemsAsync();
+  cartTotal = await CartService.GetCartTotalAsync();
+    }
+
+    private async void OnCartChanged()
+    {
+        await LoadCart();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task IncreaseQuantity(CartItem item)
+ {
+        await CartService.UpdateQuantityAsync(item.Product.Id, item.Quantity + 1);
+    }
+
+    private async Task DecreaseQuantity(CartItem item)
+    {
+        if (item.Quantity > 1)
+        {
+await CartService.UpdateQuantityAsync(item.Product.Id, item.Quantity - 1);
+    }
+    }
+
+    private async Task RemoveItem(int productId)
+    {
+        await CartService.RemoveFromCartAsync(productId);
+    }
+
+    private decimal GetFinalTotal()
+    {
+        var shipping = cartTotal >= 200 ? 0 : 25.00m;
+        var tax = cartTotal * 0.15m;
+     return cartTotal + shipping + tax;
+    }
+
+    private void NavigateToProducts()
+    {
+        Navigation.NavigateTo("/products");
+  }
+
+    private void NavigateToProduct(int productId)
+    {
+        Navigation.NavigateTo($"/product/{productId}");
+    }
+
+    private async Task Checkout()
+    {
+        await CartService.ClearCartAsync();
+        Navigation.NavigateTo("/checkout-success");
+    }
+
+ private string GetArabicCategoryName(string category)
+    {
+        return category switch
+        {
+            "Electronics" => "إلكترونيات",
+            "Accessories" => "إكسسوارات",
+            "Home" => "منزل",
+       "Hijabs" => "حجاب",
+      "Abayas" => "عبايات",
+  "Modest Wear" => "أزياء محتشمة",
+       _ => category
+  };
+    }
+
+    public void Dispose()
+    {
+        CartService.OnChange -= OnCartChanged;
+    }
+}

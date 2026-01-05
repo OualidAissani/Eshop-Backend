@@ -1,0 +1,166 @@
+﻿@using Eshop.Web.Services
+@inject ToastService ToastService
+@implements IDisposable
+
+<div class="toast-container">
+    @foreach (var toast in ToastService.Toasts)
+    {
+  <div class="toast toast-@toast.Type.ToString().ToLower() fade-in" @key="toast.Id">
+      <div class="toast-icon">
+     @GetIcon(toast.Type)
+   </div>
+            <div class="toast-message">
+      @toast.Message
+   </div>
+       <button class="toast-close" @onclick="() => ToastService.Remove(toast.Id)">
+   ×
+       </button>
+        </div>
+    }
+</div>
+
+<style>
+    .toast-container {
+ position: fixed;
+    top: 5rem;
+        left: 2rem;
+     z-index: 9999;
+  display: flex;
+  flex-direction: column;
+   gap: 1rem;
+     max-width: 400px;
+    }
+
+    .toast {
+      display: flex;
+ align-items: center;
+        gap: 1rem;
+        padding: 1rem 1.5rem;
+ background: white;
+  border-radius: 12px;
+   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  border-right: 4px solid;
+        animation: slideIn 0.3s ease;
+    }
+
+    .toast-success {
+border-color: var(--success-color);
+    }
+
+    .toast-error {
+    border-color: var(--danger-color);
+    }
+
+    .toast-warning {
+    border-color: var(--warning-color);
+    }
+
+  .toast-info {
+  border-color: var(--info-color);
+}
+
+    .toast-icon {
+ font-size: 1.5rem;
+    flex-shrink: 0;
+    }
+
+    .toast-success .toast-icon {
+   color: var(--success-color);
+  }
+
+    .toast-error .toast-icon {
+  color: var(--danger-color);
+    }
+
+ .toast-warning .toast-icon {
+  color: var(--warning-color);
+    }
+
+    .toast-info .toast-icon {
+        color: var(--info-color);
+    }
+
+  .toast-message {
+  flex: 1;
+    color: var(--text-dark);
+        font-size: 0.9375rem;
+ line-height: 1.4;
+    }
+
+ .toast-close {
+     background: none;
+   border: none;
+font-size: 1.5rem;
+  color: var(--text-light);
+        cursor: pointer;
+     padding: 0;
+   width: 24px;
+        height: 24px;
+    display: flex;
+     align-items: center;
+    justify-content: center;
+  border-radius: 4px;
+   transition: all 0.2s;
+    }
+
+    .toast-close:hover {
+   background-color: var(--bg-light);
+  color: var(--text-dark);
+    }
+
+    .fade-in {
+        animation: fadeIn 0.3s ease;
+    }
+
+    @@keyframes fadeIn {
+        from {
+   opacity: 0;
+ transform: translateX(20px);
+        }
+     to {
+    opacity: 1;
+    transform: translateX(0);
+}
+    }
+
+    @@keyframes slideIn {
+    from {
+            transform: translateX(100%);
+        }
+ to {
+            transform: translateX(0);
+        }
+    }
+
+    @@media (max-width: 768px) {
+   .toast-container {
+  left: 1rem;
+    right: 1rem;
+         max-width: calc(100% - 2rem);
+      }
+    }
+</style>
+
+@code {
+    protected override void OnInitialized()
+{
+     ToastService.OnChange += StateHasChanged;
+    }
+
+private string GetIcon(ToastType type)
+ {
+  return type switch
+   {
+       ToastType.Success => "✓",
+  ToastType.Error => "✕",
+        ToastType.Warning => "⚠",
+     ToastType.Info => "ℹ",
+   _ => "ℹ"
+        };
+    }
+
+    public void Dispose()
+  {
+     ToastService.OnChange -= StateHasChanged;
+}
+}

@@ -1,0 +1,76 @@
+﻿/* Root Variables - Islamic Fashion Theme (Original Green) */
+:root {
+    /* Primary Colors - Elegant Islamic Fashion Palette */
+  --primary-color: #2c5f2d;
+ --primary-hover: #1e4620;
+    --primary-light: #97c4a0;
+    --secondary-color: #c9a961;
+    --secondary-hover: #b89850;
+    --accent-rose: #d4a5a5;
+    --accent-gold: #d4af37;
+    
+    /* Neutral Colors */
+    --text-dark: #2d3436;
+    --text-medium: #636e72;
+    --text-light: #95a5a6;
+    --bg-light: #f8f9fa;
+    --bg-cream: #faf8f5;
+    --bg-white: #ffffff;
+    --border-color: #e8e8e8;
+    
+    /* Status Colors */
+    --success-color: #27ae60;
+    --danger-color: #e74c3c;
+    --warning-color: #f39c12;
+    --info-color: #3498db;
+    
+    /* Shadows */
+    --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.06);
+    --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.12);
+    --shadow-hover: 0 8px 20px rgba(44, 95, 45, 0.15);
+}
+
+/* Hero Section - Premium Islamic Fashion */
+.hero-section {
+    background: linear-gradient(135deg, rgba(44, 95, 45, 0.95) 0%, rgba(30, 70, 32, 0.95) 100%),
+        url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 600"><defs><pattern id="pattern" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M0 20 Q10 10, 20 20 T40 20" stroke="rgba(255,255,255,0.05)" fill="none"/></pattern></defs><rect fill="url(%23pattern)" width="1200" height="600"/></svg>');
+}
+
+/* Categories Showcase */
+.category-card-elegant {
+    background: linear-gradient(135deg, var(--primary-light) 0%, var(--primary-color) 100%);
+}
+
+.category-overlay {
+    background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.6) 100%);
+}
+
+.category-card-elegant:hover .category-overlay {
+    background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.75) 100%);
+}
+
+/* Section Headers */
+.section-title::after {
+    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+}
+
+/* Filters */
+.filter-btn:hover {
+    background-color: rgba(44, 95, 45, 0.05);
+}
+
+.filter-btn.active {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+}
+
+/* Footer */
+.footer {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+}
+
+/* Quick View Price */
+.quick-view-price {
+    background: linear-gradient(135deg, rgba(44, 95, 45, 0.05) 0%, rgba(44, 95, 45, 0.1) 100%);
+  border: 2px solid rgba(44, 95, 45, 0.2);
+}

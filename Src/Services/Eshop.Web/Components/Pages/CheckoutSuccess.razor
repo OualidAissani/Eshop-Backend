@@ -1,0 +1,30 @@
+﻿@page "/checkout-success"
+@inject NavigationManager Navigation
+
+<PageTitle>تم الطلب بنجاح - متجر البراء</PageTitle>
+
+<div class="container">
+    <div class="success-page">
+        <div class="success-icon">✓</div>
+        <h1>تم الطلب بنجاح!</h1>
+    <p>شكراً لك على الطلب. سيتم شحن طلبك قريباً.</p>
+     <p class="order-info">سيتم إرسال تفاصيل الطلب إلى بريدك الإلكتروني.</p>
+        
+        <div class="success-actions">
+   <button class="btn btn-primary" @onclick="NavigateToProducts">متابعة التسوق</button>
+            <button class="btn btn-secondary" @onclick="NavigateToHome">العودة للرئيسية</button>
+   </div>
+    </div>
+</div>
+
+@code {
+    private void NavigateToProducts()
+    {
+        Navigation.NavigateTo("/products");
+    }
+
+    private void NavigateToHome()
+    {
+        Navigation.NavigateTo("/");
+    }
+}

@@ -1,0 +1,218 @@
+﻿@page "/"
+@using Eshop.Web.Models
+@using Eshop.Web.Services
+@inject ProductService ProductService
+@inject NavigationManager Navigation
+
+<PageTitle>الرئيسية - متجر المسلم</PageTitle>
+
+<div class="hero-section">
+    <div class="hero-overlay"></div>
+    <div class="container">
+        <div class="hero-content">
+            <h1 class="hero-title">متجر المسلم</h1>
+ <p class="hero-subtitle">منتجات إسلامية عالية الجودة لكل العائلة</p>
+<div class="hero-features">
+     <div class="hero-feature">
+         <span class="feature-icon">✨</span>
+   <span>منتجات أصلية</span>
+        </div>
+            <div class="hero-feature">
+   <span class="feature-icon">🌟</span>
+   <span>جودة ممتازة</span>
+</div>
+   <div class="hero-feature">
+        <span class="feature-icon">🚚</span>
+  <span>شحن سريع</span>
+    </div>
+         </div>
+       <button class="btn btn-primary btn-lg btn-hero" @onclick="NavigateToProducts">تسوق الآن</button>
+  </div>
+    </div>
+</div>
+
+<div class="container">
+    <!-- Categories Section -->
+    <section class="categories-showcase">
+   <div class="section-header">
+   <h2 class="section-title">تسوق حسب القسم</h2>
+          <p class="section-subtitle">اختر من مجموعة متنوعة من الأقسام المناسبة لك</p>
+        </div>
+ <div class="categories-grid-home">
+      @if (categories != null)
+            {
+       @foreach (var category in categories.Take(4))
+      {
+    <div class="category-card-elegant" @onclick="() => NavigateToCategory(category)">
+           <div class="category-overlay"></div>
+        <div class="category-content">
+       <span class="category-icon-large">@GetCategoryIcon(category)</span>
+         <h3 class="category-title">@GetArabicCategoryName(category)</h3>
+    <p class="category-desc">اكتشف المزيد</p>
+  </div>
+           </div>
+          }
+            }
+        </div>
+    </section>
+
+    <!-- Featured Products -->
+    <section class="featured-section">
+        <div class="section-header">
+    <h2 class="section-title">المنتجات المميزة</h2>
+  <p class="section-subtitle">منتقاة بعناية خصيصاً لك</p>
+  </div>
+        
+   @if (featuredProducts == null)
+        {
+    <div class="loading">
+     <div class="loading-spinner"></div>
+    <p>جاري التحميل...</p>
+            </div>
+        }
+   else if (featuredProducts.Count == 0)
+  {
+      <div class="no-products">
+  <p>لا توجد منتجات مميزة حالياً</p>
+      </div>
+        }
+        else
+        {
+      <div class="product-grid">
+    @foreach (var product in featuredProducts)
+      {
+         <div class="product-card" @onclick="() => NavigateToProduct(product.Id)">
+   <div class="product-image">
+    <img src="@product.ImageUrl" alt="@product.Name" />
+         @if (product.IsFeatured)
+         {
+          <span class="badge-featured">مميز</span>
+           }
+       <div class="product-overlay">
+           <button class="btn-quick-view">معاينة سريعة</button>
+  </div>
+      </div>
+               <div class="product-info">
+   <span class="product-category">@GetArabicCategoryName(product.Category)</span>
+        <h3 class="product-name">@product.Name</h3>
+       <div class="product-rating">
+        <span class="stars">@GetStars(product.Rating)</span>
+          <span class="review-count">(@product.ReviewCount تقييم)</span>
+   </div>
+                 <div class="product-footer">
+    <div class="product-price-section">
+        <span class="product-price">@product.Price.ToString("F2") ر.س</span>
+         </div>
+         <button class="btn btn-primary btn-sm btn-add" @onclick:stopPropagation="true" @onclick="() => AddToCart(product)">
+       <svg viewBox="0 0 20 20" fill="currentColor">
+    <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/>
+     </svg>
+ أضف للسلة
+        </button>
+          </div>
+            </div>
+     </div>
+     }
+    </div>
+        }
+    </section>
+
+    <!-- Trust Section -->
+    <section class="trust-section">
+   <div class="trust-grid">
+   <div class="trust-item">
+    <div class="trust-icon">🚚</div>
+      <h4>شحن مجاني</h4>
+     <p>للطلبات فوق 200 ريال</p>
+  </div>
+     <div class="trust-item">
+     <div class="trust-icon">💯</div>
+     <h4>ضمان الجودة</h4>
+<p>منتجات أصلية 100%</p>
+            </div>
+     <div class="trust-item">
+         <div class="trust-icon">🔄</div>
+          <h4>إرجاع سهل</h4>
+                <p>خلال 14 يوم</p>
+          </div>
+        <div class="trust-item">
+      <div class="trust-icon">🔒</div>
+                <h4>دفع آمن</h4>
+<p>حماية معلوماتك</p>
+  </div>
+ </div>
+    </section>
+</div>
+
+@code {
+    private List<Product>? featuredProducts;
+ private List<string>? categories;
+
+    protected override async Task OnInitializedAsync()
+    {
+    featuredProducts = await ProductService.GetFeaturedProductsAsync();
+categories = await ProductService.GetCategoriesAsync();
+    }
+
+    private void NavigateToProducts()
+  {
+        Navigation.NavigateTo("/products");
+    }
+
+    private void NavigateToProduct(int productId)
+  {
+        Navigation.NavigateTo($"/product/{productId}");
+    }
+
+    private void NavigateToCategory(string category)
+    {
+        Navigation.NavigateTo($"/products?category={category}");
+    }
+
+    private async Task AddToCart(Product product)
+    {
+   await CartService.AddToCartAsync(product);
+    }
+
+ private string GetStars(double rating)
+    {
+   var fullStars = (int)rating;
+     var hasHalfStar = rating % 1 >= 0.5;
+        var emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
+
+        return new string('⭐', fullStars) + 
+     (hasHalfStar ? "✨" : "") + 
+       new string('☆', emptyStars);
+    }
+
+    private string GetCategoryIcon(string category)
+    {
+ return category switch
+        {
+    "Hijabs" or "حجاب" => "🧕",
+         "Abayas" or "عبايات" => "👗",
+   "Modest Wear" or "أزياء محتشمة" => "👘",
+       "Accessories" or "إكسسوارات" => "💍",
+    "Electronics" => "💻",
+    "Home" => "🏠",
+       _ => "✨"
+        };
+    }
+
+    private string GetArabicCategoryName(string category)
+    {
+  return category switch
+        {
+       "Electronics" => "إلكترونيات",
+            "Accessories" => "إكسسوارات",
+            "Home" => "منزل",
+   "Hijabs" => "حجاب",
+            "Abayas" => "عبايات",
+            "Modest Wear" => "أزياء محتشمة",
+         _ => category
+        };
+    }
+
+  [Inject]
+    private CartService CartService { get; set; } = default!;
+}

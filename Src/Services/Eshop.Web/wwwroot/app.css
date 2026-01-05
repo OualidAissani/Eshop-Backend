@@ -1,0 +1,8 @@
+﻿/* Main Application Stylesheet */
+
+/* Import base styles (common to all themes) */
+@import url('themes/base.css');
+
+/* Import current theme - Change this line to switch themes */
+/* Options: 'themes/theme-brown.css' or 'themes/theme-green.css' */
+@import url('themes/theme-brown.css');

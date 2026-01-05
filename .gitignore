@@ -5,4 +5,5 @@
 /.vs
 **/appsettings.json
 **/appsettings.*.json
-/Src/Services/Eshop.Web/Eshop.Web.csproj
+/Src/Services/Eshop.Web
+/Src/Services/note.txt

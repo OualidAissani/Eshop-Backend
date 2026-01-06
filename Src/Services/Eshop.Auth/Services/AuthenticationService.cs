@@ -49,7 +49,7 @@ namespace Eshop.Auth.Services
 
             //checking validity of the refresh token 
              var checkingrefreshTokenExistence = await _refreshTokenRepository.GetRefreshTokenByUserId(user.Id);
-            if (checkingrefreshTokenExistence.Token != null || checkingrefreshTokenExistence.ExpiryDate > DateTime.UtcNow)
+            if (checkingrefreshTokenExistence!=null && (checkingrefreshTokenExistence.Token != null || checkingrefreshTokenExistence.ExpiryDate > DateTime.UtcNow))
             {
                 refreshToken = checkingrefreshTokenExistence.Token;
             }

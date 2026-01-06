@@ -29,7 +29,7 @@ namespace Eshop.Inventory.Services
             var response=await _Client.GetResponse<ProductExistenceResponse>(new VerifyProductExistence(Inventory.ProductId));
             if (response.Message.Exists == false)
             {
-                
+                return null;
             }
             var inventory=new Models.Inventory
             {

@@ -5,6 +5,8 @@ using Eshop.Auth.Services.IServices;
 using MicroservicesTest.AuthenticationApi.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi;
+using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -47,7 +49,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-
+await SeedAdminAsync();
 app.UseHttpsRedirection();
 
 app.UseAuthorization();
@@ -55,3 +57,22 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+async Task SeedAdminAsync()
+{
+    using (var scope = app.Services.CreateScope())
+    {
+        var services = scope.ServiceProvider;
+        var context = services.GetRequiredService<AuthDbContext>();
+        var userManager = services.GetRequiredService<UserManager<AppUser>>();
+        if(await userManager.FindByEmailAsync("admin123@gmail.com") == null)
+        {
+            var user = new AppUser()
+            {
+                UserName="admin",
+                Email="admin123@gmail.com"
+            };
+            await userManager.CreateAsync(user, "oualidadmin123");
+           await  userManager.AddClaimAsync(user,new Claim(ClaimTypes.Role,"Admin"));
+        }
+    }
+}

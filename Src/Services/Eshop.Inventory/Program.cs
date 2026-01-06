@@ -1,4 +1,8 @@
-﻿using Eshop.Inventory.Data;
+﻿using Eshop.Events;
+using Eshop.Inventory.Data;
+using Eshop.Inventory.Handler;
+using Eshop.Inventory.Services;
+using MassTransit;
 using MicroservicesTest.AuthenticationApi.Models;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -44,6 +48,21 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 builder.Services.AddSwaggerGen();
+
+builder.Services.AddScoped<IInventoryService, InventoryService>();
+builder.Services.AddMassTransit(x =>
+{
+    x.AddConsumer<ProductInventoryQuanityConsumer>();
+    x.AddRequestClient<ProductInventoryAvailibityForOrderRequest>();
+    x.UsingRabbitMq((context, cfg) =>
+    {
+        cfg.Host(builder.Configuration.GetSection("RabbitMq:Host").Value, h =>
+        {
+            h.Username(builder.Configuration.GetSection("RabbitMq:Username").Value);
+            h.Password(builder.Configuration.GetSection("RabbitMq:Password").Value);
+        });
+    });
+});
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())

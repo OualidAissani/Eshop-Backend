@@ -1,4 +1,5 @@
 ﻿using Eshop.Inventory.Dtos;
+using Eshop.Inventory.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -9,8 +10,8 @@ namespace Eshop.Inventory.Controllers
     [ApiController]
     public class InventoryController : ControllerBase
     {
-        private readonly Services.IInventoryService _inventoryService;
-        public InventoryController(Services.IInventoryService inventoryService)
+        private readonly IInventoryService _inventoryService;
+        public InventoryController(IInventoryService inventoryService)
         {
             _inventoryService = inventoryService;
         }

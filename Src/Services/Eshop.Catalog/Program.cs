@@ -38,6 +38,8 @@ builder.Services.AddScoped<IProductRepository, ProductRepository>();
 builder.Services.AddMassTransit(o =>
 {
     o.AddConsumer<RetrieveProductPriceConsumer>();
+    o.AddConsumer<VerifyProductExistenceConsumer>();
+    o.AddRequestClient<VerifyProductExistence>();
     o.AddRequestClient<GetProductRequest>();
     o.UsingRabbitMq((context, cfg) =>
     {

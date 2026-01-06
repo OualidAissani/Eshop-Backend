@@ -19,7 +19,7 @@ namespace Eshop.Auth.Services
         }
         public async Task<AppUser> GetUserByRefreshTokenAsync(string refreshToken)
         {
-            var refreshTokenob=await _context.RefreshTokens.Where(I=>I.Token==refreshToken &&I.ExpiryDate< DateTime.UtcNow).FirstOrDefaultAsync();
+            var refreshTokenob=await _context.RefreshTokens.Where(I=>I.Token==refreshToken).FirstOrDefaultAsync();
             if(refreshTokenob==null)
             {
                 return null;

@@ -17,6 +17,8 @@ builder.Services.AddIdentity<AppUser, Roles>(o =>
     o.Password.RequireDigit = false;
     o.Password.RequireNonAlphanumeric = false;
     o.Password.RequireUppercase = false;
+    o.Password.RequiredUniqueChars = 0;
+    o.Password.RequireLowercase = false;
 }).AddEntityFrameworkStores<AuthDbContext>().AddDefaultTokenProviders();
 
 builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>(sp =>

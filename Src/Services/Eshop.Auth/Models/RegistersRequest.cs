@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
 
 namespace Eshop.Auth.Models
 {
@@ -7,6 +8,7 @@ namespace Eshop.Auth.Models
         public string Email { get; set; }
         public string UserName { get; set; }
         [PasswordPropertyText]
+        [MinLength(8)]
         public string Password { get; set; }
     }
 }

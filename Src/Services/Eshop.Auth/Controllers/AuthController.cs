@@ -36,7 +36,8 @@ namespace Eshop.Auth.Controllers
             var logins = await _authService.RegisterAsync(request);
             if (logins == null)
             {
-                return Unauthorized();
+                
+                return BadRequest();
             }
             return Ok(logins);
 

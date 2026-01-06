@@ -31,6 +31,7 @@ namespace Eshop.Auth.Services
                 new(JwtRegisteredClaimNames.Sub, userId),
                 new(JwtRegisteredClaimNames.Email, email),
                 new(JwtRegisteredClaimNames.Name, name),
+                new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
                 new("userId", userId)
             };
             claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role)));
@@ -58,6 +59,7 @@ namespace Eshop.Auth.Services
 
             return Convert.ToBase64String(randomNumber);
         }
+       
         public ClaimsPrincipal? ValidateToken(string token)
         {
             var tokenvalidation = new TokenValidationParameters

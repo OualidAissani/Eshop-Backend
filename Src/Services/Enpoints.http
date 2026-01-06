@@ -1,0 +1,174 @@
+﻿@baseUrl = https://localhost:7194
+
+@accessToken = {{login.response.body.accessToken}}
+
+### =============================================
+### AUTH ENDPOINTS
+### =============================================
+
+### Auth - Health Check
+GET {{baseUrl}}/api/Auth
+Accept: application/json
+
+###
+
+### Auth - Login
+# @name login
+POST {{baseUrl}}/api/Auth/login
+Content-Type: application/json
+
+{
+  "email": "newuser1@example.com",
+  "password": "Password123!"
+}
+
+###
+
+### Auth - Register
+POST {{baseUrl}}/api/Auth/register
+Content-Type: application/json
+
+{
+  "UserName": "loremlkLoren",
+  "email": "newuse2r1@example.com",
+  "password": "Password123!",
+  "confirmPassword": "Password123!"
+}
+
+###
+
+### Auth - Refresh Token
+POST {{baseUrl}}/api/Auth/refresh
+Content-Type: application/json
+
+"LIuS18ohk4gtECp3Ptkh8k6bekZZ29Qfa/wdruQYaYtdmdYVhRgOermZr3zHzju5fyOUTcr1Kr23Ubxjpg95XA=="
+
+###
+
+### =============================================
+### CATALOG ENDPOINTS
+### =============================================
+
+### Catalog - Get All Products (Paginated)
+GET {{baseUrl}}/api/Catalog?page=1&pageSize=10
+Accept: application/json
+
+###
+
+### Catalog - Get Product by ID
+GET {{baseUrl}}/api/Catalog/1
+Accept: application/json
+
+###
+
+### Catalog - Get Products by Category
+GET {{baseUrl}}/api/Catalog/category/1
+Accept: application/json
+
+###
+
+### Catalog - Create Product (Admin Only)
+POST {{baseUrl}}/api/Catalog
+Authorization: Bearer {{accessToken}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary
+
+------WebKitFormBoundary
+Content-Disposition: form-data; name="Name"
+
+Product Name
+------WebKitFormBoundary
+Content-Disposition: form-data; name="Description"
+
+Product Description
+------WebKitFormBoundary
+Content-Disposition: form-data; name="Price"
+
+99.99
+------WebKitFormBoundary
+Content-Disposition: form-data; name="CategoryId"
+
+1
+------WebKitFormBoundary--
+
+###
+
+### Catalog - Update Product (Admin Only)
+POST {{baseUrl}}/api/Catalog/update
+Authorization: Bearer {{accessToken}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary
+
+------WebKitFormBoundary
+Content-Disposition: form-data; name="Id"
+
+1
+------WebKitFormBoundary
+Content-Disposition: form-data; name="Name"
+
+Updated Product Name
+------WebKitFormBoundary
+Content-Disposition: form-data; name="Description"
+
+Updated Description
+------WebKitFormBoundary
+Content-Disposition: form-data; name="Price"
+
+149.99
+------WebKitFormBoundary--
+
+###
+
+### Catalog - Delete Product (Admin Only)
+DELETE {{baseUrl}}/api/Catalog/1
+Authorization: Bearer {{accessToken}}
+
+###
+
+### =============================================
+### INVENTORY ENDPOINTS
+### =============================================
+
+### Inventory - Get All Inventories
+GET {{baseUrl}}/api/Inventory
+Accept: application/json
+
+###
+
+### Inventory - Get Inventory by ID
+GET {{baseUrl}}/api/Inventory/1
+Accept: application/json
+
+###
+
+### Inventory - Create Inventory (Requires Auth)
+POST {{baseUrl}}/api/Inventory
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "productId": 1,
+  "quantity": 100
+}
+
+###
+
+### Inventory - Update Inventory
+PUT {{baseUrl}}/api/Inventory/1?count=10&increased=true
+Accept: application/json
+
+###
+
+### Inventory - Delete Inventory (Requires Auth)
+DELETE {{baseUrl}}/api/Inventory/1
+Authorization: Bearer {{accessToken}}
+
+###
+
+### =============================================
+### ORDER ENDPOINTS
+### =============================================
+
+### Order - Index
+GET {{baseUrl}}/api/Order
+Accept: application/json
+
+###

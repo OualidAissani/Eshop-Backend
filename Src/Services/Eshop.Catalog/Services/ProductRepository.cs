@@ -91,21 +91,11 @@ namespace Eshop.Catalog.Services
                 {
                     return false;
                 }
-                var media = product.Media;
-                foreach (var me in media)
-                {
-                    if(await _mediaService.DeleteMedia(me.Media) == false)
-                    {
-                        throw new InvalidOperationException($"Failed to delete media for product {productId}");
-                    }
-                }
+                var media = product.Media.Select(s => _mediaService.DeleteMedia(s.Media));
                 _context.Products.Remove(product);
 
                 var result = await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
-                
-               
-                
                 return true;
             }
             catch(Exception)

@@ -4,6 +4,7 @@ using Eshop.Orders.Models;
 using Eshop.Orders.Services.IServices;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using System.Data;
 namespace Eshop.Orders.Services
 {
     public class OrderService:IOrderService
@@ -44,8 +45,9 @@ namespace Eshop.Orders.Services
 
                 if (order == null)
                 {
-                    return null;
+                    throw new NoNullAllowedException(" no data  were provided");
                 }
+
                 foreach (var pd in order.Products)
                 {
                     var ProductInventory = await _client2.GetResponse<ProductInventoryAvailibityForOrderResponse>(new ProductInventoryAvailibityForOrderRequest(pd.ProductId, pd.Quantity));

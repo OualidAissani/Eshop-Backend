@@ -25,7 +25,7 @@ namespace Eshop.Catalog.Services
             _logger = logger;
         }
         
-        public async Task<int> GetProductPrice(int ProductId)
+        public async Task<double> GetProductPrice(int ProductId)
         {
             return await _context.Products.Where(i=>i.Id==ProductId).Select(i => i.Price).FirstOrDefaultAsync();
         }

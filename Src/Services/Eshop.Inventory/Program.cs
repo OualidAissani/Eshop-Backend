@@ -53,13 +53,17 @@ builder.Services.AddScoped<IInventoryService, InventoryService>();
 builder.Services.AddMassTransit(x =>
 {
     x.AddConsumer<ProductInventoryQuanityConsumer>();
-    x.AddRequestClient<ProductInventoryAvailibityForOrderRequest>();
     x.UsingRabbitMq((context, cfg) =>
     {
         cfg.Host(builder.Configuration.GetSection("RabbitMq:Host").Value, h =>
         {
             h.Username(builder.Configuration.GetSection("RabbitMq:Username").Value);
             h.Password(builder.Configuration.GetSection("RabbitMq:Password").Value);
+        });
+        cfg.ConfigureEndpoints(context);
+        cfg.ReceiveEndpoint("product-inventory-availability", e =>
+        {
+            e.ConfigureConsumer<ProductInventoryQuanityConsumer>(context);
         });
     });
 });

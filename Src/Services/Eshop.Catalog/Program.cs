@@ -39,8 +39,7 @@ builder.Services.AddMassTransit(o =>
 {
     o.AddConsumer<RetrieveProductPriceConsumer>();
     o.AddConsumer<VerifyProductExistenceConsumer>();
-    o.AddRequestClient<VerifyProductExistence>();
-    o.AddRequestClient<GetProductRequest>();
+
     o.UsingRabbitMq((context, cfg) =>
     {
         cfg.ConfigureEndpoints(context);
@@ -48,6 +47,10 @@ builder.Services.AddMassTransit(o =>
         {
             h.Username(builder.Configuration["RabbitMQ:Username"]);
             h.Password(builder.Configuration["RabbitMQ:Password"]);
+        });
+        cfg.ReceiveEndpoint("get-product-request", e =>
+        {
+            e.ConfigureConsumer<RetrieveProductPriceConsumer>(context);
         });
     });
 });

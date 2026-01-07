@@ -2,8 +2,7 @@
 
 # @accessToken = {{login.response.body.accessToken}}
 # @accessToken= "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIwMTliOTI5Zi04Y2NkLTdkNDEtYTBmZS1hYzhiODRhMjk4MTkiLCJlbWFpbCI6Im5ld3VzZXIxQGV4YW1wbGUuY29tIiwibmFtZSI6ImxvcmVtbExvcmVuIiwianRpIjoiNmFmNWRmODEtM2U3MC00MjczLThkYmQtYWM5MmY4YWMzNjE4IiwidXNlcklkIjoiMDE5YjkyOWYtOGNjZC03ZDQxLWEwZmUtYWM4Yjg0YTI5ODE5IiwiaHR0cDovL3NjaGVtYXMubWljcm9zb2Z0LmNvbS93cy8yMDA4LzA2L2lkZW50aXR5L2NsYWltcy9yb2xlIjoiQ2xpZW50IiwiZXhwIjoxNzY3NzA3NzA5LCJpc3MiOiJFc2hvcC5BdXRoIiwiYXVkIjoiRXNob3AuQXV0aC5DbGllbnRzIn0.5X0I4TkFBcxfNkmj7PdggHL_c1cOHpz4Fc9JD2p5Qqk"
-@accessToken= "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIwMTliOTM5Ny1kZTZiLTc2OWMtODcwNy04YWE1OTQxMWYyY2UiLCJlbWFpbCI6ImFkbWluMTIzQGdtYWlsLmNvbSIsIm5hbWUiOiJhZG1pbiIsImp0aSI6ImVlNTcxYmNhLWJlODAtNGRlNC04MjFkLTIyZDcxNzA5YjAzOSIsInVzZXJJZCI6IjAxOWI5Mzk3LWRlNmItNzY5Yy04NzA3LThhYTU5NDExZjJjZSIsImh0dHA6Ly9zY2hlbWFzLm1pY3Jvc29mdC5jb20vd3MvMjAwOC8wNi9pZGVudGl0eS9jbGFpbXMvcm9sZSI6IkFkbWluIiwiZXhwIjoxNzY3NzA4ODA1LCJpc3MiOiJFc2hvcC5BdXRoIiwiYXVkIjoiRXNob3AuQXV0aC5DbGllbnRzIn0.CwtpD8dk-bRpwE_ebxPRDXfiNOhlWxAbcvek6yyrDwY"
-
+@accessToken= eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIwMTliOTM5Ny1kZTZiLTc2OWMtODcwNy04YWE1OTQxMWYyY2UiLCJlbWFpbCI6ImFkbWluMTIzQGdtYWlsLmNvbSIsIm5hbWUiOiJhZG1pbiIsImp0aSI6Ijc5MDBiM2IzLTNlNzMtNDI0My05ZjVkLTQ3M2UyODFjYTdjMyIsInVzZXJJZCI6IjAxOWI5Mzk3LWRlNmItNzY5Yy04NzA3LThhYTU5NDExZjJjZSIsImh0dHA6Ly9zY2hlbWFzLm1pY3Jvc29mdC5jb20vd3MvMjAwOC8wNi9pZGVudGl0eS9jbGFpbXMvcm9sZSI6IkFkbWluIiwiZXhwIjoxNzY3ODE1MzYzLCJpc3MiOiJFc2hvcC5BdXRoIiwiYXVkIjoiRXNob3AuQXV0aC5DbGllbnRzIn0.qvF_RdU8zi4Bdqj7l4B8YZKLKGZLBHwgCXEC_J6sxJY
 ### =============================================
 ### AUTH ENDPOINTS
 ### =============================================
@@ -82,6 +81,10 @@ Authorization: Bearer {{accessToken}}
 Content-Type: multipart/form-data; boundary=----WebKitFormBoundary
 
 ------WebKitFormBoundary
+Content-Disposition: form-data; name="Title"
+
+yywu
+------WebKitFormBoundary
 Content-Disposition: form-data; name="Name"
 
 Product Name
@@ -92,7 +95,7 @@ Product Description
 ------WebKitFormBoundary
 Content-Disposition: form-data; name="Price"
 
-99.99
+999
 ------WebKitFormBoundary
 Content-Disposition: form-data; name="CategoryId"
 
@@ -143,7 +146,7 @@ Accept: application/json
 ###
 
 ### Inventory - Get Inventory by ID
-GET {{baseUrl}}/api/Inventory/1
+GET {{baseUrl}}/api/Inventory/2
 Accept: application/json
 
 ###
@@ -154,14 +157,14 @@ Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
 {
-  "productId": 1,
+  "productId": 16,
   "quantity": 100
 }
 
 ###
 
 ### Inventory - Update Inventory
-PUT {{baseUrl}}/api/Inventory/1?count=10&increased=true
+PUT {{baseUrl}}/api/Inventory/1?count=10&increased=false
 Accept: application/json
 
 ###
@@ -176,8 +179,47 @@ Authorization: Bearer {{accessToken}}
 ### ORDER ENDPOINTS
 ### =============================================
 
-### Order - Index
-GET {{baseUrl}}/api/Order
+### Order - Get All Orders (Admin Only)
+GET {{baseUrl}}/api/Order/GetAllOrders
+Authorization: Bearer {{accessToken}}
 Accept: application/json
+
+###
+### Order - Get All Orders (Admin Only)
+GET {{baseUrl}}/api/Order/GetAllUserOrders
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+###
+### Order - Get Order by ID
+GET {{baseUrl}}/api/Order/1
+Accept: application/json
+
+###
+
+### Order - Create Order (Admin Only)
+POST {{baseUrl}}/api/Order
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "userId": "019b9397-de6b-769c-8707-8aa59411f2ce",
+  "products": [
+    {
+      "productId": 17,
+      "quantity": 2
+    },
+    {
+      "productId": 16,
+      "quantity": 1
+    }
+  ]
+}
+
+###
+
+### Order - Delete Order (Admin Only)
+DELETE {{baseUrl}}/api/Order/1
+Authorization: Bearer {{accessToken}}
 
 ###

@@ -33,10 +33,10 @@ namespace Eshop.Inventory.Controllers
         }
         [Authorize]
         [HttpPost]
-        public async Task<IActionResult> CreateInventory(InventoryDto inventoryDto)
+        public async Task<IActionResult> CreateInventory([FromBody] InventoryDto inventoryDto)
         {
             var inventory = await _inventoryService.CreateInvetoryForProduct(inventoryDto);
-            return CreatedAtAction(nameof(GetInventoryById), new { id = inventory.Id }, inventory);
+            return CreatedAtAction(nameof(GetInventoryById), new { id = inventory?.Id }, inventory?? null);
         }
         [Authorize]
         [HttpDelete("{id}")]

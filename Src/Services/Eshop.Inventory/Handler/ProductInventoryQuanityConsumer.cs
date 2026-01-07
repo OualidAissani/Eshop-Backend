@@ -1,6 +1,7 @@
 ﻿using Eshop.Events;
 using Eshop.Inventory.Data;
 using MassTransit;
+using Microsoft.EntityFrameworkCore;
 
 namespace Eshop.Inventory.Handler
 {
@@ -15,20 +16,22 @@ namespace Eshop.Inventory.Handler
         public async Task Consume(ConsumeContext<ProductInventoryAvailibityForOrderRequest> context)
         {
             var message = context.Message;
-            var productInventoryQuantity=_db.Inventories.Where(i => i.ProductId == message.Product).Select(s =>new
+            var productInventoryQuantity=await _db.Inventories.Where(i => i.ProductId == message.Product).Select(s =>new
             {
                 s.Quantity,
                 s.Id
-            }).First();
-            if(productInventoryQuantity.Quantity<message.Quantity)
+            }).FirstOrDefaultAsync();
+            if (productInventoryQuantity == null)
+            {
+                await context.RespondAsync(new ProductInventoryAvailibityForOrderResponse(false, 0));
+            }
+            else if (productInventoryQuantity.Quantity < message.Quantity)
             {
                 await context.RespondAsync(new ProductInventoryAvailibityForOrderResponse(false, productInventoryQuantity.Id));
-
             }
             else
             {
                 await context.RespondAsync(new ProductInventoryAvailibityForOrderResponse(true, productInventoryQuantity.Id));
-
             }
         }
     }

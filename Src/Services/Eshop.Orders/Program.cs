@@ -1,5 +1,8 @@
-﻿using Eshop.Orders.Data;
+﻿using Eshop.Events;
+using Eshop.Orders.Data;
 using Eshop.Orders.EventHandler;
+using Eshop.Orders.Services;
+using Eshop.Orders.Services.IServices;
 using MassTransit;
 using MicroservicesTest.AuthenticationApi.Models;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -17,11 +20,18 @@ builder.Services.AddDbContext<OrderDbContext>(o =>
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
-
+builder.Services.AddScoped<IOrderService, OrderService>();
+builder.Services.AddHttpClient();
+builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddMassTransit(o =>
 {
        o.AddConsumer<OrderProductsEvent>();
+
+       // Add request clients with the target queue addresses
+       o.AddRequestClient<GetProductRequest>(new Uri("queue:get-product-request"));
+       o.AddRequestClient<ProductInventoryAvailibityForOrderRequest>(new Uri("queue:product-inventory-availability"));
+
        o.UsingRabbitMq((context, cfg) =>
     {
         cfg.Host(builder.Configuration["RabbitMQ:Host"], h =>
@@ -29,6 +39,8 @@ builder.Services.AddMassTransit(o =>
             h.Username(builder.Configuration["RabbitMQ:Username"]);
             h.Password(builder.Configuration["RabbitMQ:Password"]);
         });
+
+        cfg.ConfigureEndpoints(context);
     });
 
 });

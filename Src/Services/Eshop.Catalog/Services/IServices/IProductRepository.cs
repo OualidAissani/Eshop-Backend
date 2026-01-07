@@ -5,7 +5,7 @@ namespace Eshop.Catalog.Services.IServices
 {
     public interface  IProductRepository
     {
-        Task<int> GetProductPrice(int ProductId);
+        Task<double> GetProductPrice(int ProductId);
         Task<dynamic> CreateProduct(ProductCreateDto product);
         Task<Products> UpdateProduct(Products product, Stream mediafile, string contentType, string filename);
         Task<bool> DeleteProduct(int productId);

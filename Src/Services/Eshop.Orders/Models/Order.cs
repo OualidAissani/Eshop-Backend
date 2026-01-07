@@ -6,7 +6,7 @@ namespace Eshop.Orders.Models
     {
         [Key]
         public int Id { get; set; }
-        public int TotalPrice { get; set; }
+        public double TotalPrice { get; set; }
         public DateTime OrderCreationDate { get; set; } = DateTime.UtcNow;
         public List<OrderItem> OrderItems { get; set; } 
         public string UserId { get; set; }

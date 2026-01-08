@@ -40,27 +40,36 @@ namespace Eshop.Inventory.Services
             await _db.SaveChangesAsync();
             return inventory;
         }
-        public async Task<bool> UpdateInventory(int InventoryId,int Count,bool Incresed)
+        public async Task<Models.Inventory> UpdateInventory(int InventoryId,InventoryDto inventoryDto)
         {
-            var inv = await _db.Inventories.FindAsync(InventoryId);
-            if (Count <= 0 || inv == null)
-            {
-                return false;
-            }
-                if (Incresed)
-                {
-                    inv.Quantity += Count;
-                }
-                else
-                {
-                    inv.Quantity -= Count;
-
-                }
-            
-            _db.Inventories.Update(inv);
+            var inventory = await _db.Inventories.FindAsync(InventoryId);
+            inventory.Quantity = inventoryDto.Quantity;
+            inventory.ProductId = inventoryDto.ProductId;
+            _db.Inventories.Update(inventory);
             await _db.SaveChangesAsync();
 
-            return true;
+            return inventory;
+        }
+        public async Task<List<Models.Inventory>> UpdatePrice(List<InventoryDto> invDto)
+        {
+            var productIds = invDto.Select(p => p.ProductId).ToList();
+            var inventories = await _db
+                .Inventories
+                .Where(i => productIds.Contains(i.ProductId))
+                .ToListAsync();
+
+            foreach (var inventory in inventories)
+            {
+                var dto = invDto.FirstOrDefault(d => d.ProductId == inventory.ProductId);
+                if (dto != null)
+                {
+                    inventory.Quantity -= dto.Quantity;
+                }
+            }
+
+            await _db.SaveChangesAsync();
+
+            return inventories;
         }
         public async Task<bool?> DeleteInventory(int InventoryId)
         {

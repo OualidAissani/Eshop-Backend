@@ -24,10 +24,22 @@ namespace Eshop.Catalog.Services
             _mediaService = mediaService;
             _logger = logger;
         }
-        
-        public async Task<double> GetProductPrice(int ProductId)
+        public class ProductPriceDto
         {
-            return await _context.Products.Where(i=>i.Id==ProductId).Select(i => i.Price).FirstOrDefaultAsync();
+            public int Id { get; set; }
+            public double Price { get; set; }
+        }
+        public async Task<List<ProductPriceDto>> GetProductPrice(List<int> ProductId)
+        {
+            return await _context
+                .Products
+                .Where(i => ProductId.Contains(i.Id))
+                .AsNoTracking()
+                .Select(i => new ProductPriceDto{
+                    Id = i.Id,
+                    Price = i.Price
+                })
+                .ToListAsync();
         }
 
         public async Task<dynamic> CreateProduct(ProductCreateDto product)

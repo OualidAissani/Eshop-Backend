@@ -1,5 +1,7 @@
-﻿using Eshop.Inventory.Dtos;
+﻿using Eshop.Inventory.Data;
+using Eshop.Inventory.Dtos;
 using Eshop.Inventory.Services;
+using FluentResults;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -54,14 +56,26 @@ namespace Eshop.Inventory.Controllers
             return NoContent();
         }
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateInventory(int id, [FromQuery] int count, [FromQuery] bool increased)
+        public async Task<IActionResult> UpdateInventory(int id, [FromBody] InventoryDto inventoryDto)
         {
-            var result = await _inventoryService.UpdateInventory(id, count, increased);
-            if (result == false)
+            var result = await _inventoryService.UpdateInventory(id,inventoryDto);
+            if (result == null)
             {
+                Result.Fail("Inventory not found");
                 return BadRequest();
             }
-            return NoContent();
+            return Ok(result);
+        }
+        [HttpPut("UpdatePrice")]
+        public async Task<IActionResult> UpdatePrice([FromBody] List<InventoryDto> invDto)
+        {
+            var result = await _inventoryService.UpdatePrice(invDto);
+            if (result == null)
+            {
+                Result.Fail("No Change Happened");
+                return BadRequest();
+            }
+            return Ok(result);
         }
     }
 }

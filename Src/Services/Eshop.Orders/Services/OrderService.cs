@@ -2,6 +2,7 @@
 using Eshop.Orders.Data;
 using Eshop.Orders.Models;
 using Eshop.Orders.Services.IServices;
+using FluentResults;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
@@ -37,39 +38,48 @@ namespace Eshop.Orders.Services
         }
         public async Task<Order> CreateOrder(OrderDto order)
         {
-            var transaction = await _context.Database.BeginTransactionAsync();
+            if (order == null)
+            {
+                throw new NoNullAllowedException(" no data  were provided");
+            }
 
+            var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
                 var ordereditems = new List<OrderItem>();
 
-                if (order == null)
-                {
-                    throw new NoNullAllowedException(" no data  were provided");
-                }
+                
+                //all ordered products ids
+                var productsIds =order.Products.Select(p=>p.ProductId).ToList();
+                //retrieveing Product Inventory details 
+                    var ProductInventory = await _client2.GetResponse<ProductInventoryAvailibityForOrderResponse>(new ProductInventoryAvailibityForOrderRequest(productsIds));
+                    var ProductInventoryMessage=ProductInventory.Message;
+                //retrieving products prices
+                var ProductsPrices = await _client.GetResponse<GetProductResponse>(new GetProductRequest(productsIds));
+                var Prices=ProductsPrices.Message;
 
-                foreach (var pd in order.Products)
+
+                foreach (var product in order.Products)
                 {
-                    var ProductInventory = await _client2.GetResponse<ProductInventoryAvailibityForOrderResponse>(new ProductInventoryAvailibityForOrderRequest(pd.ProductId, pd.Quantity));
-                    if (ProductInventory.Message.IsAvailable == true)
+                    if(ProductInventoryMessage.Items.Any(i=>i.ProductId==product.ProductId && i.Quantity>=product.Quantity))
                     {
-                        var untipriveresponse = await _client.GetResponse<GetProductResponse>(new GetProductRequest(pd.ProductId));
                         ordereditems.Add(new OrderItem
                         {
-                            ProductId = pd.ProductId,
-                            Quantity = pd.Quantity,
-                            UnitPrice = untipriveresponse.Message.UnitPrice,
-                            FullPrice = untipriveresponse.Message.UnitPrice * pd.Quantity,
-                            InventoryId = ProductInventory.Message.inventoryId
+                            ProductId = product.ProductId,
+                            Quantity = product.Quantity,
+                            UnitPrice = Prices.Product.First(i=>i.Id==product.ProductId).Price,
+                            FullPrice = Prices.Product.First(i => i.Id == product.ProductId).Price * product.Quantity,
+                            InventoryId = ProductInventoryMessage.Items.First(i=>i.ProductId==product.ProductId).InventoryId
                         });
                     }
                     else
                     {
                         //notify the user about the unavailability of the product
-
+                        Result.Fail("Product is not available in inventory");
                         return null;
                     }
-                }
+                } 
+          
                 var neworder = new Order()
                 {
                     OrderItems = ordereditems,
@@ -81,35 +91,21 @@ namespace Eshop.Orders.Services
                 {
                     return null;
                 }
-                foreach (var invendeduction in neworder.OrderItems)
-                {
-                    var response = await _httpClient.PutAsJsonAsync($"https://localhost:7194/api/Inventory/{invendeduction.InventoryId}?count={invendeduction.Quantity}&increased=false", (object?)null, CancellationToken.None);
-                    response.EnsureSuccessStatusCode();
 
-                }
+                    var response = await _httpClient.PutAsJsonAsync($"https://localhost:7194/api/Inventory/UpdatePrice",
+                        neworder.OrderItems.Select(i => new { ProductId = i.ProductId, Quantity = i.Quantity }).ToList());
+                response.EnsureSuccessStatusCode();
+
+                
                 await transaction.CommitAsync();
                 return neworder;
-            }
-            catch (HttpRequestException ex)
-            {
-                await transaction.RollbackAsync();
-
-                throw new InvalidOperationException($"Failed to update inventory: {ex.Message}", ex);
-            }
-            catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
-            {
-                await transaction.RollbackAsync();
-
-                throw new TimeoutException("Inventory update request timed out", ex);
             }
             catch (Exception ex)
             {
                 await transaction.RollbackAsync();
 
-                throw new InvalidOperationException($"Failed to create order: {ex.Message}", ex);
-            }
-
-            
+                throw new Exception($"Failed to update inventory: {ex.Message}", ex);
+            }                    
         }
         public async Task<bool> DeleteOrder(int orderId)
         {

@@ -1,33 +1,48 @@
-﻿
-namespace Eshop.Events;
+﻿namespace Eshop.Events;
 
 public record ProductInventoryAvailibityForOrderRequest
 {
-    public int Product { get; set; }
-    public int Quantity { get; set; }
+    public List<int> ProductsId { get; set; }
+
     public ProductInventoryAvailibityForOrderRequest()
     {
-        
     }
-    public ProductInventoryAvailibityForOrderRequest(int product,int quantity)
+
+    public ProductInventoryAvailibityForOrderRequest(List<int> product)
     {
-        Product = product;
+        ProductsId = product;
+    }
+}
+
+public record ProductInventoryItem
+{
+    public int ProductId { get; set; }
+    public int InventoryId { get; set; }
+    public int Quantity { get; set; }
+
+    public ProductInventoryItem()
+    {
+    }
+
+    public ProductInventoryItem(int productId, int inventoryId, int quantity)
+    {
+        ProductId = productId;
+        InventoryId = inventoryId;
         Quantity = quantity;
     }
 }
+
 public record ProductInventoryAvailibityForOrderResponse
 {
-    //bool IsAvailable,int inventoryId
-    public bool IsAvailable { get; set; }
-    public int inventoryId { get; set; }
+    public IEnumerable<ProductInventoryItem> Items { get; set; }
+
     public ProductInventoryAvailibityForOrderResponse()
     {
-        
     }
-    public ProductInventoryAvailibityForOrderResponse(bool isAvailable,int InventoryId)
+
+    public ProductInventoryAvailibityForOrderResponse(IEnumerable<ProductInventoryItem> items)
     {
-        IsAvailable = isAvailable;
-        inventoryId = InventoryId;
+        Items = items;
     }
 }
 

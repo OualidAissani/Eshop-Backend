@@ -12,25 +12,37 @@ namespace Eshop.Events;
         );
 public record GetProductRequest
 {
-    public int ProductId { get; init; }
+    public List<int> ProductId { get; init; }
 
     public GetProductRequest() { }
-    public GetProductRequest(int productId)
+    public GetProductRequest(List<int> productId)
     {
         ProductId = productId;
     }
 
 }
+public class GetProductResponseDto
+{
+    public int Id { get; set; }
+    public double Price { get; set; }
+    public GetProductResponseDto()
+    {
+        
+    }
+    public GetProductResponseDto(int id,double price)
+    {
+        Id=id;
+        Price=price;
+    }
+}
 public record GetProductResponse
 {
-    public int ProductId { get; init; }
-    public double UnitPrice { get; init; }
+    public List<GetProductResponseDto> Product { get; init; }
 
     public GetProductResponse() { }
-    public GetProductResponse(int productId, double unitPrice)
+    public GetProductResponse(List<GetProductResponseDto> product)
     {
-        ProductId = productId;
-        UnitPrice = unitPrice;
+        Product = product;
     }
 }
 

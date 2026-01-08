@@ -39,73 +39,81 @@ namespace Eshop.Orders.Services
         public async Task<Order> CreateOrder(OrderDto order)
         {
             if (order == null)
+                throw new ArgumentNullException(nameof(order));
+
+            var productIds = order.Products.Select(p => p.ProductId).ToList();
+
+            var inventoryResponse = await _client2.GetResponse<ProductInventoryAvailibityForOrderResponse>(
+                new ProductInventoryAvailibityForOrderRequest(productIds)
+            );
+
+            var pricesResponse = await _client.GetResponse<GetProductResponse>(
+                new GetProductRequest(productIds)
+            );
+
+            var inventoryDict = inventoryResponse.Message.Items
+                .ToDictionary(i => i.ProductId, i => i);
+
+            var pricesDict = pricesResponse.Message.Product
+                .ToDictionary(p => p.Id, p => p.Price);
+
+            var unavailable = order.Products
+                .Where(p => !inventoryDict.ContainsKey(p.ProductId) ||
+                            inventoryDict[p.ProductId].Quantity < p.Quantity)
+                .Select(p => p.ProductId)
+                .ToList();
+
+            if (unavailable.Any())
             {
-                throw new NoNullAllowedException(" no data  were provided");
+                 Result.Fail(
+                    $"Products unavailable: {string.Join(", ", unavailable)}"
+                );
             }
 
-            var transaction = await _context.Database.BeginTransactionAsync();
+            using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                var ordereditems = new List<OrderItem>();
-
-                
-                //all ordered products ids
-                var productsIds =order.Products.Select(p=>p.ProductId).ToList();
-                //retrieveing Product Inventory details 
-                    var ProductInventory = await _client2.GetResponse<ProductInventoryAvailibityForOrderResponse>(new ProductInventoryAvailibityForOrderRequest(productsIds));
-                    var ProductInventoryMessage=ProductInventory.Message;
-                //retrieving products prices
-                var ProductsPrices = await _client.GetResponse<GetProductResponse>(new GetProductRequest(productsIds));
-                var Prices=ProductsPrices.Message;
-
-
-                foreach (var product in order.Products)
-                {
-                    if(ProductInventoryMessage.Items.Any(i=>i.ProductId==product.ProductId && i.Quantity>=product.Quantity))
+                //Build order items with dictionary lookups (O(1) 
+                var orderItems = order.Products
+                    .Select(p => new OrderItem
                     {
-                        ordereditems.Add(new OrderItem
-                        {
-                            ProductId = product.ProductId,
-                            Quantity = product.Quantity,
-                            UnitPrice = Prices.Product.First(i=>i.Id==product.ProductId).Price,
-                            FullPrice = Prices.Product.First(i => i.Id == product.ProductId).Price * product.Quantity,
-                            InventoryId = ProductInventoryMessage.Items.First(i=>i.ProductId==product.ProductId).InventoryId
-                        });
-                    }
-                    else
-                    {
-                        //notify the user about the unavailability of the product
-                        Result.Fail("Product is not available in inventory");
-                        return null;
-                    }
-                } 
-          
-                var neworder = new Order()
+                        ProductId = p.ProductId,
+                        Quantity = p.Quantity,
+                        UnitPrice = pricesDict[p.ProductId],              
+                        FullPrice = pricesDict[p.ProductId] * p.Quantity,
+                        InventoryId = inventoryDict[p.ProductId].InventoryId 
+                    })
+                    .ToList();
+
+                var newOrder = new Order
                 {
-                    OrderItems = ordereditems,
+                    OrderItems = orderItems,
                     UserId = order.UserId,
-                    TotalPrice = ordereditems.Select(i => i.FullPrice).Sum()
+                    TotalPrice = orderItems.Sum(i => i.FullPrice)
                 };
-                _context.Orders.Add(neworder);
-                if (await _context.SaveChangesAsync() == 0)
-                {
-                    return null;
-                }
 
-                    var response = await _httpClient.PutAsJsonAsync($"https://localhost:7194/api/Inventory/UpdatePrice",
-                        neworder.OrderItems.Select(i => new { ProductId = i.ProductId, Quantity = i.Quantity }).ToList());
+                _context.Orders.Add(newOrder);
+                await _context.SaveChangesAsync();
+
+                // Update inventory
+                var inventoryUpdates = orderItems
+                    .Select(i => new { ProductId = i.ProductId, Quantity = i.Quantity })
+                    .ToList();
+
+                var response = await _httpClient.PutAsJsonAsync(
+                    "https://localhost:7194/api/Inventory/UpdatePrice",
+                    inventoryUpdates
+                );
                 response.EnsureSuccessStatusCode();
 
-                
                 await transaction.CommitAsync();
-                return neworder;
+                return newOrder;
             }
             catch (Exception ex)
             {
                 await transaction.RollbackAsync();
-
-                throw new Exception($"Failed to update inventory: {ex.Message}", ex);
-            }                    
+                throw new InvalidOperationException($"Order creation failed: {ex.Message}", ex);
+            }
         }
         public async Task<bool> DeleteOrder(int orderId)
         {

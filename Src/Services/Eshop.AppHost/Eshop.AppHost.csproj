@@ -1,0 +1,28 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <Sdk Name="Aspire.AppHost.Sdk" Version="9.5.0" />
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UserSecretsId>dae228d8-8c13-49dc-9bf3-95bf46c69a67</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.AppHost" Version="13.1.0" />
+    <PackageReference Include="Aspire.Hosting.PostgreSQL" Version="13.1.0" />
+    <PackageReference Include="Aspire.Hosting.RabbitMQ" Version="13.1.0" />
+    <PackageReference Include="Aspire.Hosting.Redis" Version="13.1.0" />
+    <PackageReference Include="Aspire.Hosting.Yarp" Version="13.1.0" />
+	  <PackageReference Include="Aspire.Hosting.Keycloak" Version="13.0.2-preview.1.25603.5" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Eshop.Catalog\Eshop.Catalog.csproj" />
+    <ProjectReference Include="..\Eshop.Inventory\Eshop.Inventory.csproj" />
+    <ProjectReference Include="..\Eshop.Gateway\Eshop.Gateway.csproj" />
+    <ProjectReference Include="..\Eshop.Orders\Eshop.Orders.csproj" />
+  </ItemGroup>
+
+</Project>

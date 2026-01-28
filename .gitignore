@@ -1,0 +1,12 @@
+﻿################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+
+/.vs
+**/appsettings.json
+**/appsettings.*.json
+/Src/Services/Eshop.Web/
+/Src/Services/note.txt
+/Src/Services/plan.txt  
+/Src/Services/Endpoints.http
+**/Eshop.Web/

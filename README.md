@@ -63,5 +63,5 @@ The system uses a microservices pattern with service-to-service communication vi
  ```
 
 3. Start all services using the AppHost project:
-   ```bash
+```bash
 dotnet run --project Src/Services/Eshop.AppHost

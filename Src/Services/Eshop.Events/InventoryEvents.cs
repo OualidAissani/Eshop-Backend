@@ -47,3 +47,48 @@ public record ProductInventoryAvailibityForOrderResponse
 }
 
 
+
+
+
+public record ProductStockRequest
+{
+    public int ProductsId { get; set; }
+    public int  Quantity { get; set; }
+
+    public ProductStockRequest()
+    {
+    }
+
+    public ProductStockRequest(int product, int quantity)
+    {
+        ProductsId = product;
+        Quantity = quantity;
+    }
+}
+
+
+public record ProductStockResponse
+{
+    public bool HasEnoguhStock { get; set; }
+
+    public ProductStockResponse()
+    {
+    }
+
+    public ProductStockResponse(bool HasEnoguhStocks)
+    {
+        HasEnoguhStock = HasEnoguhStocks;
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+

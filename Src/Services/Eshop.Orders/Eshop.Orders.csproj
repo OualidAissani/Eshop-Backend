@@ -12,6 +12,7 @@
     <PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="13.1.0" />
     <PackageReference Include="Aspire.RabbitMQ.Client" Version="13.1.0" />
     <PackageReference Include="FluentResults" Version="4.0.0" />
+    <PackageReference Include="IronPdf" Version="2025.12.2" />
     <PackageReference Include="MassTransit" Version="9.0.0" />
     <PackageReference Include="MassTransit.Abstractions" Version="9.0.0" />
     <PackageReference Include="MassTransit.RabbitMQ" Version="9.0.0" />

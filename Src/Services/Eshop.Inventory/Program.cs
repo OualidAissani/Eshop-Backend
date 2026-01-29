@@ -52,6 +52,7 @@ builder.Services.AddScoped<IInventoryService, InventoryService>();
 builder.Services.AddMassTransit(x =>
 {
     x.AddConsumer<ProductInventoryQuanityConsumer>();
+    x.AddConsumer<ProductStockConsumer>();
     x.UsingRabbitMq((context, cfg) =>
     {
         cfg.Host(builder.Configuration.GetConnectionString("Rabbitmq"));
@@ -60,6 +61,10 @@ builder.Services.AddMassTransit(x =>
         cfg.ReceiveEndpoint("product-inventory-availability", e =>
         {
             e.ConfigureConsumer<ProductInventoryQuanityConsumer>(context);
+        });
+        cfg.ReceiveEndpoint("product-stock-request", e =>
+        {
+            e.ConfigureConsumer<ProductStockConsumer>(context);
         });
     });
 });

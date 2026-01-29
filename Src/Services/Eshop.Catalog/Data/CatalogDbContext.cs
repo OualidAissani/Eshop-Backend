@@ -22,6 +22,8 @@ namespace Eshop.Catalog.Data
                 .WithMany(i => i.Media)
                 .HasForeignKey(p => p.ProductId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+
         }
         public DbSet<Products> Products { get; set; }
         public DbSet<Categories> Categories { get; set; }

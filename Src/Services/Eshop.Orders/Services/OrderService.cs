@@ -98,10 +98,6 @@ namespace Eshop.Orders.Services
                 .Select(i => new InventoryUpdateDto { ProductId = i.ProductId, Quantity = i.Quantity })
                 .ToList();
 
-            //var response = await _httpClient.PutAsJsonAsync(
-            //    $"{inventoryBaseUrl}/UpdatePrice",
-            //    inventoryUpdates
-            //);
             var response = await _updateInventory.UpdateInventory(inventoryUpdates);
             await response.EnsureSuccessStatusCodeAsync();
         }
@@ -110,6 +106,8 @@ namespace Eshop.Orders.Services
         {
             if (order == null)
                 throw new ArgumentNullException(nameof(order));
+            if(order.Products == null || !order.Products.Any())
+                throw new ArgumentException("Order must contain at least one product.");
 
             var productIds = order.Products.Select(p => p.ProductId).ToList();
 

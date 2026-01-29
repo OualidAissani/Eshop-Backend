@@ -46,41 +46,26 @@ public record GetProductResponse
     }
 }
 
-public record RefreshCartItemDetailsRequest
+public record ProductExistRequest
 {
-    public List<int> ProductId { get; init; }
-    public RefreshCartItemDetailsRequest()
+    public int ProductId { get; init; }
+    public ProductExistRequest()
     {
         
     }
-    public RefreshCartItemDetailsRequest(List<int> productId)
+    public ProductExistRequest(int productId)
     {
         ProductId=productId;
     }
 }
-public record RefreshCartItemDetailsResponseDto
+
+public record ProductExistResponse
 {
-    public int Id { get; set; }
-    public string Name { get; set; }
-    public double Price { get; set; }
-    public RefreshCartItemDetailsResponseDto()
+    public bool IsAvailable { get; init; }
+    public ProductExistResponse() { }
+    public ProductExistResponse(bool IsAvailable)
     {
-        
-    }
-    public RefreshCartItemDetailsResponseDto(int id,string name,double price)
-    {
-        Id=id;
-        Name=name;
-        Price=price;
-    }
-}
-public record RefreshCartItemDetailsResponse
-{
-    public List<RefreshCartItemDetailsResponseDto> Items { get; init; }
-    public RefreshCartItemDetailsResponse() { }
-    public RefreshCartItemDetailsResponse(List<RefreshCartItemDetailsResponseDto> items)
-    {
-        Items = items;
+        this.IsAvailable = IsAvailable;
     }
 }
 

@@ -45,6 +45,10 @@ builder.Services.AddMassTransit(o =>
         {
             e.ConfigureConsumer<RetrieveProductPriceConsumer>(context);
         });
+        cfg.ReceiveEndpoint("check-product-existence", e =>
+        {
+            e.ConfigureConsumer<VerifyProductExistenceConsumer>(context);
+        });
     });
 });
 

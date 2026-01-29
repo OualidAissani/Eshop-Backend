@@ -33,11 +33,11 @@ builder.Services.AddMassTransit(o =>
 {
        o.AddConsumer<OrderProductsEvent>();
 
-       // Add request clients with the target queue addresses
+       o.AddRequestClient<ProductExistRequest>(new Uri("queue:check-product-existence"));
        o.AddRequestClient<GetProductRequest>(new Uri("queue:get-product-request"));
        o.AddRequestClient<ProductInventoryAvailibityForOrderRequest>(new Uri("queue:product-inventory-availability"));
-
-       o.UsingRabbitMq((context, cfg) =>
+    o.AddRequestClient<ProductStockRequest>(new Uri("queue:product-stock-request"));
+    o.UsingRabbitMq((context, cfg) =>
     {
         cfg.Host(builder.Configuration.GetConnectionString("Rabbitmq"));
 

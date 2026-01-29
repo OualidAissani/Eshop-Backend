@@ -1,4 +1,4 @@
-# Eshop Backend
+# Eshop Backend (In-Progress)
 
 A microservices-based e-commerce backend built with .NET 10, featuring independent services for product catalog management, inventory tracking, and order processing with a Blazor web frontend.
 

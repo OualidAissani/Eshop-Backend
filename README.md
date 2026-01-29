@@ -36,12 +36,32 @@ The system uses a microservices pattern with service-to-service communication vi
 - RabbitMQ
 - Redis
 - Keycloak
-- Docker & Docker Compose
+- Docker 
 
 ## Getting Started
 
 1. Clone the repository
-2. Configure `appsettings.json` files with connection strings for each service
+2. Configure the required values in the `appsettings.json` files for each service:
+   - **Catalog Service**:
+     - `UploadCare` (PublicKey, SecretKey, Store)
+     - `GatewayUrl`
+   - **Order Service**:
+     - `InventoryBaseUrl`
+   Example configuration:
+
+```json
+// Catalog Service
+"UploadCare": {
+  "PublicKey": "<your-uploadcare-public-key>",
+  "SecretKey": "<your-uploadcare-secret-key>",
+  "Store": "1"
+},
+"GatewayUrl": "https://localhost:7194"
+
+// Order Service
+"InventoryBaseUrl": "https://localhost:7194/api/Inventory"
+ ```
+
 3. Start all services using the AppHost project:
-   ```bash
-   dotnet run --project Src/Services/Eshop.AppHost
+```bash
+dotnet run --project Src/Services/Eshop.AppHost

@@ -50,7 +50,7 @@ namespace Eshop.Orders.Services
         }
         public async Task<Order> CreateOrder(OrderDto order)
         {
-            (Dictionary<int, ProductInventoryItem> inventoryDict, Dictionary<int, double> pricesDict) = await OrderValidations(order);
+            (Dictionary<int, ProductInventoryItem> inventoryDict, Dictionary<int, decimal> pricesDict) = await OrderValidations(order);
 
             try
             {
@@ -66,7 +66,7 @@ namespace Eshop.Orders.Services
             }
         }
 
-        private async Task<(List<OrderItem> orderItems, Order newOrder)> SaveOrders(OrderDto order, Dictionary<int, ProductInventoryItem> inventoryDict, Dictionary<int, double> pricesDict)
+        private async Task<(List<OrderItem> orderItems, Order newOrder)> SaveOrders(OrderDto order, Dictionary<int, ProductInventoryItem> inventoryDict, Dictionary<int, decimal> pricesDict)
         {
             var orderItems = order.Products
                                 .Select(p => new OrderItem
@@ -102,7 +102,7 @@ namespace Eshop.Orders.Services
             await response.EnsureSuccessStatusCodeAsync();
         }
 
-        private async Task<(Dictionary<int, ProductInventoryItem> inventoryDict, Dictionary<int, double> pricesDict)> OrderValidations(OrderDto order)
+        private async Task<(Dictionary<int, ProductInventoryItem> inventoryDict, Dictionary<int, decimal> pricesDict)> OrderValidations(OrderDto order)
         {
             if (order == null)
                 throw new ArgumentNullException(nameof(order));

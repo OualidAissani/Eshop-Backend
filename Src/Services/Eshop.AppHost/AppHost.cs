@@ -10,7 +10,7 @@ var Rabbitmq = builder.AddRabbitMQ("Rabbitmq")
      .WithDataVolume()
      .WithManagementPlugin();
 
-var Redis = builder.AddRedis("Redis")
+var Redis = builder.AddRedis("redis")
     .WithDataVolume();
 var keycloakPassword = builder.AddParameter("KeycloakPassword", secret: true, value: "admin");
 int? keycloakPort = builder.ExecutionContext.IsRunMode ? 8180 : null;
@@ -32,6 +32,7 @@ var Catalog=builder.AddProject<Eshop_Catalog>("catalogApi")
     .WithReference(Rabbitmq)
     .WaitFor(Rabbitmq)
     .WithReference(CatalogDb)
+    .WithReference(Redis)
     .WithEnvironment("Auth__Authority", keycloakAuthority)
     .WaitFor(keycloak);
 
@@ -39,6 +40,7 @@ var Inventory=builder.AddProject<Eshop_Inventory>("inventoryApi")
     //.WithHealthCheck("/health")
     .WithReference(Rabbitmq)
     .WaitFor(Rabbitmq)
+    .WithReference(Redis)
     .WithReference(InventoryDb)
     .WithEnvironment("Auth__Authority", keycloakAuthority)
     .WaitFor(keycloak);
@@ -47,6 +49,7 @@ var Order=builder.AddProject<Eshop_Orders>("orderApi")
    // .WithHealthCheck("/health")
     .WithReference(Rabbitmq)
     .WaitFor(Rabbitmq)
+    .WithReference(Redis)
     .WithReference(OrderDb)
     .WithEnvironment("Auth__Authority", keycloakAuthority)
     .WaitFor(keycloak);

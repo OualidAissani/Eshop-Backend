@@ -11,7 +11,7 @@ namespace Eshop.Orders.Models
 
         required public int Quantity { get; set; } = 1;
 
-        required public double FullPrice { get; set; }
+        required public decimal FullPrice { get; set; }
 
         public int CartId { get; set; }
     }

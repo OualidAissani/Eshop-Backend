@@ -28,11 +28,6 @@ namespace Eshop.Catalog.Services
             _logger = logger;
             _configurations = configurations;
         }
-        public class ProductPriceDto
-        {
-            public int Id { get; set; }
-            public double Price { get; set; }
-        }
         public async Task<List<ProductPriceDto>> GetProductPrice(List<int> ProductId)
         {
             return await _context
@@ -115,14 +110,14 @@ namespace Eshop.Catalog.Services
             });
         }
         
-        public async Task<Products?> GetProductById(int productId)
+        public async Task<Products> GetProductById(int productId)
         {
             return await _context.Products
                 .Include(i=>i.Media)
                 .Include(c=>c.Categories)
                 .AsSplitQuery()
                 .AsNoTracking()
-                .Where(p => p.Id == productId).FirstOrDefaultAsync();
+                .FirstOrDefaultAsync(p => p.Id == productId);
         }
         
         public async Task<List<Products>> GetAllProducts()

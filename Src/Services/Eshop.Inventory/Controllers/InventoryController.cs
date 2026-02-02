@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Distributed;
+using System.Text.Json;
 
 namespace Eshop.Inventory.Controllers
 {
@@ -38,9 +39,23 @@ namespace Eshop.Inventory.Controllers
         }
         [Authorize]
         [HttpPost]
-        public async Task<IActionResult> CreateInventory([FromBody] InventoryDto inventoryDto)
+        public async Task<IActionResult> CreateInventory([FromBody] InventoryDto inventoryDto, [FromHeader(Name = "x_Idempotency_Key")] string key)
         {
+            if (key == null)
+            {
+                return BadRequest();
+            }
+            var cacheKey = $"Idempotency:Inventory:Create:{key}";
+            var cached = await _cache.GetAsync(cacheKey);
+            if (cached != null)
+            {
+                return CreatedAtAction(nameof(GetInventoryById), new { id = JsonSerializer.Deserialize<Models.Inventory>(cached)?.Id }, JsonSerializer.Deserialize<Models.Inventory>(cached) ?? null);
+            }
             var inventory = await _inventoryService.CreateInvetoryForProduct(inventoryDto);
+            await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(inventory), new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
+            });
             return CreatedAtAction(nameof(GetInventoryById), new { id = inventory?.Id }, inventory?? null);
         }
         [Authorize]
@@ -59,32 +74,55 @@ namespace Eshop.Inventory.Controllers
             return NoContent();
         }
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateInventory(int id, [FromBody] InventoryDto inventoryDto)
+        public async Task<IActionResult> UpdateInventory(int id, [FromBody] InventoryDto inventoryDto,[FromHeader(Name = "x_Idempotency_Key")] string key)
         {
+            if (key == null)
+            {
+                return BadRequest("Idempotency Key is required");
+            }
+            var cacheKey = $"Idempotency:Inventory:Update:{key}";
+            var cached = await _cache.GetAsync(cacheKey);
+            if (cached != null)
+            {
+                return Ok(JsonSerializer.Deserialize<Models.Inventory>(cached));
+            }
             var result = await _inventoryService.UpdateInventory(id,inventoryDto);
             if (result == null)
             {
-                Result.Fail("Inventory not found");
-                return BadRequest();
+                return BadRequest("Inventory not found");
             }
+            await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(result), new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
+            });
             return Ok(result);
         }
         [HttpPut("UpdatePrice")]
-
-        public async Task<IActionResult> UpdatePrice([FromBody] List<InventoryDto> invDto, [FromHeader(Name ="x_Idempotent_Key")] string key)
+        //Change later
+        public async Task<IActionResult> UpdatePrice([FromBody] List<InventoryDto> invDto, [FromHeader(Name = "x_Idempotency_Key")] string key)
         {
-
-            var rx = _cache.GetAsync($"Idenpotency:{key}");
-            if (rx==null)
+            if(key == null)
             {
-               // await _cache.SetStringAsync(key, );
+                return BadRequest("Idempotency Key is required");
+            }
+            var cacheKey = $"Idempotency:Inventory:UpdatePrice:{key}";
+            var cached = await _cache.GetAsync(cacheKey);
+
+            if (cached != null)
+            {
+                return Ok(JsonSerializer.Deserialize<List<Models.Inventory>>(cached));
             }
             var result = await _inventoryService.UpdatePrice(invDto);
             if (result == null)
             {
-                Result.Fail("No Change Happened");
-                return BadRequest();
+                return BadRequest("No Change Happened");
             }
+
+                await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(result), new DistributedCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
+                });
+            
             return Ok(result);
         }
     }

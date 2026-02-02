@@ -10,7 +10,7 @@ namespace Eshop.Orders.Models
 
         public string OrderNumber{ get; set; }
 
-        public double TotalPrice { get; set; }
+        public decimal TotalPrice { get; set; }
 
         public OrderStatus Status { get; set; }
 

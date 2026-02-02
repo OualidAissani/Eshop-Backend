@@ -15,11 +15,7 @@ builder.AddServiceDefaults();
 builder.AddNpgsqlDbContext<InventoryDb>("InventoryDb");
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
-builder.Services.AddStackExchangeRedisCache(o =>
-{
-    o.Configuration = builder.Configuration["Redis:Configuration"];
-    o.InstanceName = builder.Configuration["Redis:InstanceName"];
-});
+builder.AddRedisDistributedCache("redis");
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(option =>
     {

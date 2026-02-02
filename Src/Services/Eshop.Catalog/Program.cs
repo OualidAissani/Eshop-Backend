@@ -31,6 +31,8 @@ builder.Services.AddOpenApi();
 builder.Services.AddScoped<IMediaService, MediaService>();
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
 builder.Services.AddHttpLogging(logging => { });
+builder.AddRedisDistributedCache("redis");
+
 builder.Services.AddMassTransit(o =>
 {
     o.AddConsumer<RetrieveProductPriceConsumer>();

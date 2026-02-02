@@ -10,7 +10,7 @@
 
         public int Quantity { get; set; }
 
-        public double FullPrice { get; set; }
+        public decimal FullPrice { get; set; }
 
         public int CartId { get; set; }
 

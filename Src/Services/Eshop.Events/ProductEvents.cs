@@ -24,12 +24,12 @@ public record GetProductRequest
 public class GetProductResponseDto
 {
     public int Id { get; set; }
-    public double Price { get; set; }
+    public decimal Price { get; set; }
     public GetProductResponseDto()
     {
         
     }
-    public GetProductResponseDto(int id,double price)
+    public GetProductResponseDto(int id,decimal price)
     {
         Id=id;
         Price=price;

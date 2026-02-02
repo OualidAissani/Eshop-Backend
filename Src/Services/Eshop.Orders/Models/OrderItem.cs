@@ -10,9 +10,9 @@
 
         public int Quantity { get; set; }
 
-        public double UnitPrice { get; set; }
+        public decimal UnitPrice { get; set; }
 
-        public double FullPrice { get; set; }
+        public decimal FullPrice { get; set; }
 
         public int InventoryId { get; set; }
 

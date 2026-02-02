@@ -2,7 +2,9 @@
 using Eshop.Orders.Services.IServices;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Distributed;
 using System.Security.Claims;
+using System.Text.Json;
 
 namespace Eshop.Orders.Controllers
 {
@@ -12,11 +14,13 @@ namespace Eshop.Orders.Controllers
     {
         private readonly IOrderService _orderService;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IDistributedCache _cache;
 
-        public OrderController(IOrderService orderService, IHttpContextAccessor httpContextAccessor)
+        public OrderController(IOrderService orderService, IHttpContextAccessor httpContextAccessor, IDistributedCache cache)
         {
             _orderService = orderService;
             _httpContextAccessor = httpContextAccessor;
+            _cache = cache;
         }
         [Authorize(Roles = "Admin")]
         [HttpGet("GetAllOrders")]
@@ -49,21 +53,35 @@ namespace Eshop.Orders.Controllers
 
         [Authorize]
         [HttpPost]
-        public async Task<IActionResult> CreateOrder([FromBody] OrderDto order)
+        public async Task<IActionResult> CreateOrder([FromBody] OrderDto order, [FromHeader(Name = "x_Idempotency_Key")] string key)
         {
+            if(key== null)
+            {
+                return BadRequest("Idempotency Key is required");
+            }
+            var cacheKey = $"Idempotency:Order:Create";
+            var cached=await _cache.GetAsync(cacheKey);
+            if(cached != null)
+            {
+                return CreatedAtAction(nameof(GetOrderById), new { id = JsonSerializer.Deserialize<Order>(cached)?.Id }, JsonSerializer.Deserialize<Order>(cached) ?? null);
+            }
             var createdOrder = await _orderService.CreateOrder(order);
 
             if(createdOrder == null)
             {
                 return BadRequest("We having a problem processing your request.");
             }
+            await _cache.SetStringAsync(cacheKey,JsonSerializer.Serialize(createdOrder),new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow= TimeSpan.FromMinutes(5)
+            });
 
             return CreatedAtAction(nameof(GetOrderById), new { id = createdOrder?.Id }, createdOrder ?? null);
         }
 
         [Authorize]
         [HttpPut]
-        public async Task<IActionResult> UpdateOrder(int id, [FromBody] OrderDto order)
+        public async Task<IActionResult> UpdateOrder(int id, [FromBody] OrderDto order, [FromHeader(Name = "x_Idempotency_Key")] string key)
         {
             
             return NoContent();

@@ -4,7 +4,9 @@ using Eshop.Catalog.Services.IServices;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Distributed;
 using System.IO;
+using System.Text.Json;
 
 namespace Eshop.Catalog.Controllers
 {
@@ -14,61 +16,93 @@ namespace Eshop.Catalog.Controllers
     {
         private readonly IProductRepository _productrepo;
         private readonly IMediaService _mediaService;
+        private readonly IDistributedCache _cache;
         private readonly ILogger<CatalogController> _logger;
-        
+
         public CatalogController(
             IProductRepository productRepository,
             ILogger<CatalogController> logger,
             IMediaService mediaService
-            )
+,
+            IDistributedCache cache)
         {
             _productrepo = productRepository;
             _logger = logger;
             _mediaService = mediaService;
+            _cache = cache;
         }
-        
+
         [HttpPost]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> CreateProduct([FromForm] ProductCreateDto product, List<IFormFile>? formFile)
+        public async Task<IActionResult> CreateProduct([FromForm] ProductCreateDto product, List<IFormFile>? formFile, [FromHeader(Name = "x_Idempotency_Key")] string key)
         {
-            //public async Task<ProductMedia> CreateMedia(ProductMedia media, Stream fileStream,string contentType ,string fileName)
-            if(formFile == null || formFile.Count == 0)
+            if (key == null)
+            {
+                return BadRequest("Idempotency Key is required");   
+            }
+            var cacheKey = $"Idempontency:Product:Create:{key}";
+            var cached = await _cache.GetAsync(cacheKey);
+            if (cached != null)
+            {
+                return CreatedAtAction(nameof(GetProductById), new { id = System.Text.Json.JsonSerializer.Deserialize<Products>(cached)?.Id }, System.Text.Json.JsonSerializer.Deserialize<Products>(cached) ?? null);
+            }
+            if (formFile == null || formFile.Count == 0)
             {
 
             }
             var result = await _productrepo.CreateProduct(product);
-            foreach (var file in formFile)
+            var media = new ProductMedia()
             {
-                var media = new ProductMedia()
-                {
-                    ProductId = result.Id,
-                    Description = result.Description
-                };
+                ProductId = result.Id,
+                Description = result.Description
+            };
+            foreach (var file in formFile)
+            {              
                 using var stream = file.OpenReadStream();
                 await _mediaService.CreateMedia(media,stream,file.ContentType,file.FileName);
 
             }
-            var currentProduct = await _productrepo.GetProductById(result.Id);
+            Products currentProduct = await _productrepo.GetProductById(result.Id);
+
+            await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(currentProduct), new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
+            });
             return Ok(currentProduct);
         }
         
         [HttpPost("update")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> UpdateProduct([FromForm] Products product, IFormFile? formFile)
+        public async Task<IActionResult> UpdateProduct([FromForm] Products product, IFormFile? formFile , [FromHeader(Name = "x_Idempotency_Key")] string key)
         {
+            if (key == null)
+            {
+                return BadRequest("Idempotency Key is required");
+            }
+            var cacheKey = $"Idempontency:Product:Update:{key}";
+            var cached = await _cache.GetAsync(cacheKey);
+            if (cached != null)
+            {
+                return Ok(JsonSerializer.Deserialize<Products>(cached) ?? null);
+            }
+            var result=new Products();
             if (formFile != null)
             {
                 using var stream = formFile.OpenReadStream();
-                var result = await _productrepo.UpdateProduct(product, stream, formFile.ContentType, formFile.FileName);
-                return Ok(result);
+                result = await _productrepo.UpdateProduct(product, stream, formFile.ContentType, formFile.FileName);
             }
             else
             {
-                var result = await _productrepo.UpdateProduct(product, Stream.Null, string.Empty, string.Empty);
-                return Ok(result);
+                 result = await _productrepo.UpdateProduct(product, Stream.Null, string.Empty, string.Empty);
             }
+            await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(result), new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
+            });
+            return Ok(result);
+
         }
-        
+
         [HttpDelete("{Id}")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteProduct(int Id)

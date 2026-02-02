@@ -3,7 +3,9 @@ using Eshop.Orders.Services.IServices;
 using FluentResults;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Distributed;
 using System.Security.Claims;
+using System.Text.Json;
 
 namespace Eshop.Orders.Controllers
 {
@@ -14,10 +16,12 @@ namespace Eshop.Orders.Controllers
     {
         private readonly IHttpContextAccessor _contextAccessor; 
         private readonly ICartService _cartService;
-        public CartController(ICartService cartService, IHttpContextAccessor contextAccessor)
+        private readonly IDistributedCache _cache;
+        public CartController(ICartService cartService, IHttpContextAccessor contextAccessor, IDistributedCache cache)
         {
             _cartService = cartService;
             _contextAccessor = contextAccessor;
+            _cache = cache;
         }
 
         [HttpGet("user")]
@@ -51,13 +55,27 @@ namespace Eshop.Orders.Controllers
             return Ok(cart);
         }
         [HttpPost]
-        public async Task<IActionResult> AddCartItem([FromBody] CartItemDto cartItem)
+        public async Task<IActionResult> AddCartItem([FromBody] CartItemDto cartItem, [FromHeader(Name = "x_Idempotency_Key")] string key)
         {
+            if (key == null)
+            {
+                return BadRequest("Idempotency Key is required");
+            }
+            var cachedKey = $"Idempontency:Cart:AddCartItem";
+            var cached= await _cache.GetAsync(cachedKey);
+            if (cached != null)
+            {
+                return Ok(JsonSerializer.Deserialize<CartItem>(cached));
+            }
             var addedItem = await _cartService.AddCartItem(cartItem);
             if (addedItem == null)
             {
                 return BadRequest("Failed to add item to cart.");
             }
+            await _cache.SetStringAsync(cachedKey, JsonSerializer.Serialize(addedItem), new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
+            });
             return Ok(addedItem);
         }
         [HttpDelete]
@@ -71,13 +89,27 @@ namespace Eshop.Orders.Controllers
             return Ok("Item deleted successfully.");
         }
         [HttpPut]
-        public async Task<IActionResult> UpdateCartItem([FromBody] UpdateCartItemDto cartItem)
+        public async Task<IActionResult> UpdateCartItem([FromBody] UpdateCartItemDto cartItem, [FromHeader(Name = "x_Idempotency_Key")] string key)
         {
+            if (key == null)
+            {
+                return BadRequest("Idempotency Key is required");
+            }
+            var cachedKey = $"Idempontency:Cart:UpdateCartItem";
+            var cached = await _cache.GetAsync(cachedKey);
+            if (cached != null)
+            {
+                return Ok(JsonSerializer.Deserialize<CartItem>(cached));
+            }
             var updatedItem = await _cartService.UpdateCartItem(cartItem);
             if (updatedItem == null)
             {
                 return BadRequest("Failed to update cart item.");
             }
+            await _cache.SetStringAsync(cachedKey, JsonSerializer.Serialize(updatedItem), new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
+            });
             return Ok(updatedItem);
         }
 

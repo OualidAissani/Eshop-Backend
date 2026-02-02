@@ -22,6 +22,7 @@ builder.Services.AddControllers().AddJsonOptions(options =>
 builder.Services.AddOpenApi();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<ICartService, CartService>();
+builder.AddRedisDistributedCache("redis");
 
 builder.Services.AddHttpClient();
 builder.Services.AddHttpContextAccessor();

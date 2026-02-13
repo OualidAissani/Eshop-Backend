@@ -6,8 +6,8 @@ namespace Eshop.Catalog.EventsHandler
 {
     public class RetrieveProductPriceConsumer : IConsumer<GetProductRequest>
     {
-        private readonly IProductRepository _ProductService;
-        public RetrieveProductPriceConsumer(IProductRepository productRepository)
+        private readonly IProductService _ProductService;
+        public RetrieveProductPriceConsumer(IProductService productRepository)
         {
             _ProductService= productRepository;
         }

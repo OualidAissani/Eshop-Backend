@@ -11,10 +11,12 @@ namespace Eshop.Inventory.Services
     {
         private readonly IRequestClient<VerifyProductExistence> _Client;
         private readonly InventoryDb _db;
-        public InventoryService(IRequestClient<VerifyProductExistence> Client,InventoryDb db)
+        private readonly ILogger<InventoryService> _logger;
+        public InventoryService(IRequestClient<VerifyProductExistence> Client, InventoryDb db, ILogger<InventoryService> logger)
         {
             _Client = Client;
             _db = db;
+            _logger = logger;
         }
         public async Task<List<Models.Inventory>> GetAllInventories()
         {
@@ -40,9 +42,9 @@ namespace Eshop.Inventory.Services
             await _db.SaveChangesAsync();
             return inventory;
         }
-        public async Task<Models.Inventory> UpdateInventory(int InventoryId,InventoryDto inventoryDto)
+        public async Task<Models.Inventory> UpdateInventory(InventoryDto inventoryDto)
         {
-            var inventory = await _db.Inventories.FindAsync(InventoryId);
+            var inventory = await _db.Inventories.Where(i=>i.ProductId==inventoryDto.ProductId).FirstOrDefaultAsync();
             inventory.Quantity = inventoryDto.Quantity;
             inventory.ProductId = inventoryDto.ProductId;
             _db.Inventories.Update(inventory);
@@ -50,7 +52,7 @@ namespace Eshop.Inventory.Services
 
             return inventory;
         }
-        public async Task<List<Models.Inventory>> UpdatePrice(List<InventoryDto> invDto)
+        public async Task<List<Models.Inventory>> UpdateQuantity(List<InventoryDto> invDto)
         {
             var productIds = invDto.Select(p => p.ProductId).ToList();
             var inventories = await _db
@@ -67,6 +69,7 @@ namespace Eshop.Inventory.Services
                 }
                 else
                 {
+                    _logger.LogError("insufficient ");
                     return null;
                 }
                 

@@ -8,25 +8,30 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Eshop.Catalog.Services
 {
-    public class ProductRepository: IProductRepository
+    public class ProductService: IProductService
     {
         private readonly CatalogDbContext _context;
         private readonly IMediaService _mediaService;
         private readonly IHttpClientFactory _httpClientFactory;
-        private readonly ILogger<ProductRepository> _logger;
+        private readonly ILogger<ProductService> _logger;
         private readonly IConfiguration _configurations;
+        private readonly ICategoryService _categoryService;
 
-        public ProductRepository(
+        public ProductService(
             CatalogDbContext context,
             IMediaService mediaService,
-            ILogger<ProductRepository> logger
+            ILogger<ProductService> logger
 ,
-            IConfiguration configurations)
+            IConfiguration configurations,
+            ICategoryService categoryService,
+            IHttpClientFactory httpClientFactory)
         {
             _context = context;
             _mediaService = mediaService;
             _logger = logger;
             _configurations = configurations;
+            _categoryService = categoryService;
+            _httpClientFactory = httpClientFactory;
         }
         public async Task<List<ProductPriceDto>> GetProductPrice(List<int> ProductId)
         {
@@ -86,7 +91,7 @@ namespace Eshop.Catalog.Services
                 throw new Exception("Failed to update product");
             }
             var httpClient=_httpClientFactory.CreateClient();
-            var response=await httpClient.PutAsJsonAsync($"{_configurations["GatewatUrl"]}/api/Order/Cart", new { ProductId = product.Id, ProductName = product.Title, FullPrice=product.Price});
+            var response=await httpClient.PutAsJsonAsync($"{_configurations["GatewatUrl"]}/api/Cart", new { ProductId = product.Id, ProductName = product.Title, FullPrice=product.Price});
             response.EnsureSuccessStatusCode();
             return product;
         }
@@ -161,9 +166,14 @@ namespace Eshop.Catalog.Services
         {
             paging.Validate();
 
-            var query = _context.Products;
+            var query = _context.Products.AsQueryable();
 
             int total = await query.CountAsync();
+
+            if (paging.LastId.HasValue)
+            {
+                query = query.Where(p => p.Id > paging.LastId.Value);
+            }
 
             var items = await query
                 .Include(i => i.Media)
@@ -171,19 +181,55 @@ namespace Eshop.Catalog.Services
                 .AsSplitQuery()
                 .AsNoTracking()
                 .OrderBy(p => p.Id)
-                .Skip((paging.Page - 1) * paging.PageSize)
-                .Take(paging.PageSize)
+                .Take(paging.PageSize + 1)
                 .ToListAsync();
+
+            int? nextCursor = null;
+            if (items.Count > paging.PageSize)
+            {
+                items.RemoveAt(items.Count - 1);
+                nextCursor = items[^1].Id;
+            }
 
             return new PaginatedResult<Products>
             {
                 Items = items,
-                Page = paging.Page,
                 PageSize = paging.PageSize,
+                NextCursor= nextCursor,
                 Total = total
             };
         }
-        
-       
+
+        public async Task<bool> AssignProductToCategory(int productId, int categoryId,CancellationToken ct)
+        {
+            var product=await _context.Products.Include(p => p.Categories).FirstOrDefaultAsync(p => p.Id == productId);
+
+            if (product == null)
+            {
+                _logger.LogError("Product with id {id} not found", productId);
+                return false;
+            }
+
+            if (product.Categories.Any(i => i.Id == categoryId))
+            {
+                return true;
+            }
+
+            var category = await _context.Categories.FindAsync(new object[] { categoryId }, ct);
+            if (category == null)
+            {
+                _logger.LogError("Category with id {id} not found", categoryId);
+                return false;
+            }
+
+            product.Categories.Add(category);
+
+            if (await _context.SaveChangesAsync(ct) == 0)
+            {
+                return false;
+            }
+            return true;
+
+        }
     }
 }

@@ -9,7 +9,7 @@ using System.Text.Json;
 namespace Eshop.Orders.Controllers
 {
     [Route("api/[controller]")]
-
+    [Authorize]
     public class OrderController : ControllerBase
     {
         private readonly IOrderService _orderService;
@@ -32,22 +32,55 @@ namespace Eshop.Orders.Controllers
         public async Task<IActionResult> GetAllUserOrders()
         {
             var userId = _httpContextAccessor.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            var cacheKey = $"Orders:{userId}:All";
+
+            var cachedData=await _cache.GetAsync(cacheKey);
+
+            if (cachedData != null)
+            {
+                return Ok(JsonSerializer.Deserialize<List<Order>>(cachedData));
+            }
+
             var orders=await _orderService.GetAllUserOrderAsync(userId);
+
             if(orders==null || orders.Count==0)
             {
                 return NotFound();
             }
+
+            await _cache.SetStringAsync(cacheKey,JsonSerializer.Serialize(orders),new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow= TimeSpan.FromMinutes(30)
+            });
+
             return Ok(orders);
         }
 
         [HttpGet("{id}")]
         public async Task<IActionResult> GetOrderById(int id)
         {
+            var cacheKey = $"Order:{id}";
+
+            var cachedData = await _cache.GetAsync(cacheKey);
+
+            if(cachedData != null)
+            {
+                return Ok(JsonSerializer.Deserialize<Order>(cachedData));
+            }
+
             var order = await _orderService.GetOrderById(id);
+
             if (order == null)
             {
                 return NotFound();
             }
+
+            await _cache.SetStringAsync(cacheKey,JsonSerializer.Serialize(order),new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow= TimeSpan.FromMinutes(30)
+            });
+
             return Ok(order);
         }
 
@@ -59,12 +92,18 @@ namespace Eshop.Orders.Controllers
             {
                 return BadRequest("Idempotency Key is required");
             }
-            var cacheKey = $"Idempotency:Order:Create";
+
+            var cacheKey = $"Idempotency:Order:Create:{key}";
+
             var cached=await _cache.GetAsync(cacheKey);
+
             if(cached != null)
             {
                 return CreatedAtAction(nameof(GetOrderById), new { id = JsonSerializer.Deserialize<Order>(cached)?.Id }, JsonSerializer.Deserialize<Order>(cached) ?? null);
             }
+
+            var userId= _httpContextAccessor.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
+            order.UserId = userId;
             var createdOrder = await _orderService.CreateOrder(order);
 
             if(createdOrder == null)
@@ -97,6 +136,37 @@ namespace Eshop.Orders.Controllers
             }
 
             return NoContent();
+        }
+
+        [HttpPost("OrderCart/{cartId}")]
+        public async Task<IActionResult> OrderCart(int cartId, [FromHeader(Name ="x_Idempotency_Key")] string key)
+        {
+            if (key == null)
+            {
+                return BadRequest("Idempotency Key is required");
+            }
+
+            var cacheKey = $"Idempotency:Order:OrderCart";
+
+            var cached = await _cache.GetAsync(cacheKey);
+            if (cached != null)
+            {
+                return Ok(JsonSerializer.Deserialize<Order>(cached));
+            }
+            if (cartId <= 0)
+            {
+                return BadRequest("Invalid cart ID.");
+            }
+            var order=await _orderService.OrderCart(cartId);
+            if(order == null)
+            {
+                return BadRequest("We having a problem processing your request.");
+            }
+            await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(cached), new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10)
+            });
+            return Ok(order);
         }
     }
 }

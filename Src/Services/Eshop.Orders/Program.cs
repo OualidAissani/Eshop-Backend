@@ -26,6 +26,7 @@ builder.AddRedisDistributedCache("redis");
 
 builder.Services.AddHttpClient();
 builder.Services.AddHttpContextAccessor();
+
 var inventoryApiUrl = builder.Configuration["InventoryBaseUrl"];
 builder.Services.AddRefitClient<IUpdateInventory>()
     .ConfigureHttpClient(c => c.BaseAddress = new Uri(inventoryApiUrl));

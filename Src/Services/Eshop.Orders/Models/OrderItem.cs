@@ -1,4 +1,6 @@
-﻿namespace Eshop.Orders.Models
+﻿using System.Text.Json.Serialization;
+
+namespace Eshop.Orders.Models
 {
     public class OrderItem
     {
@@ -17,7 +19,7 @@
         public int InventoryId { get; set; }
 
         public int OrderId { get; set; }
-
+        [JsonIgnore]
         public Order Order { get; set; }
     }
 }

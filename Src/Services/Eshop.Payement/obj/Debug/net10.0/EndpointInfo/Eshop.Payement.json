@@ -1,0 +1,162 @@
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "Eshop.Payement | v1",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://localhost:64211"
+    },
+    {
+      "url": "http://localhost:64212"
+    }
+  ],
+  "paths": {
+    "/api/Payement/AccessToken": {
+      "post": {
+        "tags": [
+          "Payement"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Payement/order": {
+      "post": {
+        "tags": [
+          "Payement"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOrder"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOrder"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOrder"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Payement/Webhook": {
+      "post": {
+        "tags": [
+          "Payement"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Payement/Return": {
+      "post": {
+        "tags": [
+          "Payement"
+        ],
+        "parameters": [
+          {
+            "name": "PayerID",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AmountDto": {
+        "type": "object",
+        "properties": {
+          "currency_code": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateOrder": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItemsDto"
+            }
+          },
+          "amount": {
+            "$ref": "#/components/schemas/AmountDto"
+          }
+        }
+      },
+      "ItemsDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "unit_amount": {
+            "$ref": "#/components/schemas/AmountDto"
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Payement"
+    }
+  ]
+}

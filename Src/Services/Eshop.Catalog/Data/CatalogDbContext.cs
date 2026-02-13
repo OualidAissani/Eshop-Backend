@@ -23,6 +23,15 @@ namespace Eshop.Catalog.Data
                 .HasForeignKey(p => p.ProductId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            modelBuilder.Entity<Models.Products>()
+                .HasIndex(p => p.Title)
+                .IsUnique();
+
+            modelBuilder.Entity<Models.Categories>()
+                .HasIndex(c => c.Title)
+                .IsUnique();
+
+
 
         }
         public DbSet<Products> Products { get; set; }

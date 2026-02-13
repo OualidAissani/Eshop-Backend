@@ -83,12 +83,18 @@ public record ProductStockResponse
 
 
 
+public record ReductInventoryQuantityFromAnOrder(
+    List<InventoryUpdateDto> Products
+);
 
 
 
 
 
-
-
+public class InventoryUpdateDto
+{
+    public int ProductId { get; set; }
+    public int Quantity { get; set; }
+}
 
 

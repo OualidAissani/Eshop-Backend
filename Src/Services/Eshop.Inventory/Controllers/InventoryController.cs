@@ -10,6 +10,7 @@ using System.Text.Json;
 
 namespace Eshop.Inventory.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class InventoryController : ControllerBase
@@ -24,17 +25,37 @@ namespace Eshop.Inventory.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAllInventories()
         {
+            var cacheKey="Inventories:All";
+            var cached = await _cache.GetAsync(cacheKey);
+            if(cached != null)
+            {
+                return Ok(JsonSerializer.Deserialize<List<Models.Inventory>>(cached));
+            }
             var inventories = await _inventoryService.GetAllInventories();
+            await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(inventories), new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5)
+            });
             return Ok(inventories);
         }
         [HttpGet("{id}")]
         public async Task<IActionResult> GetInventoryById(int id)
         {
+            var cacheKey = $"Inventory:{id}";
+            var cached = await _cache.GetAsync(cacheKey);
+            if(cached != null)
+            {
+                return Ok(JsonSerializer.Deserialize<Models.Inventory>(cached));
+            }
             var inventory = await _inventoryService.GetInventoryById(id);
             if (inventory == null)
             {
                 return NotFound();
             }
+            await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(inventory), new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
+            });
             return Ok(inventory);
         }
         [Authorize]
@@ -73,8 +94,8 @@ namespace Eshop.Inventory.Controllers
             }
             return NoContent();
         }
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateInventory(int id, [FromBody] InventoryDto inventoryDto,[FromHeader(Name = "x_Idempotency_Key")] string key)
+        [HttpPut]
+        public async Task<IActionResult> UpdateInventory([FromBody] InventoryDto inventoryDto,[FromHeader(Name = "x_Idempotency_Key")] string key)
         {
             if (key == null)
             {
@@ -86,7 +107,7 @@ namespace Eshop.Inventory.Controllers
             {
                 return Ok(JsonSerializer.Deserialize<Models.Inventory>(cached));
             }
-            var result = await _inventoryService.UpdateInventory(id,inventoryDto);
+            var result = await _inventoryService.UpdateInventory(inventoryDto);
             if (result == null)
             {
                 return BadRequest("Inventory not found");
@@ -97,9 +118,9 @@ namespace Eshop.Inventory.Controllers
             });
             return Ok(result);
         }
-        [HttpPut("UpdatePrice")]
+        [HttpPut("UpdateQuantity")]
         //Change later
-        public async Task<IActionResult> UpdatePrice([FromBody] List<InventoryDto> invDto, [FromHeader(Name = "x_Idempotency_Key")] string key)
+        public async Task<IActionResult> UpdateQuantity([FromBody] List<InventoryDto> invDto, [FromHeader(Name = "x_Idempotency_Key")] string key)
         {
             if(key == null)
             {
@@ -112,7 +133,7 @@ namespace Eshop.Inventory.Controllers
             {
                 return Ok(JsonSerializer.Deserialize<List<Models.Inventory>>(cached));
             }
-            var result = await _inventoryService.UpdatePrice(invDto);
+            var result = await _inventoryService.UpdateQuantity(invDto);
             if (result == null)
             {
                 return BadRequest("No Change Happened");

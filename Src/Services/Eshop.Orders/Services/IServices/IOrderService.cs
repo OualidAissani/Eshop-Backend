@@ -12,6 +12,8 @@ namespace Eshop.Orders.Services.IServices
 
         Task<Order> CreateOrder(OrderDto order);
 
+        Task<Order> OrderCart(int cartId);
+
         Task<Order> UpdateOrder(OrderDto order);
 
         Task<bool> DeleteOrder(int orderId);

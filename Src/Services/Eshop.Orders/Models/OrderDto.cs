@@ -5,7 +5,7 @@
         required public List<OrderItemDto> Products { get; set; }
 
         // client user id
-        required public string UserId { get; set; }
+         public string? UserId { get; set; }
     }
 
 }

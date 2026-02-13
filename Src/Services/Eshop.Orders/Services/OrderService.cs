@@ -7,26 +7,35 @@ using MassTransit;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
+using System.Net.Http.Headers;
 namespace Eshop.Orders.Services
 {
-    public class OrderService:IOrderService
+    public class OrderService : IOrderService
     {
         private readonly OrderDbContext _context;
         private readonly IRequestClient<GetProductRequest> _client;
         private readonly IRequestClient<ProductInventoryAvailibityForOrderRequest> _client2;
-        private readonly IUpdateInventory _updateInventory;
-
+        //private readonly IUpdateInventory _updateInventory;
+        private readonly ICartService _cartService;
+        private readonly IConfiguration _configuration;
+        private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly HttpClient _httpClient;
+        private readonly IPublishEndpoint _publishEndpoint;
 
-        public OrderService(OrderDbContext context,IRequestClient<GetProductRequest> client,
+        public OrderService(OrderDbContext context, IRequestClient<GetProductRequest> client,
             HttpClient httpClient,
-            IRequestClient<ProductInventoryAvailibityForOrderRequest> client2,IUpdateInventory updateInventory)
+            IRequestClient<ProductInventoryAvailibityForOrderRequest> client2/*, IUpdateInventory updateInventory*/,
+            ICartService cartService, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, IPublishEndpoint publishEndpoint)
         {
             _context = context;
             _client = client;
             _httpClient = httpClient;
             _client2 = client2;
-            _updateInventory = updateInventory;
+            //_updateInventory = updateInventory;
+            _cartService = cartService;
+            _configuration = configuration;
+            _httpContextAccessor = httpContextAccessor;
+            _publishEndpoint = publishEndpoint;
         }
         public async Task<List<Order>> GetAllOrders()
         {
@@ -73,6 +82,7 @@ namespace Eshop.Orders.Services
                                 {
                                     ProductId = p.ProductId,
                                     Quantity = p.Quantity,
+                                    ProductName="placeholder", 
                                     UnitPrice = pricesDict[p.ProductId],
                                     FullPrice = pricesDict[p.ProductId] * p.Quantity,
                                     InventoryId = inventoryDict[p.ProductId].InventoryId
@@ -83,6 +93,11 @@ namespace Eshop.Orders.Services
             {
                 OrderItems = orderItems,
                 UserId = order.UserId,
+                OrderNumber= Guid.NewGuid().ToString(),
+                ShippingAddress="placeholder",
+                ShippedAt=DateTime.UtcNow.AddDays(1),//PLACEHOLDER
+                DeliveredAt=DateTime.UtcNow.AddMonths(1),//PLACEHOLDER
+                PayementMethod=Data.Enums.PayementMethods.CashOnDelivery,
                 TotalPrice = orderItems.Sum(i => i.FullPrice)
             };
 
@@ -95,18 +110,29 @@ namespace Eshop.Orders.Services
         {
             // Update inventory
             var inventoryUpdates = orderItems
-                .Select(i => new InventoryUpdateDto { ProductId = i.ProductId, Quantity = i.Quantity })
+                .Select(i => new Events.InventoryUpdateDto { ProductId = i.ProductId, Quantity = i.Quantity })
                 .ToList();
 
-            var response = await _updateInventory.UpdateInventory(inventoryUpdates);
-            await response.EnsureSuccessStatusCodeAsync();
+            //var request = new HttpRequestMessage(HttpMethod.Put, $"{_configuration["InventoryBaseUrl"]}/UpdateQuantity");
+            //var request = new HttpRequestMessage(HttpMethod.Put, $"{_configuration["GatewayUrl"]}/api/Inventory/UpdateQuantity");
+
+            //var token = this._httpContextAccessor.HttpContext?.Request.Headers["Authorization"].ToString();
+            //token = token.Substring("Bearer ".Length).Trim();
+            //request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            //request.Content = JsonContent.Create(inventoryUpdates);
+            //var response = await _httpClient.SendAsync(request);
+            //var responseContent=response.Content.ReadAsStringAsync();
+            //response.EnsureSuccessStatusCode();
+
+           await _publishEndpoint.Publish(new ReductInventoryQuantityFromAnOrder ( inventoryUpdates ));
+
         }
 
         private async Task<(Dictionary<int, ProductInventoryItem> inventoryDict, Dictionary<int, decimal> pricesDict)> OrderValidations(OrderDto order)
         {
             if (order == null)
                 throw new ArgumentNullException(nameof(order));
-            if(order.Products == null || !order.Products.Any())
+            if (order.Products == null || !order.Products.Any())
                 throw new ArgumentException("Order must contain at least one product.");
 
             var productIds = order.Products.Select(p => p.ProductId).ToList();
@@ -131,9 +157,7 @@ namespace Eshop.Orders.Services
 
             if (unavailable.Any())
             {
-                Result.Fail(
-                   $"Products unavailable: {string.Join(", ", unavailable)}"
-               );
+
                 throw new Exception($"Products unavailable: {string.Join(", ", unavailable)}");
             }
 
@@ -156,12 +180,47 @@ namespace Eshop.Orders.Services
 
         public Task<Order> UpdateOrder(OrderDto order)
         {
-            if(order == null || order.Products == null || !order.Products.Any())
+            if (order == null || order.Products == null || !order.Products.Any())
             {
                 return null;
             }
 
             throw new NotImplementedException();
+        }
+
+        public async Task<Order> OrderCart(int cartId)
+        {
+            if (cartId <= 0)
+            {
+                throw new ArgumentException("Invalid cart ID.");
+            }
+            var cartitem = await _cartService.GetAllCartItems(cartId);
+            if (cartitem == null)
+            {
+                return null;
+            }
+            var orderDto = new OrderDto
+            {
+                UserId = cartitem.First().Cart.UserId,
+                Products = cartitem.Select(ci => new OrderItemDto
+                {
+                    ProductId = ci.ProductId,
+                    Quantity = ci.Quantity
+                }).ToList()
+            };
+            (Dictionary<int, ProductInventoryItem> inventoryDict, Dictionary<int, decimal> pricesDict) = await OrderValidations(orderDto);
+            try
+            {
+                (List<OrderItem> orderItems, Order newOrder) = await SaveOrders(orderDto, inventoryDict, pricesDict);
+                await ReductOrderedInventory(orderItems);
+                await _cartService.ClearCart(cartId);
+                return newOrder;
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Order creation failed: {ex.Message}", ex);
+
+            }
         }
     }
 }

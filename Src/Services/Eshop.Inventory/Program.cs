@@ -49,6 +49,7 @@ builder.Services.AddMassTransit(x =>
 {
     x.AddConsumer<ProductInventoryQuanityConsumer>();
     x.AddConsumer<ProductStockConsumer>();
+    x.AddConsumer<ReductInventoryQuantityFromAnOrderConsumer>();
     x.UsingRabbitMq((context, cfg) =>
     {
         cfg.Host(builder.Configuration.GetConnectionString("Rabbitmq"));

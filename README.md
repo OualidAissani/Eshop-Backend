@@ -58,8 +58,12 @@ The system uses a microservices pattern with service-to-service communication vi
 },
 "GatewayUrl": "https://localhost:7194"
 
-// Order Service
-"InventoryBaseUrl": "https://localhost:7194/api/Inventory"
+// Payment Service
+"Paypal": {
+  "WebhookId": "",
+  "ClientId": "",
+  "SecretKey": ""
+}
  ```
 
 3. Start all services using the AppHost project:

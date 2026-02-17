@@ -8,9 +8,11 @@ namespace Eshop.Inventory.Handler
     public class ReductInventoryQuantityFromAnOrderConsumer : IConsumer<ReductInventoryQuantityFromAnOrder>
     {
         private readonly InventoryDb _db;
-        public ReductInventoryQuantityFromAnOrderConsumer(InventoryDb inventoryDb)
+        private readonly IPublishEndpoint _publishEndpoint;
+        public ReductInventoryQuantityFromAnOrderConsumer(InventoryDb inventoryDb, IPublishEndpoint publishEndpoint)
         {
-            _db = inventoryDb;  
+            _db = inventoryDb;
+            _publishEndpoint = publishEndpoint;
         }
         public async Task Consume(ConsumeContext<ReductInventoryQuantityFromAnOrder> context)
         {
@@ -36,7 +38,11 @@ namespace Eshop.Inventory.Handler
 
             }
 
-            await _db.SaveChangesAsync();
+            if(await _db.SaveChangesAsync() == 0)
+            {
+                await _publishEndpoint.Publish(new OrderFailed { CorrelationId= message.CorrelationId });
+            }
+            await _publishEndpoint.Publish(new InventoryReserved { CorrelationId= message.CorrelationId });
 
         }
     }

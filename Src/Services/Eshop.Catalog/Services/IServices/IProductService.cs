@@ -7,19 +7,19 @@ namespace Eshop.Catalog.Services.IServices
     {
         Task<List<ProductPriceDto>> GetProductPrice(List<int> ProductId);
 
-        Task<dynamic> CreateProduct(ProductCreateDto product);
+        Task<dynamic> CreateProduct(ProductCreateDto product,CancellationToken ct);
 
-        Task<Products> UpdateProduct(Products product, Stream mediafile, string contentType, string filename);
+        Task<ProductDto> UpdateProduct(Products product, Stream mediafile, string contentType, string filename, CancellationToken ct);
 
-        Task<bool> DeleteProduct(int productId);
+        Task<bool> DeleteProduct(int productId,CancellationToken ct);
 
-        Task<Products> GetProductById(int productId);
+        Task<ProductDto> GetProductById(int productId);
 
-        Task<PaginatedResult<Products>> GetProductsAsync(PaginationParams paging);
+        Task<PaginatedResult<ProductDto>> GetProductsAsync(PaginationParams paging);
 
-        Task<List<Products>> GetAllProducts();
+        Task<List<ProductDto>> GetAllProducts();
 
-        Task<List<Products>> GetProductsByCategory(int categoryId);
+        Task<List<ProductDto>> GetProductsByCategory(int categoryId);
 
         Task<bool> AssignProductToCategory(int productId, int categoryId, CancellationToken ct);
 

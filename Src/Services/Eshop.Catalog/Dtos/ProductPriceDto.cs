@@ -1,4 +1,4 @@
-﻿namespace Eshop.Catalog.Models
+﻿namespace Eshop.Catalog.Dtos
 {
     public class ProductPriceDto
     {

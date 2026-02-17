@@ -2,6 +2,7 @@
 using Eshop.Catalog.Dtos;
 using Eshop.Catalog.Models;
 using Eshop.Catalog.Services.IServices;
+using Eshop.Events;
 using MassTransit;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
@@ -12,26 +13,21 @@ namespace Eshop.Catalog.Services
     {
         private readonly CatalogDbContext _context;
         private readonly IMediaService _mediaService;
-        private readonly IHttpClientFactory _httpClientFactory;
         private readonly ILogger<ProductService> _logger;
-        private readonly IConfiguration _configurations;
-        private readonly ICategoryService _categoryService;
+        private readonly IPublishEndpoint _publish;
 
         public ProductService(
             CatalogDbContext context,
             IMediaService mediaService,
-            ILogger<ProductService> logger
-,
+            ILogger<ProductService> logger,
             IConfiguration configurations,
-            ICategoryService categoryService,
-            IHttpClientFactory httpClientFactory)
+            IHttpClientFactory httpClientFactory,
+            IPublishEndpoint publish)
         {
             _context = context;
             _mediaService = mediaService;
             _logger = logger;
-            _configurations = configurations;
-            _categoryService = categoryService;
-            _httpClientFactory = httpClientFactory;
+            _publish = publish;
         }
         public async Task<List<ProductPriceDto>> GetProductPrice(List<int> ProductId)
         {
@@ -46,7 +42,7 @@ namespace Eshop.Catalog.Services
                 .ToListAsync();
         }
 
-        public async Task<dynamic> CreateProduct(ProductCreateDto product)
+        public async Task<dynamic> CreateProduct(ProductCreateDto product,CancellationToken ct)
         {
             var strategy = _context.Database.CreateExecutionStrategy();
 
@@ -67,13 +63,13 @@ namespace Eshop.Catalog.Services
                     productobj.Categories = categories;
                 }
                 _context.Products.Add(productobj);
-                var result = await _context.SaveChangesAsync();
+                var result = await _context.SaveChangesAsync(ct);
 
                 return new { productobj.Id, productobj.Description };
             });
         }
         
-        public async Task<Products> UpdateProduct(Products product,Stream mediafile,string contentType,string filename)
+        public async Task<ProductDto> UpdateProduct(Products product,Stream mediafile,string contentType,string filename,CancellationToken ct)
         {
             if (mediafile != null)
             {
@@ -82,21 +78,31 @@ namespace Eshop.Catalog.Services
                     ProductId = product.Id,
                     Description = product.Description,
                 };
-                await _mediaService.CreateMedia(media,mediafile, contentType, filename);
+                await _mediaService.CreateMedia(media,mediafile, contentType, filename,ct);
             }
             _context.Products.Update(product);
-            var result=await _context.SaveChangesAsync();
+
+            var result=await _context.SaveChangesAsync(ct);
+
             if(result<=0)
             {
                 throw new Exception("Failed to update product");
             }
-            var httpClient=_httpClientFactory.CreateClient();
-            var response=await httpClient.PutAsJsonAsync($"{_configurations["GatewatUrl"]}/api/Cart", new { ProductId = product.Id, ProductName = product.Title, FullPrice=product.Price});
-            response.EnsureSuccessStatusCode();
-            return product;
+            
+            await _publish.Publish(new UpdateCartProduct(product.Id, product.Title, product.Price));
+
+            return new ProductDto()
+            {
+                Id = product.Id,
+                Description = product.Description,
+                Title = product.Title,
+                Price = product.Price,
+                Categories = product.Categories.Select(c => new CategoryDto { Id = c.Id, Name = c.Title, Description = c.Description }).ToList(),
+                Media = product.Media.Select(c => new MediaDto { MediaUrl = c.Media }).ToList()
+            };
         }
         
-        public async Task<bool> DeleteProduct(int productId)
+        public async Task<bool> DeleteProduct(int productId, CancellationToken ct)
         {
             var strategy = _context.Database.CreateExecutionStrategy();
 
@@ -107,42 +113,68 @@ namespace Eshop.Catalog.Services
                 {
                     return false;
                 }
-                var media = await Task.WhenAll(product.Media.Select(s => _mediaService.DeleteMedia(s.Media)));
+                var media = await Task.WhenAll(product.Media.Select(s => _mediaService.DeleteMedia(s.Media,ct)));
                 _context.Products.Remove(product);
 
-                var result = await _context.SaveChangesAsync();
+                var result = await _context.SaveChangesAsync(ct);
                 return true;
             });
         }
         
-        public async Task<Products> GetProductById(int productId)
+        public async Task<ProductDto> GetProductById(int productId)
         {
             return await _context.Products
-                .Include(i=>i.Media)
-                .Include(c=>c.Categories)
-                .AsSplitQuery()
-                .AsNoTracking()
+                .Select(i => new ProductDto
+                {
+                    Id = i.Id,
+                    Title = i.Title,
+                    Status = i.Status,
+                    SpecialStatus = i.SpecialStatus,
+                    Description = i.Description,
+                    DisplayOrder = i.DisplayOrder,
+                    Price = i.Price,
+                    Media = i.Media.Select(m => new MediaDto { MediaUrl = m.Media }).ToList(),
+                    Categories = i.Categories.Select(c => new CategoryDto { Id = c.Id, Description = c.Description, Name = c.Title }).ToList()
+
+                })
                 .FirstOrDefaultAsync(p => p.Id == productId);
         }
         
-        public async Task<List<Products>> GetAllProducts()
+        public async Task<List<ProductDto>> GetAllProducts()
         {
             return await _context.Products
-                .Include(i => i.Media)
-                .Include(c => c.Categories)
-                .AsSplitQuery()
-                .AsNoTracking()
+                .Select(i => new ProductDto
+                {
+                    Id = i.Id,
+                    Title = i.Title,
+                    Status = i.Status,
+                    SpecialStatus = i.SpecialStatus,
+                    Description = i.Description,
+                    DisplayOrder = i.DisplayOrder,
+                    Price = i.Price,
+                    Media = i.Media.Select(m => new MediaDto { MediaUrl = m.Media }).ToList(),
+                    Categories = i.Categories.Select(c => new CategoryDto { Id = c.Id, Description = c.Description, Name = c.Title }).ToList()
+
+                })
                 .OrderBy(d => d.DisplayOrder == null ? d.Id : d.DisplayOrder)
                 .ToListAsync();            
         }
         
-        public async Task<List<Products>> GetProductsByCategory(int categoryId)
+        public async Task<List<ProductDto>> GetProductsByCategory(int categoryId)
         {
-            return await _context.Products
-                .Include(i => i.Media)
-                .Include(c => c.Categories)
-                .AsSplitQuery()
-                .AsNoTracking()
+            return await _context.Products.Select(i => new ProductDto
+            {
+                Id = i.Id,
+                Title = i.Title,
+                Status = i.Status,
+                SpecialStatus = i.SpecialStatus,
+                Description = i.Description,
+                DisplayOrder = i.DisplayOrder,
+                Price = i.Price,
+                Media = i.Media.Select(m => new MediaDto { MediaUrl = m.Media }).ToList(),
+                Categories = i.Categories.Select(c => new CategoryDto { Id = c.Id, Description = c.Description, Name = c.Title }).ToList()
+
+            })
                 .Where(c => c.Categories.Any(cat => cat.Id == categoryId))
                 .OrderBy(d => d.DisplayOrder == null ? d.Id : d.DisplayOrder)
                 .ToListAsync();
@@ -162,7 +194,7 @@ namespace Eshop.Catalog.Services
                 .ToListAsync();
         }
 
-        public async Task<PaginatedResult<Products>> GetProductsAsync(PaginationParams paging)
+        public async Task<PaginatedResult<ProductDto>> GetProductsAsync(PaginationParams paging)
         {
             paging.Validate();
 
@@ -175,14 +207,22 @@ namespace Eshop.Catalog.Services
                 query = query.Where(p => p.Id > paging.LastId.Value);
             }
 
-            var items = await query
-                .Include(i => i.Media)
-                .Include(c => c.Categories)
-                .AsSplitQuery()
-                .AsNoTracking()
-                .OrderBy(p => p.Id)
-                .Take(paging.PageSize + 1)
-                .ToListAsync();
+            var items = await query.Select(i => new ProductDto
+            {
+               Id=i.Id,
+               Title= i.Title,
+               Status= i.Status,
+               SpecialStatus= i.SpecialStatus,
+               Description= i.Description,
+               DisplayOrder= i.DisplayOrder,
+               Price= i.Price,
+               Media= i.Media.Select(m => new MediaDto {MediaUrl=m.Media}).ToList(),
+               Categories=i.Categories.Select(c=> new CategoryDto {Id=c.Id,Description=c.Description,Name=c.Title }).ToList()
+
+            })
+            .OrderBy(p=>p.Id)
+            .Take(paging.PageSize+1)
+            .ToListAsync();
 
             int? nextCursor = null;
             if (items.Count > paging.PageSize)
@@ -191,7 +231,7 @@ namespace Eshop.Catalog.Services
                 nextCursor = items[^1].Id;
             }
 
-            return new PaginatedResult<Products>
+            return new PaginatedResult<ProductDto>
             {
                 Items = items,
                 PageSize = paging.PageSize,

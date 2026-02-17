@@ -5,6 +5,7 @@ using Hangfire;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Net.Http.Headers;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.Unicode;
@@ -43,10 +44,10 @@ namespace Eshop.Payement.Services
 
             response.EnsureSuccessStatusCode();
 
-            var responseContent = await response.Content.ReadAsStringAsync();
-            var orderResponse = JsonSerializer.Deserialize<JsonElement>(responseContent);
+            await using var responseContent = await response.Content.ReadAsStreamAsync();
+             using var orderResponse = await JsonDocument.ParseAsync(responseContent);
 
-            return orderResponse.GetProperty("links")
+            return orderResponse.RootElement.GetProperty("links")
                 .EnumerateArray()
                 .FirstOrDefault(l => l.GetProperty("rel").GetString() == "payer-action")
                 .GetProperty("href")
@@ -116,10 +117,10 @@ namespace Eshop.Payement.Services
             var response = await client.SendAsync(request);
             response.EnsureSuccessStatusCode();
 
-            var responseBody = await response.Content.ReadAsStringAsync();
+           await using var responseBody = await response.Content.ReadAsStreamAsync();
 
-            var tokenResponse = JsonSerializer.Deserialize<JsonElement>(responseBody);
-            return tokenResponse.GetProperty("access_token").GetString();
+            using var tokenResponse = await JsonDocument.ParseAsync(responseBody);
+            return tokenResponse.RootElement.GetProperty("access_token").GetString();
         }
 
         public async Task<JsonElement> GetOrderDetails(string orderId)
@@ -136,9 +137,9 @@ namespace Eshop.Payement.Services
 
             var CheckingResponse = await client.SendAsync(ChekcOrderRequest);
 
-            var CheckingResponseContent = await CheckingResponse.Content.ReadAsStringAsync();
+            await using var CheckingResponseContent = await CheckingResponse.Content.ReadAsStreamAsync();
 
-            return JsonSerializer.Deserialize<JsonElement>(CheckingResponseContent);
+            return await JsonSerializer.DeserializeAsync<JsonElement>(CheckingResponseContent);
         }
 
         public async Task<object> RefundPayment(string captureId, AmountDto? amount,string userId)
@@ -167,7 +168,7 @@ namespace Eshop.Payement.Services
 
             var response = await client.SendAsync(request);
 
-            var responseContent = await response.Content.ReadAsStringAsync();
+            await using var responseContent = await response.Content.ReadAsStreamAsync();
 
             var DeserializedResponse = JsonSerializer.Deserialize<JsonElement>(responseContent);
             var status=DeserializedResponse.GetProperty("status").GetString();
@@ -214,7 +215,7 @@ namespace Eshop.Payement.Services
 
             var CheckingResponse = await client.SendAsync(ChekcOrderRequest);
 
-            var CheckingResponseContent = await CheckingResponse.Content.ReadAsStringAsync();
+            await using var CheckingResponseContent = await CheckingResponse.Content.ReadAsStreamAsync();
             var Orderstatus = JsonSerializer.Deserialize<JsonElement>(CheckingResponseContent).GetProperty("status").GetString();
             if (!CheckingResponse.IsSuccessStatusCode||Orderstatus!= "APPROVED")
             {
@@ -228,7 +229,7 @@ namespace Eshop.Payement.Services
 
             var response = await client.SendAsync(request);
 
-            var responseContent = await response.Content.ReadAsStringAsync();
+            await using var responseContent = await response.Content.ReadAsStreamAsync();
 
             if (!response.IsSuccessStatusCode)
             {
@@ -238,9 +239,10 @@ namespace Eshop.Payement.Services
                 _log.LogError("PayPal body: " + responseContent);
                 return 0;
             }
-            var DeserializedResponse = JsonSerializer.Deserialize<JsonElement>(responseContent);
+            using var deserializedResponse=await JsonDocument.ParseAsync(responseContent);
 
-            var status=DeserializedResponse.GetProperty("purchase_units").EnumerateArray()
+
+            var status=deserializedResponse.RootElement.GetProperty("purchase_units").EnumerateArray()
                 .FirstOrDefault().GetProperty("payments").GetProperty("captures")
                 .EnumerateArray().FirstOrDefault().GetProperty("status").GetString();
 
@@ -249,11 +251,11 @@ namespace Eshop.Payement.Services
 
                 var CompletedOrder = new Models.Payment()
             {
-                CaptureId=DeserializedResponse.GetProperty("purchase_units").EnumerateArray().FirstOrDefault().GetProperty("payments").GetProperty("captures")
+                CaptureId=deserializedResponse.RootElement.GetProperty("purchase_units").EnumerateArray().FirstOrDefault().GetProperty("payments").GetProperty("captures")
                                     .EnumerateArray().FirstOrDefault().GetProperty("id").GetString(),
                 OrderId = orderId,
                 Status = Status.Captured,
-                Amount = decimal.Parse(DeserializedResponse.GetProperty("purchase_units").EnumerateArray().FirstOrDefault().GetProperty("payments").GetProperty("captures")
+                Amount = decimal.Parse(deserializedResponse.RootElement.GetProperty("purchase_units").EnumerateArray().FirstOrDefault().GetProperty("payments").GetProperty("captures")
                 .EnumerateArray().FirstOrDefault().GetProperty("amount").GetProperty("value").GetString()),
                 CapturedAt = DateTime.UtcNow,
                 UserId=userId

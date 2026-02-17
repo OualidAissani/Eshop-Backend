@@ -1,15 +1,13 @@
 ﻿using Eshop.Events;
 using Eshop.Orders.Data;
 using Eshop.Orders.EventHandler;
+using Eshop.Orders.Sagas;
 using Eshop.Orders.Services;
 using Eshop.Orders.Services.IServices;
 using MassTransit;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
-using Refit;
-using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
@@ -20,25 +18,35 @@ builder.Services.AddControllers().AddJsonOptions(options =>
     options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
 });
 builder.Services.AddOpenApi();
+
 builder.Services.AddScoped<IOrderService, OrderService>();
+
 builder.Services.AddScoped<ICartService, CartService>();
+
 builder.AddRedisDistributedCache("redis");
 
 builder.Services.AddHttpClient();
 builder.Services.AddHttpContextAccessor();
 
-var inventoryApiUrl = builder.Configuration["InventoryBaseUrl"];
-builder.Services.AddRefitClient<IUpdateInventory>()
-    .ConfigureHttpClient(c => c.BaseAddress = new Uri(inventoryApiUrl));
-
 builder.Services.AddMassTransit(o =>
 {
-       o.AddConsumer<OrderProductsEvent>();
 
-       o.AddRequestClient<ProductExistRequest>(new Uri("queue:check-product-existence"));
-       o.AddRequestClient<GetProductRequest>(new Uri("queue:get-product-request"));
-       o.AddRequestClient<ProductInventoryAvailibityForOrderRequest>(new Uri("queue:product-inventory-availability"));
+    o.AddSagaStateMachine<OrderStateMachineSaga, OrderState>()
+   .EntityFrameworkRepository(r =>
+   {
+       r.ExistingDbContext<OrderDbContext>();
+       r.UsePostgres();
+   });
+
+
+    o.AddConsumer<OrderProductsEvent>();
+    o.AddConsumer<UpdateCartProductConsumer>();
+    o.AddRequestClient<ProductExistRequest>(new Uri("queue:check-product-existence"));
+    o.AddRequestClient<GetProductRequest>(new Uri("queue:get-product-request"));
+    o.AddRequestClient<ProductInventoryAvailibityForOrderRequest>(new Uri("queue:product-inventory-availability"));
     o.AddRequestClient<ProductStockRequest>(new Uri("queue:product-stock-request"));
+
+   
     o.UsingRabbitMq((context, cfg) =>
     {
         cfg.Host(builder.Configuration.GetConnectionString("Rabbitmq"));

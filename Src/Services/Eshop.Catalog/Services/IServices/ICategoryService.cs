@@ -1,4 +1,5 @@
-﻿using Eshop.Catalog.Models;
+﻿using Eshop.Catalog.Dtos;
+using Eshop.Catalog.Models;
 using System;
 using System.Collections.Generic;
 using System.Threading;

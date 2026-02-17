@@ -83,9 +83,11 @@ public record ProductStockResponse
 
 
 
-public record ReductInventoryQuantityFromAnOrder(
-    List<InventoryUpdateDto> Products
-);
+public record ReductInventoryQuantityFromAnOrder
+{
+    public Guid CorrelationId { get; set; }
+    public List<InventoryUpdateDto> Products { get; set; }
+}
 
 
 

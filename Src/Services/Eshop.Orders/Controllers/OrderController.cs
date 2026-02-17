@@ -86,7 +86,7 @@ namespace Eshop.Orders.Controllers
 
         [Authorize]
         [HttpPost]
-        public async Task<IActionResult> CreateOrder([FromBody] OrderDto order, [FromHeader(Name = "x_Idempotency_Key")] string key)
+        public async Task<IActionResult> CreateOrder([FromBody] OrderDto order, [FromHeader(Name = "x_Idempotency_Key")] string key,CancellationToken ct)
         {
             if(key== null)
             {
@@ -104,7 +104,7 @@ namespace Eshop.Orders.Controllers
 
             var userId= _httpContextAccessor.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
             order.UserId = userId;
-            var createdOrder = await _orderService.CreateOrder(order);
+            var createdOrder = await _orderService.CreateOrder(order,ct);
 
             if(createdOrder == null)
             {
@@ -120,15 +120,15 @@ namespace Eshop.Orders.Controllers
 
         [Authorize]
         [HttpPut]
-        public async Task<IActionResult> UpdateOrder(int id, [FromBody] OrderDto order, [FromHeader(Name = "x_Idempotency_Key")] string key)
+        public async Task<IActionResult> UpdateOrder(int id, [FromBody] OrderDto order, [FromHeader(Name = "x_Idempotency_Key")] string key,CancellationToken ct)
         {
             
             return NoContent();
         }
         [HttpDelete]
-        public async Task<IActionResult> DeleteOrder(int id)
+        public async Task<IActionResult> DeleteOrder(int id,CancellationToken ct)
         {
-            var deleteResult=await _orderService.DeleteOrder(id);
+            var deleteResult=await _orderService.DeleteOrder(id,ct);
 
             if(!deleteResult)
             {
@@ -138,35 +138,35 @@ namespace Eshop.Orders.Controllers
             return NoContent();
         }
 
-        [HttpPost("OrderCart/{cartId}")]
-        public async Task<IActionResult> OrderCart(int cartId, [FromHeader(Name ="x_Idempotency_Key")] string key)
-        {
-            if (key == null)
-            {
-                return BadRequest("Idempotency Key is required");
-            }
+        //[HttpPost("OrderCart/{cartId}")]
+        //public async Task<IActionResult> OrderCart(int cartId, [FromHeader(Name ="x_Idempotency_Key")] string key)
+        //{
+        //    if (key == null)
+        //    {
+        //        return BadRequest("Idempotency Key is required");
+        //    }
 
-            var cacheKey = $"Idempotency:Order:OrderCart";
+        //    var cacheKey = $"Idempotency:Order:OrderCart";
 
-            var cached = await _cache.GetAsync(cacheKey);
-            if (cached != null)
-            {
-                return Ok(JsonSerializer.Deserialize<Order>(cached));
-            }
-            if (cartId <= 0)
-            {
-                return BadRequest("Invalid cart ID.");
-            }
-            var order=await _orderService.OrderCart(cartId);
-            if(order == null)
-            {
-                return BadRequest("We having a problem processing your request.");
-            }
-            await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(cached), new DistributedCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10)
-            });
-            return Ok(order);
-        }
+        //    var cached = await _cache.GetAsync(cacheKey);
+        //    if (cached != null)
+        //    {
+        //        return Ok(JsonSerializer.Deserialize<Order>(cached));
+        //    }
+        //    if (cartId <= 0)
+        //    {
+        //        return BadRequest("Invalid cart ID.");
+        //    }
+        //    var order=await _orderService.OrderCart(cartId);
+        //    if(order == null)
+        //    {
+        //        return BadRequest("We having a problem processing your request.");
+        //    }
+        //    await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(cached), new DistributedCacheEntryOptions
+        //    {
+        //        AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10)
+        //    });
+        //    return Ok(order);
+        //}
     }
 }

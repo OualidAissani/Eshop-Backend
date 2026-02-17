@@ -72,9 +72,10 @@ namespace Eshop.Orders.Controllers
             return Ok(cart);
         }
         [HttpPost]
-        public async Task<IActionResult> AddCartItem([FromBody] CartItemDto cartItem, [FromHeader(Name = "x_Idempotency_Key")] string key)
+        public async Task<IActionResult> AddCartItem([FromBody] CartItemDto cartItem,
+            [FromHeader(Name = "x_Idempotency_Key")] string key,CancellationToken ct)
         {
-            if (key == null)
+            if (key == null)                                //check should be in middleware/filter, not every controller.
             {
                 return BadRequest("Idempotency Key is required");
             }
@@ -88,7 +89,7 @@ namespace Eshop.Orders.Controllers
                 return Ok(JsonSerializer.Deserialize<CartItem>(cached));
             }
 
-            var addedItem = await _cartService.AddCartItem(cartItem);
+            var addedItem = await _cartService.AddCartItem(cartItem, ct);
 
             if (addedItem == null)
             {
@@ -104,9 +105,9 @@ namespace Eshop.Orders.Controllers
             return Ok(addedItem);
         }
         [HttpDelete]
-        public async Task<IActionResult> DeleteCartItem(int cartItemId)
+        public async Task<IActionResult> DeleteCartItem(int cartItemId,CancellationToken ct)
         {
-            var result = await _cartService.DeleteCartItem(cartItemId);
+            var result = await _cartService.DeleteCartItem(cartItemId,ct);
 
             if (!result)
             {
@@ -116,7 +117,8 @@ namespace Eshop.Orders.Controllers
             return Ok("Item deleted successfully.");
         }
         [HttpPut]
-        public async Task<IActionResult> UpdateCartItem([FromBody] UpdateCartItemDto cartItem, [FromHeader(Name = "x_Idempotency_Key")] string key)
+        public async Task<IActionResult> UpdateCartItem([FromBody] UpdateCartItemDto cartItem,
+            [FromHeader(Name = "x_Idempotency_Key")] string key,CancellationToken ct)
         {
             if (key == null)
             {
@@ -132,7 +134,7 @@ namespace Eshop.Orders.Controllers
                 return Ok(JsonSerializer.Deserialize<CartItem>(cached));
             }
 
-            var updatedItem = await _cartService.UpdateCartItem(cartItem);
+            var updatedItem = await _cartService.UpdateCartItem(cartItem,ct);
 
             if (updatedItem == null)
             {
@@ -150,9 +152,9 @@ namespace Eshop.Orders.Controllers
 
 
         [HttpDelete("clear/{cartId}")]
-        public async Task<IActionResult> ClearCart(int cartId)
+        public async Task<IActionResult> ClearCart(int cartId,CancellationToken ct)
         {
-            var result = await _cartService.ClearCart(cartId);
+            var result = await _cartService.ClearCart(cartId, ct);
 
             if (!result)
             {

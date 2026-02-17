@@ -8,14 +8,14 @@ namespace Eshop.Orders.Services.IServices
 
         Task<CartItem?> GetCartItemById(int cartItemId);
 
-        Task<CartItem> AddCartItem(CartItemDto cartItem);
+        Task<CartItem> AddCartItem(CartItemDto cartItem, CancellationToken ct);
 
-        Task<CartItem> UpdateCartItem(UpdateCartItemDto cartItem);
+        Task<CartItem> UpdateCartItem(UpdateCartItemDto cartItem, CancellationToken ct);
 
         Task<Cart?> GetCartItemByUserId(string userId);
 
-        Task<bool> DeleteCartItem(int cartItemId);
+        Task<bool> DeleteCartItem(int cartItemId, CancellationToken ct);
 
-        Task<bool> ClearCart(int cartId);
+        Task<bool> ClearCart(int cartId, CancellationToken ct);
     }
 }

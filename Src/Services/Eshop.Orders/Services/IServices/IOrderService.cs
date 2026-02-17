@@ -10,13 +10,13 @@ namespace Eshop.Orders.Services.IServices
 
         Task<Order?> GetOrderById(int orderId);
 
-        Task<Order> CreateOrder(OrderDto order);
+        Task<Order> CreateOrder(OrderDto order,CancellationToken ct);
 
-        Task<Order> OrderCart(int cartId);
+     //  Task<Order> OrderCart(int cartId,CancellationToken ct);
 
-        Task<Order> UpdateOrder(OrderDto order);
+        Task<Order> UpdateOrder(OrderDto order,CancellationToken ct);
 
-        Task<bool> DeleteOrder(int orderId);
+        Task<bool> DeleteOrder(int orderId, CancellationToken ct);
 
     }
 }

@@ -7,8 +7,7 @@ namespace Eshop.Orders.Models
     {
         [Key]
         public int Id { get; set; }
-
-        public string OrderNumber{ get; set; }
+        public string OrderNumber { get; set; } = "Ord-" + DateTime.UtcNow.Ticks;
 
         public decimal TotalPrice { get; set; }
 

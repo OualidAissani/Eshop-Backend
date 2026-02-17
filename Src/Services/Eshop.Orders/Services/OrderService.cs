@@ -15,7 +15,6 @@ namespace Eshop.Orders.Services
         private readonly OrderDbContext _context;
         private readonly IRequestClient<GetProductRequest> _client;
         private readonly IRequestClient<ProductInventoryAvailibityForOrderRequest> _client2;
-        //private readonly IUpdateInventory _updateInventory;
         private readonly ICartService _cartService;
         private readonly IConfiguration _configuration;
         private readonly IHttpContextAccessor _httpContextAccessor;
@@ -24,14 +23,13 @@ namespace Eshop.Orders.Services
 
         public OrderService(OrderDbContext context, IRequestClient<GetProductRequest> client,
             HttpClient httpClient,
-            IRequestClient<ProductInventoryAvailibityForOrderRequest> client2/*, IUpdateInventory updateInventory*/,
+            IRequestClient<ProductInventoryAvailibityForOrderRequest> client2,
             ICartService cartService, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, IPublishEndpoint publishEndpoint)
         {
             _context = context;
             _client = client;
             _httpClient = httpClient;
             _client2 = client2;
-            //_updateInventory = updateInventory;
             _cartService = cartService;
             _configuration = configuration;
             _httpContextAccessor = httpContextAccessor;
@@ -39,7 +37,7 @@ namespace Eshop.Orders.Services
         }
         public async Task<List<Order>> GetAllOrders()
         {
-            return _context.Orders.AsNoTracking().ToList();
+            return await _context.Orders.AsNoTracking().ToListAsync();
         }
         public async Task<List<Order>> GetAllUserOrderAsync(string userId)
         {
@@ -57,32 +55,18 @@ namespace Eshop.Orders.Services
                 .AsNoTracking()
                 .FirstOrDefaultAsync(o => o.Id == orderId);
         }
-        public async Task<Order> CreateOrder(OrderDto order)
+
+        public async Task<Order> CreateOrder(OrderDto order,CancellationToken ct)
         {
-            (Dictionary<int, ProductInventoryItem> inventoryDict, Dictionary<int, decimal> pricesDict) = await OrderValidations(order);
 
-            try
-            {
-                (List<OrderItem> orderItems, Order newOrder) = await SaveOrders(order, inventoryDict, pricesDict);
+            (Dictionary<int, ProductInventoryItem> inventoryDict, Dictionary<int, decimal> pricesDict) = await OrderValidations(order,ct);
 
-                await ReductOrderedInventory(orderItems);
-
-                return newOrder;
-            }
-            catch (Exception ex)
-            {
-                throw new InvalidOperationException($"Order creation failed: {ex.Message}", ex);
-            }
-        }
-
-        private async Task<(List<OrderItem> orderItems, Order newOrder)> SaveOrders(OrderDto order, Dictionary<int, ProductInventoryItem> inventoryDict, Dictionary<int, decimal> pricesDict)
-        {
             var orderItems = order.Products
                                 .Select(p => new OrderItem
                                 {
                                     ProductId = p.ProductId,
                                     Quantity = p.Quantity,
-                                    ProductName="placeholder", 
+                                    ProductName = "placeholder",
                                     UnitPrice = pricesDict[p.ProductId],
                                     FullPrice = pricesDict[p.ProductId] * p.Quantity,
                                     InventoryId = inventoryDict[p.ProductId].InventoryId
@@ -93,42 +77,103 @@ namespace Eshop.Orders.Services
             {
                 OrderItems = orderItems,
                 UserId = order.UserId,
-                OrderNumber= Guid.NewGuid().ToString(),
-                ShippingAddress="placeholder",
-                ShippedAt=DateTime.UtcNow.AddDays(1),//PLACEHOLDER
-                DeliveredAt=DateTime.UtcNow.AddMonths(1),//PLACEHOLDER
-                PayementMethod=Data.Enums.PayementMethods.CashOnDelivery,
+                ShippingAddress = "placeholder",
+                ShippedAt = DateTime.UtcNow.AddDays(1),//PLACEHOLDER
+                DeliveredAt = DateTime.UtcNow.AddMonths(1),//PLACEHOLDER
+                PayementMethod = Data.Enums.PayementMethods.CashOnDelivery,
                 TotalPrice = orderItems.Sum(i => i.FullPrice)
             };
 
             _context.Orders.Add(newOrder);
-            await _context.SaveChangesAsync();
-            return (orderItems, newOrder);
-        }
+            if(await _context.SaveChangesAsync()==0)
+            {
+                return null;
+            }
+            var inventoryParameter = order.Products.Select(s => new InventoryDto
+            {
+                ProductId=s.ProductId,
+                Quantity=s.Quantity
+            }).ToList();
 
-        private async Task ReductOrderedInventory(List<OrderItem> orderItems)
-        {
-            // Update inventory
-            var inventoryUpdates = orderItems
-                .Select(i => new Events.InventoryUpdateDto { ProductId = i.ProductId, Quantity = i.Quantity })
-                .ToList();
+            await _publishEndpoint.Publish(new OrderSubmitted { OrderId=newOrder.Id, CorrelationId= Guid.NewGuid(),Total=order.Products.Count(),Email="test@gmail.com",Products= inventoryParameter });
 
-            //var request = new HttpRequestMessage(HttpMethod.Put, $"{_configuration["InventoryBaseUrl"]}/UpdateQuantity");
-            //var request = new HttpRequestMessage(HttpMethod.Put, $"{_configuration["GatewayUrl"]}/api/Inventory/UpdateQuantity");
-
-            //var token = this._httpContextAccessor.HttpContext?.Request.Headers["Authorization"].ToString();
-            //token = token.Substring("Bearer ".Length).Trim();
-            //request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            //request.Content = JsonContent.Create(inventoryUpdates);
-            //var response = await _httpClient.SendAsync(request);
-            //var responseContent=response.Content.ReadAsStringAsync();
-            //response.EnsureSuccessStatusCode();
-
-           await _publishEndpoint.Publish(new ReductInventoryQuantityFromAnOrder ( inventoryUpdates ));
+            return newOrder;
 
         }
 
-        private async Task<(Dictionary<int, ProductInventoryItem> inventoryDict, Dictionary<int, decimal> pricesDict)> OrderValidations(OrderDto order)
+
+        //public async Task<Order> CreateOrder(OrderDto order)
+        //{
+        //    (Dictionary<int, ProductInventoryItem> inventoryDict, Dictionary<int, decimal> pricesDict) = await OrderValidations(order);
+
+        //    try
+        //    {
+        //        (List<OrderItem> orderItems, Order newOrder) = await SaveOrders(order, inventoryDict, pricesDict);
+
+        //        await ReductOrderedInventory(orderItems);
+
+        //        return newOrder;
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        throw new InvalidOperationException($"Order creation failed: {ex.Message}", ex);
+        //    }
+        //}
+
+        //private async Task<(List<OrderItem> orderItems, Order newOrder)> SaveOrders(OrderDto order, Dictionary<int, ProductInventoryItem> inventoryDict, Dictionary<int, decimal> pricesDict)
+        //{
+        //    var orderItems = order.Products
+        //                        .Select(p => new OrderItem
+        //                        {
+        //                            ProductId = p.ProductId,
+        //                            Quantity = p.Quantity,
+        //                            ProductName="placeholder", 
+        //                            UnitPrice = pricesDict[p.ProductId],
+        //                            FullPrice = pricesDict[p.ProductId] * p.Quantity,
+        //                            InventoryId = inventoryDict[p.ProductId].InventoryId
+        //                        })
+        //                        .ToList();
+
+        //    var newOrder = new Order
+        //    {
+        //        OrderItems = orderItems,
+        //        UserId = order.UserId,
+        //        OrderNumber= Guid.NewGuid().ToString(),
+        //        ShippingAddress="placeholder",
+        //        ShippedAt=DateTime.UtcNow.AddDays(1),//PLACEHOLDER
+        //        DeliveredAt=DateTime.UtcNow.AddMonths(1),//PLACEHOLDER
+        //        PayementMethod=Data.Enums.PayementMethods.CashOnDelivery,
+        //        TotalPrice = orderItems.Sum(i => i.FullPrice)
+        //    };
+
+        //    _context.Orders.Add(newOrder);
+        //    await _context.SaveChangesAsync();
+        //    return (orderItems, newOrder);
+        //}
+
+        //private async Task ReductOrderedInventory(List<OrderItem> orderItems)
+        //{
+        //    // Update inventory
+        //    var inventoryUpdates = orderItems
+        //        .Select(i => new Events.InventoryUpdateDto { ProductId = i.ProductId, Quantity = i.Quantity })
+        //        .ToList();
+
+        //    //var request = new HttpRequestMessage(HttpMethod.Put, $"{_configuration["InventoryBaseUrl"]}/UpdateQuantity");
+        //    //var request = new HttpRequestMessage(HttpMethod.Put, $"{_configuration["GatewayUrl"]}/api/Inventory/UpdateQuantity");
+
+        //    //var token = this._httpContextAccessor.HttpContext?.Request.Headers["Authorization"].ToString();
+        //    //token = token.Substring("Bearer ".Length).Trim();
+        //    //request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        //    //request.Content = JsonContent.Create(inventoryUpdates);
+        //    //var response = await _httpClient.SendAsync(request);
+        //    //var responseContent=response.Content.ReadAsStringAsync();
+        //    //response.EnsureSuccessStatusCode();
+
+        //   await _publishEndpoint.Publish(new ReductInventoryQuantityFromAnOrder ( inventoryUpdates ));
+
+        //}
+
+        private async Task<(Dictionary<int, ProductInventoryItem> inventoryDict, Dictionary<int, decimal> pricesDict)> OrderValidations(OrderDto order,CancellationToken ct)
         {
             if (order == null)
                 throw new ArgumentNullException(nameof(order));
@@ -136,13 +181,14 @@ namespace Eshop.Orders.Services
                 throw new ArgumentException("Order must contain at least one product.");
 
             var productIds = order.Products.Select(p => p.ProductId).ToList();
+            try
+            {
+                var inventoryResponse = await _client2.GetResponse<ProductInventoryAvailibityForOrderResponse>(
+             new ProductInventoryAvailibityForOrderRequest(productIds), ct);
 
-            var inventoryResponse = await _client2.GetResponse<ProductInventoryAvailibityForOrderResponse>(
-         new ProductInventoryAvailibityForOrderRequest(productIds));
-
-            var pricesResponse = await _client.GetResponse<GetProductResponse>(
-                new GetProductRequest(productIds));
-
+                var pricesResponse = await _client.GetResponse<GetProductResponse>(
+                    new GetProductRequest(productIds), ct);
+           
             var inventoryDict = inventoryResponse.Message.Items
                 .ToDictionary(i => i.ProductId, i => i);
 
@@ -162,9 +208,15 @@ namespace Eshop.Orders.Services
             }
 
             return (inventoryDict, pricesDict);
+            }
+            catch (MassTransit.RequestTimeoutException ex)
+            {
+                throw new TimeoutException($"Timeout waiting for inventory/product services. RequestId: {ex.Message} : {ex.Data}", ex);
+
+            }
         }
 
-        public async Task<bool> DeleteOrder(int orderId)
+        public async Task<bool> DeleteOrder(int orderId,CancellationToken ct)
         {
             try
             {
@@ -178,7 +230,7 @@ namespace Eshop.Orders.Services
             }
         }
 
-        public Task<Order> UpdateOrder(OrderDto order)
+        public Task<Order> UpdateOrder(OrderDto order,CancellationToken ct)
         {
             if (order == null || order.Products == null || !order.Products.Any())
             {
@@ -188,39 +240,39 @@ namespace Eshop.Orders.Services
             throw new NotImplementedException();
         }
 
-        public async Task<Order> OrderCart(int cartId)
-        {
-            if (cartId <= 0)
-            {
-                throw new ArgumentException("Invalid cart ID.");
-            }
-            var cartitem = await _cartService.GetAllCartItems(cartId);
-            if (cartitem == null)
-            {
-                return null;
-            }
-            var orderDto = new OrderDto
-            {
-                UserId = cartitem.First().Cart.UserId,
-                Products = cartitem.Select(ci => new OrderItemDto
-                {
-                    ProductId = ci.ProductId,
-                    Quantity = ci.Quantity
-                }).ToList()
-            };
-            (Dictionary<int, ProductInventoryItem> inventoryDict, Dictionary<int, decimal> pricesDict) = await OrderValidations(orderDto);
-            try
-            {
-                (List<OrderItem> orderItems, Order newOrder) = await SaveOrders(orderDto, inventoryDict, pricesDict);
-                await ReductOrderedInventory(orderItems);
-                await _cartService.ClearCart(cartId);
-                return newOrder;
-            }
-            catch (Exception ex)
-            {
-                throw new InvalidOperationException($"Order creation failed: {ex.Message}", ex);
+        //public async Task<Order> OrderCart(int cartId,CancellationToken ct)
+        //{
+        //    if (cartId <= 0)
+        //    {
+        //        throw new ArgumentException("Invalid cart ID.");
+        //    }
+        //    var cartitem = await _cartService.GetAllCartItems(cartId);
+        //    if (cartitem == null)
+        //    {
+        //        return null;
+        //    }
+        //    var orderDto = new OrderDto
+        //    {
+        //        UserId = cartitem.First().Cart.UserId,
+        //        Products = cartitem.Select(ci => new OrderItemDto
+        //        {
+        //            ProductId = ci.ProductId,
+        //            Quantity = ci.Quantity
+        //        }).ToList()
+        //    };
+        //    (Dictionary<int, ProductInventoryItem> inventoryDict, Dictionary<int, decimal> pricesDict) = await OrderValidations(orderDto);
+        //    try
+        //    {
+        //        (List<OrderItem> orderItems, Order newOrder) = await SaveOrders(orderDto, inventoryDict, pricesDict);
+        //        await ReductOrderedInventory(orderItems);
+        //        await _cartService.ClearCart(cartId,ct);
+        //        return newOrder;
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        throw new InvalidOperationException($"Order creation failed: {ex.Message}", ex);
 
-            }
-        }
+        //    }
+        //}
     }
 }

@@ -69,3 +69,4 @@ public record ProductExistResponse
     }
 }
 
+public record UpdateCartProduct(int ProductId , string ProductName , decimal FullPrice);

@@ -1,4 +1,5 @@
 ﻿using Eshop.Catalog.Data;
+using Eshop.Catalog.Dtos;
 using Eshop.Catalog.Models;
 using Eshop.Catalog.Services.IServices;
 using Microsoft.EntityFrameworkCore;

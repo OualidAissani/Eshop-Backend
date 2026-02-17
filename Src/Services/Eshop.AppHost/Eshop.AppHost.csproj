@@ -23,7 +23,7 @@
     <ProjectReference Include="..\Eshop.Inventory\Eshop.Inventory.csproj" />
     <ProjectReference Include="..\Eshop.Gateway\Eshop.Gateway.csproj" />
     <ProjectReference Include="..\Eshop.Orders\Eshop.Orders.csproj" />
-    <ProjectReference Include="..\Eshop.Payement\Eshop.Payment.csproj" />
+    <ProjectReference Include="..\Eshop.Payment\Eshop.Payment.csproj" />
   </ItemGroup>
 
 </Project>

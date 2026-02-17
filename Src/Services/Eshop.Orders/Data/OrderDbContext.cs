@@ -1,4 +1,6 @@
 ﻿using Eshop.Orders.Models;
+using Eshop.Orders.Sagas;
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
 
 namespace Eshop.Orders.Data
@@ -26,6 +28,29 @@ namespace Eshop.Orders.Data
                 .HasForeignKey(ci => ci.CartId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+
+            modelBuilder.Entity<Order>()
+        .HasIndex(o => o.UserId);
+
+    
+
+            modelBuilder.Entity<OrderItem>()
+                .HasIndex(oi => oi.ProductId);
+
+            modelBuilder.Entity<Cart>()
+                .HasIndex(c => c.UserId)
+                .IsUnique();
+
+            modelBuilder.AddInboxStateEntity();
+            modelBuilder.AddOutboxMessageEntity();
+            modelBuilder.AddOutboxStateEntity();
+
+            modelBuilder.Entity<OrderState>(entity =>
+            {
+                entity.HasKey(x => x.CorrelationId);
+                entity.Property(x => x.CurrentState).HasMaxLength(64);
+            });
+
         }
 
         public DbSet<Order> Orders { get; set; }
@@ -35,5 +60,7 @@ namespace Eshop.Orders.Data
         public DbSet<Cart> Carts { get; set; }
 
         public DbSet<CartItem> CartItems { get; set; }
+
+        public DbSet<OrderState> OrderStates { get; set; }
     }
 }

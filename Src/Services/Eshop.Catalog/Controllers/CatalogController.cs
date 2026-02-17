@@ -34,32 +34,42 @@ namespace Eshop.Catalog.Controllers
 
         [HttpPost]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> CreateProduct([FromForm] ProductCreateDto product, List<IFormFile>? formFile, [FromHeader(Name = "x_Idempotency_Key")] string key)
+        public async Task<IActionResult> CreateProduct([FromForm] ProductCreateDto product, List<IFormFile>? formFile,
+            [FromHeader(Name = "x_Idempotency_Key")] string key,CancellationToken ct)
         {
             if (key == null)
             {
                 return BadRequest("Idempotency Key is required");   
             }
             var cacheKey = $"Idempotency:Product:Create:{key}";
+
             var cached = await _cache.GetAsync(cacheKey);
+
             if (cached != null)
             {
-                return CreatedAtAction(nameof(GetProductById), new { id = System.Text.Json.JsonSerializer.Deserialize<Products>(cached)?.Id }, System.Text.Json.JsonSerializer.Deserialize<Products>(cached) ?? null);
+                return CreatedAtAction(nameof(GetProductById), new { id = JsonSerializer.Deserialize<Products>(cached)?.Id },JsonSerializer.Deserialize<Products>(cached) ?? null);
             }
             if (formFile == null || formFile.Count == 0)
             {
 
             }
-            var result = await _productrepo.CreateProduct(product);
+            var result = await _productrepo.CreateProduct(product,ct);
+
+            if(result == null)
+            {
+                return BadRequest("Product Creation Failed");
+            }
             var media = new ProductMedia()
             {
                 ProductId = result.Id,
                 Description = result.Description
             };
+
             foreach (var file in formFile)
             {              
                 using var stream = file.OpenReadStream();
-                await _mediaService.CreateMedia(media,stream,file.ContentType,file.FileName);
+
+                await _mediaService.CreateMedia(media,stream,file.ContentType,file.FileName,ct);
 
             }
             Products currentProduct = await _productrepo.GetProductById(result.Id);
@@ -73,7 +83,8 @@ namespace Eshop.Catalog.Controllers
         
         [HttpPost("update")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> UpdateProduct([FromForm] Products product, IFormFile? formFile , [FromHeader(Name = "x_Idempotency_Key")] string key)
+        public async Task<IActionResult> UpdateProduct([FromForm] Products product, IFormFile? formFile ,
+            [FromHeader(Name = "x_Idempotency_Key")] string key,CancellationToken ct)
         {
             if (key == null)
             {
@@ -85,15 +96,15 @@ namespace Eshop.Catalog.Controllers
             {
                 return Ok(JsonSerializer.Deserialize<Products>(cached) ?? null);
             }
-            var result=new Products();
+            var result=new ProductDto();
             if (formFile != null)
             {
                 using var stream = formFile.OpenReadStream();
-                result = await _productrepo.UpdateProduct(product, stream, formFile.ContentType, formFile.FileName);
+                result = await _productrepo.UpdateProduct(product, stream, formFile.ContentType, formFile.FileName,ct);
             }
             else
             {
-                 result = await _productrepo.UpdateProduct(product, Stream.Null, string.Empty, string.Empty);
+                 result = await _productrepo.UpdateProduct(product, Stream.Null, string.Empty, string.Empty,ct);
             }
             await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(result), new DistributedCacheEntryOptions
             {
@@ -105,9 +116,9 @@ namespace Eshop.Catalog.Controllers
 
         [HttpDelete("{Id}")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> DeleteProduct(int Id)
+        public async Task<IActionResult> DeleteProduct(int Id,CancellationToken ct)
         {
-            var result = await _productrepo.DeleteProduct(Id);
+            var result = await _productrepo.DeleteProduct(Id,ct);
             if (!result)
             {
                 return NotFound();

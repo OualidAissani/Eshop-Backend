@@ -30,11 +30,6 @@ namespace Eshop.Payement.Controllers
             _httpContextAccessor = httpContextAccessor;
         }
 
-        [HttpPost("AccessToken")]
-        public async Task<string> GetAccessToken()
-        {
-            return await _payementService.GetAccessToken();
-        }
         [HttpPost("order")]
         public async Task<IActionResult> CreateOrder(CreateOrder Order)
         {

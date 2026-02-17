@@ -67,6 +67,10 @@ namespace Eshop.Orders.Services
                     UserId = GetUserId()
                 };
                 _context.Carts.Add(cart);
+                if (await _context.SaveChangesAsync(ct) <= 0)
+                {
+                    return null;
+                }
             }
             if (userCart.CartItems.Any(i => i.ProductId == cartItem.ProductId))
             {
@@ -111,7 +115,6 @@ namespace Eshop.Orders.Services
             }
 
             var cartItem= await _context.CartItems
-                .AsNoTracking()
                 .FirstOrDefaultAsync(ci => ci.Id == cartItemId && ci.Cart.UserId== GetUserId());
             if(cartItem == null)
             {

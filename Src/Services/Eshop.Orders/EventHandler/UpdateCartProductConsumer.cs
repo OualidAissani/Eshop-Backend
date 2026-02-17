@@ -19,14 +19,16 @@ namespace Eshop.Orders.EventHandler
             var message = context.Message;
             var updateCartItemDto = new UpdateCartItemDto()
             {
-                ProductId=message.ProductId,
-                FullPrice=message.FullPrice,
-                ProductName=message.ProductName
+                ProductId = message.ProductId,
+                FullPrice = message.FullPrice,
+                ProductName = message.ProductName
             };
-            if (await _cartService.UpdateCartItem(updateCartItemDto,context.CancellationToken) == null)
-           
+            if (await _cartService.UpdateCartItem(updateCartItemDto, context.CancellationToken) == null)
+            {
+
                 throw new NullReferenceException("The update Failed!!");
             }
         }
     }
+}
 

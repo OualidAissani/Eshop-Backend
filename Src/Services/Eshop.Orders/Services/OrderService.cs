@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
 using System.Net.Http.Headers;
+using System.Security.Claims;
 namespace Eshop.Orders.Services
 {
     public class OrderService : IOrderService
@@ -83,20 +84,23 @@ namespace Eshop.Orders.Services
                 PayementMethod = Data.Enums.PayementMethods.CashOnDelivery,
                 TotalPrice = orderItems.Sum(i => i.FullPrice)
             };
+            var inventoryParameter = order.Products.Select(s => new InventoryDto
+            {
+                ProductId = s.ProductId,
+                Quantity = s.Quantity
+            }).ToList();
 
             _context.Orders.Add(newOrder);
-            if(await _context.SaveChangesAsync()==0)
+            if (await _context.SaveChangesAsync() == 0)
             {
                 return null;
             }
-            var inventoryParameter = order.Products.Select(s => new InventoryDto
+            else
             {
-                ProductId=s.ProductId,
-                Quantity=s.Quantity
-            }).ToList();
 
-            await _publishEndpoint.Publish(new OrderSubmitted { OrderId=newOrder.Id, CorrelationId= Guid.NewGuid(),Total=order.Products.Count(),Email="test@gmail.com",Products= inventoryParameter });
 
+                await _publishEndpoint.Publish(new OrderSubmitted { OrderId = newOrder.Id, CorrelationId = Guid.NewGuid(), Total = order.Products.Count(), Email = "test@gmail.com", Products = inventoryParameter });
+            }
             return newOrder;
 
         }
@@ -218,9 +222,15 @@ namespace Eshop.Orders.Services
 
         public async Task<bool> DeleteOrder(int orderId,CancellationToken ct)
         {
+            var user = _httpContextAccessor.HttpContext.User;
+            var userId=user.FindFirst(ClaimTypes.NameIdentifier).Value;
             try
             {
                 var order = await _context.Orders.FindAsync(orderId);
+                if(order.UserId!= userId)
+                {
+                    return false;
+                }
                 _context.Orders.Remove(order);
                 return await _context.SaveChangesAsync() > 0;
             }

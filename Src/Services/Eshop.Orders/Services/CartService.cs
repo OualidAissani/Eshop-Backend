@@ -71,6 +71,7 @@ namespace Eshop.Orders.Services
                 {
                     return null;
                 }
+                userCart = cart;
             }
             if (userCart.CartItems.Any(i => i.ProductId == cartItem.ProductId))
             {
@@ -118,7 +119,7 @@ namespace Eshop.Orders.Services
                 .FirstOrDefaultAsync(ci => ci.Id == cartItemId && ci.Cart.UserId== GetUserId());
             if(cartItem == null)
             {
-                return true;
+                return false;
             }
             _context.CartItems.Remove(cartItem);
 

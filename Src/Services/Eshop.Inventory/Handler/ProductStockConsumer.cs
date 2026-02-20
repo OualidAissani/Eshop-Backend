@@ -1,6 +1,7 @@
 ﻿using Eshop.Events;
 using Eshop.Inventory.Data;
 using MassTransit;
+using Microsoft.EntityFrameworkCore;
 
 namespace Eshop.Inventory.Handler
 {
@@ -15,7 +16,7 @@ namespace Eshop.Inventory.Handler
         {
             var message = context.Message;
 
-            var stock = _dbcontext.Inventories.Any(i => i.ProductId == message.ProductsId && i.Quantity >= message.Quantity);
+            var stock = await _dbcontext.Inventories.AnyAsync(i => i.ProductId == message.ProductsId && i.Quantity >= message.Quantity);
             await context
                 .RespondAsync(new ProductStockResponse(stock));
         }

@@ -34,6 +34,7 @@ namespace Eshop.Catalog.Controllers
 
         [HttpPost]
         [Authorize(Roles = "Admin")]
+        //Need Change
         public async Task<IActionResult> CreateProduct([FromForm] ProductCreateDto product, List<IFormFile>? formFile,
             [FromHeader(Name = "x_Idempotency_Key")] string key,CancellationToken ct)
         {
@@ -51,8 +52,9 @@ namespace Eshop.Catalog.Controllers
             }
             if (formFile == null || formFile.Count == 0)
             {
-
+                return BadRequest("Atleast One Image Attached To The Product");
             }
+
             var result = await _productrepo.CreateProduct(product,ct);
 
             if(result == null)

@@ -60,7 +60,9 @@ namespace Eshop.Orders.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetOrderById(int id)
         {
-            var cacheKey = $"Order:{id}";
+            var userId = _httpContextAccessor.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            var cacheKey = $"Order:{userId}:{id}";
 
             var cachedData = await _cache.GetAsync(cacheKey);
 
@@ -118,13 +120,13 @@ namespace Eshop.Orders.Controllers
             return CreatedAtAction(nameof(GetOrderById), new { id = createdOrder?.Id }, createdOrder ?? null);
         }
 
-        [Authorize]
-        [HttpPut]
-        public async Task<IActionResult> UpdateOrder(int id, [FromBody] OrderDto order, [FromHeader(Name = "x_Idempotency_Key")] string key,CancellationToken ct)
-        {
+        //[Authorize]
+        //[HttpPut]
+        //public async Task<IActionResult> UpdateOrder(int id, [FromBody] OrderDto order, [FromHeader(Name = "x_Idempotency_Key")] string key,CancellationToken ct)
+        //{
             
-            return NoContent();
-        }
+        //    return NoContent();
+        //}
         [HttpDelete]
         public async Task<IActionResult> DeleteOrder(int id,CancellationToken ct)
         {

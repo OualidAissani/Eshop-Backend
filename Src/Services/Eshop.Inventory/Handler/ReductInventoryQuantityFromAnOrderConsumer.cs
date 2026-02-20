@@ -33,17 +33,19 @@ namespace Eshop.Inventory.Handler
                 }
                 else
                 {
-                    throw new Exception("failure handle later");
+                    await _publishEndpoint.Publish(new OrderFailed { CorrelationId = message.CorrelationId });
                 }
 
             }
 
-            if(await _db.SaveChangesAsync() == 0)
+            if (await _db.SaveChangesAsync() == 0)
             {
-                await _publishEndpoint.Publish(new OrderFailed { CorrelationId= message.CorrelationId });
+                await _publishEndpoint.Publish(new OrderFailed { CorrelationId = message.CorrelationId });
             }
-            await _publishEndpoint.Publish(new InventoryReserved { CorrelationId= message.CorrelationId });
-
+            else
+            {
+                await _publishEndpoint.Publish(new InventoryReserved { CorrelationId = message.CorrelationId });
+            }
         }
     }
 }

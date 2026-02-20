@@ -39,7 +39,6 @@ builder.Services.AddMassTransit(o =>
    });
 
 
-    o.AddConsumer<OrderProductsEvent>();
     o.AddConsumer<UpdateCartProductConsumer>();
     o.AddRequestClient<ProductExistRequest>(new Uri("queue:check-product-existence"));
     o.AddRequestClient<GetProductRequest>(new Uri("queue:get-product-request"));

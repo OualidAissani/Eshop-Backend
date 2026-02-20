@@ -30,7 +30,7 @@ namespace Eshop.Catalog.Controllers
             return Ok(await _categoryService.GetByIdAsync(id, ct));
         }
 
-        [Authorize]
+        [Authorize(Roles ="Admin")]
         [HttpPost]
         public async Task<IActionResult> CreateCategory(CategoryCreateDto dto, CancellationToken ct)
         {
@@ -42,9 +42,9 @@ namespace Eshop.Catalog.Controllers
             return CreatedAtAction(nameof(GetCategoryById), new { id = category.Id }, category);
         }
 
-        [Authorize]
+        [Authorize(Roles = "Admin")]
         [HttpPut]
-        public async Task<IActionResult> UpdateCategory(int id, CategoryUpdateDto dto, CancellationToken ct)
+        public async Task<IActionResult> UpdateCategory([FromQuery]int id, CategoryUpdateDto dto, CancellationToken ct)
         {
             var category = await _categoryService.UpdateAsync(id, dto, ct);
             if (category == null)
@@ -54,7 +54,7 @@ namespace Eshop.Catalog.Controllers
             return Ok(category);
         }
 
-        [Authorize]
+        [Authorize(Roles = "Admin")]
         [HttpDelete]
         public async Task<IActionResult> DeleteCategory(int id, CancellationToken ct)
         {

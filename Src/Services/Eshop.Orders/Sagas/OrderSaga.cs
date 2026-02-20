@@ -7,7 +7,7 @@ namespace Eshop.Orders.Sagas
     {
         public Guid CorrelationId { get; set; }
         public string CurrentState { get; set; }
-        public string OrderId { get; set; }
+        public int OrderId { get; set; }
         public decimal OrderTotal { get; set; }
         public string? PaymentIntentId { get; set; }
         public DateTime? OrderDate { get; set; }
@@ -33,6 +33,7 @@ namespace Eshop.Orders.Sagas
                         context.Saga.OrderTotal = context.Message.Total;
                         context.Saga.CustomerEmail = context.Message.Email;
                         context.Saga.OrderDate = DateTime.UtcNow;
+                        context.Saga.OrderId = context.Message.OrderId;
                     })
                     .PublishAsync(context => context.Init<ReductInventoryQuantityFromAnOrder>(new
                     {

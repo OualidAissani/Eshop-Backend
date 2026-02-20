@@ -66,7 +66,7 @@ namespace Eshop.Orders.Controllers
 
             var cachedItem=await _cache.GetAsync(cachedItemKey);
 
-            if (cachedItem == null)
+            if (cachedItem != null)
             {
                 return Ok(JsonSerializer.Deserialize<CartItem>(cachedItem));
             }
@@ -77,7 +77,7 @@ namespace Eshop.Orders.Controllers
             {
                 return NotFound("Cart not found.");
             }
-            _cache.SetStringAsync(cachedItemKey, JsonSerializer.Serialize(cart), new DistributedCacheEntryOptions
+            await _cache.SetStringAsync(cachedItemKey, JsonSerializer.Serialize(cart), new DistributedCacheEntryOptions
             {
                 AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
             });
@@ -87,7 +87,7 @@ namespace Eshop.Orders.Controllers
         public async Task<IActionResult> AddCartItem([FromBody] CartItemDto cartItem,
             [FromHeader(Name = "x_Idempotency_Key")] string key,CancellationToken ct)
         {
-            if (key == null)                                //check should be in middleware/filter, not every controller.
+            if (key == null)
             {
                 return BadRequest("Idempotency Key is required");
             }
@@ -99,7 +99,7 @@ namespace Eshop.Orders.Controllers
             var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? user.FindFirst("sub")?.Value;
 
 
-            var cachedKey = $"Idempontency:Cart:{userId}:AddCartItem";
+            var cachedKey = $"Idempontency:Cart:{userId}:AddCartItem:{key}";
 
             var cached= await _cache.GetAsync(cachedKey);
 
@@ -146,7 +146,7 @@ namespace Eshop.Orders.Controllers
                 return BadRequest("Idempotency Key is required");
             }
 
-            var cachedKey = $"Idempontency:Cart:UpdateCartItem";
+            var cachedKey = $"Idempontency:Cart:{cartItem.ProductId}:UpdateCartItem:{key}";
 
             var cached = await _cache.GetAsync(cachedKey);
 

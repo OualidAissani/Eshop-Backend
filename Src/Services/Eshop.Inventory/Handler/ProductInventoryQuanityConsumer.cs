@@ -21,8 +21,7 @@ namespace Eshop.Inventory.Handler
 
             if(productInventory==null ||productInventory.Count == 0)
             {
-                 Result.Fail("Product is not available in inventory");
-                
+                await context.RespondAsync(new ProductInventoryAvailibityForOrderResponse(null));
             }
             var items = productInventory.Select(p => new ProductInventoryItem(p.ProductId, p.Id, p.Quantity));
 

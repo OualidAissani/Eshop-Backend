@@ -35,8 +35,8 @@ builder.Services.AddScoped<IPaymentService, PaymentService>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(o =>
 {
-    o.Audience = builder.Configuration["Audience"];
-    o.Authority = builder.Configuration["Authority"];
+    o.Audience = builder.Configuration["Keycloak:Audience"];
+    o.Authority = builder.Configuration["Keycloak:Authority"];
 
     o.RequireHttpsMetadata = false;
     o.TokenValidationParameters = new TokenValidationParameters

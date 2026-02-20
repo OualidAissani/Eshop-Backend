@@ -44,6 +44,18 @@ namespace Eshop.Inventory.Services
         }
         public async Task<Models.Inventory> UpdateInventory(Dtos.InventoryDto inventoryDto)
         {
+            if(inventoryDto==null)
+            {
+                return null;
+            }
+            if (inventoryDto.Quantity < 0)
+            {
+                return null;
+            }
+            if(inventoryDto.ProductId <= 0)
+            {
+                return null;
+            }
             var inventory = await _db.Inventories.Where(i=>i.ProductId==inventoryDto.ProductId).FirstOrDefaultAsync();
             inventory.Quantity = inventoryDto.Quantity;
             inventory.ProductId = inventoryDto.ProductId;
@@ -83,7 +95,12 @@ namespace Eshop.Inventory.Services
         {
             try
             {
-                _db.Inventories.Remove(new Models.Inventory { Id = InventoryId });
+                var inventory=await _db.Inventories.FindAsync(InventoryId);
+                if (inventory == null)
+                {
+                    return false;
+                }
+                _db.Inventories.Remove(inventory);
                 await _db.SaveChangesAsync();
                 return true;
             }

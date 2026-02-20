@@ -162,7 +162,9 @@ namespace Eshop.Catalog.Services
         
         public async Task<List<ProductDto>> GetProductsByCategory(int categoryId)
         {
-            return await _context.Products.Select(i => new ProductDto
+            return await _context.Products
+                .Where(c => c.Categories.Any(cat => cat.Id == categoryId))
+                .Select(i => new ProductDto
             {
                 Id = i.Id,
                 Title = i.Title,
@@ -174,8 +176,7 @@ namespace Eshop.Catalog.Services
                 Media = i.Media.Select(m => new MediaDto { MediaUrl = m.Media }).ToList(),
                 Categories = i.Categories.Select(c => new CategoryDto { Id = c.Id, Description = c.Description, Name = c.Title }).ToList()
 
-            })
-                .Where(c => c.Categories.Any(cat => cat.Id == categoryId))
+            })                
                 .OrderBy(d => d.DisplayOrder == null ? d.Id : d.DisplayOrder)
                 .ToListAsync();
         }

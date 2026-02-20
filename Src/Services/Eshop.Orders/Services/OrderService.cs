@@ -16,23 +16,19 @@ namespace Eshop.Orders.Services
         private readonly OrderDbContext _context;
         private readonly IRequestClient<GetProductRequest> _client;
         private readonly IRequestClient<ProductInventoryAvailibityForOrderRequest> _client2;
-        private readonly ICartService _cartService;
-        private readonly IConfiguration _configuration;
+
         private readonly IHttpContextAccessor _httpContextAccessor;
-        private readonly HttpClient _httpClient;
+        private readonly IHttpClientFactory _httpClient;
         private readonly IPublishEndpoint _publishEndpoint;
 
         public OrderService(OrderDbContext context, IRequestClient<GetProductRequest> client,
-            HttpClient httpClient,
-            IRequestClient<ProductInventoryAvailibityForOrderRequest> client2,
-            ICartService cartService, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, IPublishEndpoint publishEndpoint)
+            IHttpClientFactory httpClient,
+            IRequestClient<ProductInventoryAvailibityForOrderRequest> client2, IHttpContextAccessor httpContextAccessor, IPublishEndpoint publishEndpoint)
         {
             _context = context;
             _client = client;
             _httpClient = httpClient;
             _client2 = client2;
-            _cartService = cartService;
-            _configuration = configuration;
             _httpContextAccessor = httpContextAccessor;
             _publishEndpoint = publishEndpoint;
         }
@@ -49,12 +45,12 @@ namespace Eshop.Orders.Services
                 .ToListAsync();
 
         }
-        public async Task<Order?> GetOrderById(int orderId)
+        public async Task<Order?> GetOrderById(int orderId,string userId)
         {
             return await _context
                 .Orders
                 .AsNoTracking()
-                .FirstOrDefaultAsync(o => o.Id == orderId);
+                .FirstOrDefaultAsync(o => o.Id == orderId && o.UserId==user);
         }
 
         public async Task<Order> CreateOrder(OrderDto order,CancellationToken ct)
@@ -99,7 +95,7 @@ namespace Eshop.Orders.Services
             {
 
 
-                await _publishEndpoint.Publish(new OrderSubmitted { OrderId = newOrder.Id, CorrelationId = Guid.NewGuid(), Total = order.Products.Count(), Email = "test@gmail.com", Products = inventoryParameter });
+                await _publishEndpoint.Publish(new OrderSubmitted { OrderId = newOrder.Id, CorrelationId = Guid.NewGuid(), Total = newOrder.TotalPrice, Email = "test@gmail.com", Products = inventoryParameter });
             }
             return newOrder;
 
@@ -222,6 +218,10 @@ namespace Eshop.Orders.Services
 
         public async Task<bool> DeleteOrder(int orderId,CancellationToken ct)
         {
+            if(orderId==0)
+            {
+                return false;
+            }
             var user = _httpContextAccessor.HttpContext.User;
             var userId=user.FindFirst(ClaimTypes.NameIdentifier).Value;
             try

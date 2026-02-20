@@ -144,7 +144,16 @@ namespace Eshop.Payement.Services
 
         public async Task<object> RefundPayment(string captureId, AmountDto? amount,string userId)
         {
+            if(captureId == null || amount == null ||  userId == null)
+            {
+                return null;
+            }
             var paymentHistory = await _context.Payments.FirstOrDefaultAsync(i => i.CaptureId == captureId);
+
+            if(paymentHistory == null)
+            {
+                return null;
+            }
 
             if (paymentHistory.UserId != userId)
             {
@@ -178,7 +187,7 @@ namespace Eshop.Payement.Services
                 return null;
             }
 
-            paymentHistory.Status = Status.Captured;
+            paymentHistory.Status = Status.Refunded;
 
             await _context.SaveChangesAsync();
             

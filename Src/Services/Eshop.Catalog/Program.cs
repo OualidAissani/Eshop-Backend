@@ -30,6 +30,7 @@ builder.AddNpgsqlDbContext<CatalogDbContext>("CatalogDb");
 builder.Services.AddOpenApi();
 builder.Services.AddScoped<IMediaService, MediaService>();
 builder.Services.AddScoped<IProductService, ProductService>();
+builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddHttpLogging(logging => { });
 builder.AddRedisDistributedCache("redis");
 

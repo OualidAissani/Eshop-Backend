@@ -50,6 +50,7 @@ builder.Services.AddMassTransit(x =>
     x.AddConsumer<ProductInventoryQuanityConsumer>();
     x.AddConsumer<ProductStockConsumer>();
     x.AddConsumer<ReductInventoryQuantityFromAnOrderConsumer>();
+    x.AddRequestClient<VerifyProductExistence>(new Uri("queue:check-product-existence"));
     x.UsingRabbitMq((context, cfg) =>
     {
         cfg.Host(builder.Configuration.GetConnectionString("Rabbitmq"));

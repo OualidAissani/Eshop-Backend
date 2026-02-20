@@ -45,8 +45,8 @@ The system uses a microservices pattern with service-to-service communication vi
    - **Catalog Service**:
      - `UploadCare` (PublicKey, SecretKey, Store)
      - `GatewayUrl`
-   - **Order Service**:
-     - `InventoryBaseUrl`
+   - **Payment Service**:
+     - `Paypal` (ClientId,SecretKey)
    Example configuration:
 
 ```json

@@ -67,7 +67,13 @@ builder.Services.AddMassTransit(x =>
     });
 });
 var app = builder.Build();
+
+MigrateDatabase();
+
+
 app.MapDefaultEndpoints();
+
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
@@ -84,7 +90,6 @@ app.UseExceptionHandler(errorApp =>
       });
   });
 
-MigrateDatabase();
 app.UseHttpsRedirection();
 
 app.UseAuthorization();

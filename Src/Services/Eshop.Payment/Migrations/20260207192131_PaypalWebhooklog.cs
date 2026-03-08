@@ -3,7 +3,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace Eshop.Payement.Migrations
+namespace Eshop.Payment.Migrations
 {
     /// <inheritdoc />
     public partial class PaypalWebhooklog : Migration

@@ -1,4 +1,4 @@
-﻿namespace Eshop.Payement.Data
+﻿namespace Eshop.Payment.Data
 {
     public enum Status
     {

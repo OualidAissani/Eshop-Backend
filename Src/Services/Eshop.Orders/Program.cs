@@ -44,8 +44,7 @@ builder.Services.AddMassTransit(o =>
     o.AddRequestClient<GetProductRequest>(new Uri("queue:get-product-request"));
     o.AddRequestClient<ProductInventoryAvailibityForOrderRequest>(new Uri("queue:product-inventory-availability"));
     o.AddRequestClient<ProductStockRequest>(new Uri("queue:product-stock-request"));
-
-   
+    o.AddRequestClient<CreatePaymentRecordRequest>(new Uri("queue:CreatePayment"));
     o.UsingRabbitMq((context, cfg) =>
     {
         cfg.Host(builder.Configuration.GetConnectionString("Rabbitmq"));
@@ -82,7 +81,11 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 builder.Services.AddAuthorizationBuilder();
 builder.Services.AddSwaggerGen();
+
 var app = builder.Build();
+
+MigrateDatabase();
+
 app.MapDefaultEndpoints();
 
 if (app.Environment.IsDevelopment())
@@ -100,7 +103,6 @@ app.UseExceptionHandler(errorApp =>
         await context.Response.WriteAsync("An error occurred.");
     });
 });
-MigrateDatabase();
 app.UseHttpsRedirection();
 
 app.UseAuthorization();

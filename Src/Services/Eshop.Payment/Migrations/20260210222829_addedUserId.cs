@@ -2,7 +2,7 @@
 
 #nullable disable
 
-namespace Eshop.Payement.Migrations
+namespace Eshop.Payment.Migrations
 {
     /// <inheritdoc />
     public partial class addedUserId : Migration

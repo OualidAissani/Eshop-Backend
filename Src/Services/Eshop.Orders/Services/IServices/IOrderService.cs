@@ -8,9 +8,9 @@ namespace Eshop.Orders.Services.IServices
 
         Task<List<Order>> GetAllUserOrderAsync(string userId);
 
-        Task<Order?> GetOrderById(int orderId);
+        Task<Order?> GetOrderById(int orderId, string userId);
 
-        Task<Order> CreateOrder(OrderDto order,CancellationToken ct);
+        Task<CreateOrderResponseDto> CreateOrder(OrderDto order,CancellationToken ct);
 
      //  Task<Order> OrderCart(int cartId,CancellationToken ct);
 

@@ -1,12 +1,12 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace Eshop.Payement.Models
+namespace Eshop.Payment.Models
 {
     public class ItemsDto
     {
         public string name { get; set; }
 
-        public string quantity { get; set; }
+        public int quantity { get; set; }
 
         public string  description { get; set; }
 

@@ -1,6 +1,6 @@
-﻿using Eshop.Payement.Data;
+﻿using Eshop.Payment.Data;
 
-namespace Eshop.Payement.Models
+namespace Eshop.Payment.Models
 {
     public class Payment
     {

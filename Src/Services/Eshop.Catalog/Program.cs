@@ -82,31 +82,16 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 builder.Services.AddAuthorizationBuilder();
 
-builder.Services.AddSwaggerGen(options =>
-{
-    options.AddSecurityDefinition("bearer", new OpenApiSecurityScheme
-    {
-        Type = SecuritySchemeType.Http,
-        Scheme = "bearer",
-        BearerFormat = "JWT",
-        Description = "JWT Authorization header using the Bearer scheme."
-    });
-    options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
-    {
-        [new OpenApiSecuritySchemeReference("bearer", document)] = []
-    });
-});
-
 
 var app = builder.Build();
+
+MigrateDatabase();
 
 app.MapDefaultEndpoints();
 
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
-    app.UseSwagger();
-    app.UseSwaggerUI();
 }
 app.UseStatusCodePages();
 app.UseExceptionHandler(errorApp =>
@@ -116,7 +101,7 @@ app.UseExceptionHandler(errorApp =>
         context.Response.StatusCode = 500;
         await context.Response.WriteAsync("An error occurred.");
     });
-}); MigrateDatabase();
+}); 
 
 app.UseHttpsRedirection();
 app.UseAuthentication();

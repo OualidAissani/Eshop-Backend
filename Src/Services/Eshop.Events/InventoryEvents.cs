@@ -69,7 +69,7 @@ public record ProductStockRequest
 
 public record ProductStockResponse
 {
-    public bool HasEnoguhStock { get; set; }
+    public bool HasEnoughStock { get; set; }
 
     public ProductStockResponse()
     {
@@ -77,7 +77,7 @@ public record ProductStockResponse
 
     public ProductStockResponse(bool HasEnoguhStocks)
     {
-        HasEnoguhStock = HasEnoguhStocks;
+        HasEnoughStock = HasEnoguhStocks;
     }
 }
 

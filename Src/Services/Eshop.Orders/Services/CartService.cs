@@ -44,7 +44,7 @@ namespace Eshop.Orders.Services
 
             var StockAvailable = await _stockClient.GetResponse<ProductStockResponse>(new ProductStockRequest(cartItem.ProductId,cartItem.Quantity));
 
-            if (StockAvailable.Message.HasEnoguhStock == false)
+            if (StockAvailable.Message.HasEnoughStock == false)
             {
                 return null;
             }
@@ -160,6 +160,11 @@ namespace Eshop.Orders.Services
                 return null;
             }
             var CartItem = await _context.CartItems.FirstOrDefaultAsync(ci => ci.ProductId ==cartItem.ProductId && ci.Cart.UserId==GetUserId());
+
+            if (CartItem == null)
+            {
+                return null;
+            }
             CartItem.ProductName = cartItem.ProductName ?? CartItem.ProductName;
             CartItem.Quantity = cartItem.Quantity ?? CartItem.Quantity;
             CartItem.FullPrice = cartItem.FullPrice ?? CartItem.FullPrice;

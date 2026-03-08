@@ -71,7 +71,7 @@ namespace Eshop.Orders.Controllers
                 return Ok(JsonSerializer.Deserialize<Order>(cachedData));
             }
 
-            var order = await _orderService.GetOrderById(id);
+            var order = await _orderService.GetOrderById(id,userId);
 
             if (order == null)
             {
@@ -117,7 +117,7 @@ namespace Eshop.Orders.Controllers
                 AbsoluteExpirationRelativeToNow= TimeSpan.FromMinutes(5)
             });
 
-            return CreatedAtAction(nameof(GetOrderById), new { id = createdOrder?.Id }, createdOrder ?? null);
+            return Ok(createdOrder);
         }
 
         //[Authorize]

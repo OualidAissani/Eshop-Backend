@@ -37,7 +37,8 @@ namespace Eshop.Catalog.Services
                 .AsNoTracking()
                 .Select(i => new ProductPriceDto{
                     Id = i.Id,
-                    Price = i.Price
+                    Price = i.Price,
+                    Name=i.Title
                 })
                 .ToListAsync();
         }
@@ -97,8 +98,8 @@ namespace Eshop.Catalog.Services
                 Description = product.Description,
                 Title = product.Title,
                 Price = product.Price,
-                Categories = product.Categories.Select(c => new CategoryDto { Id = c.Id, Name = c.Title, Description = c.Description }).ToList(),
-                Media = product.Media.Select(c => new MediaDto { MediaUrl = c.Media }).ToList()
+                Categories = product.Categories.Select(c => new CategoryDto { Id = c.Id, Name = c.Title, Description = c.Description }).ToList()?? new List<CategoryDto>(),
+                Media = product.Media.Select(c => new MediaDto { MediaUrl = c.Media }).ToList()??new List<MediaDto>()
             };
         }
         

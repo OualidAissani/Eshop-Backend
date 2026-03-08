@@ -1,7 +1,8 @@
-﻿using Eshop.Payement.Services.IServices;
+﻿using Eshop.Events;
+using Eshop.Payment.Services.IServices;
 using MassTransit;
 
-namespace Eshop.Payement.EventHandler
+namespace Eshop.Payment.EventHandler
 {
     public class PaypalCheckoutConsumer : IConsumer<PaypalCheckout>
     {
@@ -24,7 +25,7 @@ namespace Eshop.Payement.EventHandler
                     currency_code=i.unit_amount.currency_code,
                     value=i.unit_amount.value.ToString("F2")
                 },
-                quantity =i.quantity.ToString()
+                quantity =i.quantity
             }).ToList();
             var amount =new Models.AmountDto
             {
@@ -32,7 +33,7 @@ namespace Eshop.Payement.EventHandler
                 value=message.Amount.value.ToString("F2")
             };
 
-            _payementService.CreateOrder(items, amount);
+          //  _payementService.CreateOrder(items, amount);
             return Task.CompletedTask;
         }
     }

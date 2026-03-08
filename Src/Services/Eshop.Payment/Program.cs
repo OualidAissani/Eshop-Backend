@@ -1,7 +1,7 @@
-﻿using Eshop.Payement.Data;
-using Eshop.Payement.EventHandler;
-using Eshop.Payement.Services;
-using Eshop.Payement.Services.IServices;
+﻿using Eshop.Payment.Data;
+using Eshop.Payment.EventHandler;
+using Eshop.Payment.Services;
+using Eshop.Payment.Services.IServices;
 using Hangfire;
 using Hangfire.PostgreSql;
 using MassTransit;
@@ -18,7 +18,8 @@ builder.AddNpgsqlDbContext<PaymentDbContext>("PayementDb");
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
-
+builder.Services.AddHttpClient();
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddHangfire(x => 
     x.UsePostgreSqlStorage(options => 
     {
@@ -68,7 +69,8 @@ builder.Services.AddHttpClient();
 
 builder.Services.AddMassTransit(x =>
 {
-    x.AddConsumer<PaypalCheckoutConsumer>();
+    x.AddConsumer<ProcessPaymentConsumer>();
+    x.AddConsumer<CreatePaymentConsumer>();
     x.UsingRabbitMq((context, cfg) =>
     {
         cfg.Host(builder.Configuration.GetConnectionString("Rabbitmq"));
@@ -80,6 +82,7 @@ builder.Services.AddMassTransit(x =>
 
 
 var app = builder.Build();
+MigrateDatabase();
 
 app.MapDefaultEndpoints();
 
@@ -88,7 +91,6 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
-MigrateDatabase();
 
 app.UseHangfireDashboard();//auth for pd
 

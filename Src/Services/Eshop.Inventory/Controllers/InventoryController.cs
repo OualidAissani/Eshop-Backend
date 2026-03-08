@@ -72,7 +72,7 @@ namespace Eshop.Inventory.Controllers
             {
                 return CreatedAtAction(nameof(GetInventoryById), new { id = JsonSerializer.Deserialize<Models.Inventory>(cached)?.Id }, JsonSerializer.Deserialize<Models.Inventory>(cached) ?? null);
             }
-            var inventory = await _inventoryService.CreateInvetoryForProduct(inventoryDto);
+            var inventory = await _inventoryService.CreateInventoryForProduct(inventoryDto);
             await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(inventory), new DistributedCacheEntryOptions
             {
                 AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)

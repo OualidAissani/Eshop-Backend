@@ -68,7 +68,7 @@ namespace Eshop.Orders.Controllers
 
             if (cachedItem != null)
             {
-                return Ok(JsonSerializer.Deserialize<CartItem>(cachedItem));
+                return Ok(JsonSerializer.Deserialize<List<CartItem>>(cachedItem));
             }
 
             var cart = await _cartService.GetAllCartItems(cartId);

@@ -25,14 +25,16 @@ public class GetProductResponseDto
 {
     public int Id { get; set; }
     public decimal Price { get; set; }
+    public string Name { get; set; }
     public GetProductResponseDto()
     {
         
     }
-    public GetProductResponseDto(int id,decimal price)
+    public GetProductResponseDto(int id,decimal price,string name)
     {
         Id=id;
         Price=price;
+        Name=name;
     }
 }
 public record GetProductResponse

@@ -1,7 +1,9 @@
-﻿using Eshop.Payement.Data;
-using Eshop.Payement.Models;
-using Eshop.Payement.Services.IServices;
+﻿using Eshop.Events;
+using Eshop.Payment.Data;
+using Eshop.Payment.Models;
+using Eshop.Payment.Services.IServices;
 using Hangfire;
+using MassTransit;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Net.Http.Headers;
@@ -10,7 +12,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Unicode;
 
-namespace Eshop.Payement.Services
+namespace Eshop.Payment.Services
 {
     public class PaymentService:IPaymentService
     {
@@ -18,17 +20,19 @@ namespace Eshop.Payement.Services
         private readonly IConfiguration _configuration;
         private readonly PaymentDbContext _context;
         private readonly ILogger<PaymentService> _log;
+        private readonly IPublishEndpoint _publish;
 
 
-        public PaymentService(IHttpClientFactory clientFactory, IConfiguration configuration, PaymentDbContext context, ILogger<PaymentService> log)
+        public PaymentService(IHttpClientFactory clientFactory, IConfiguration configuration, PaymentDbContext context, ILogger<PaymentService> log, IPublishEndpoint publish)
         {
             _clientFactory = clientFactory;
             _configuration = configuration;
             _context = context;
             _log = log;
+            _publish = publish;
         }
 
-        public async Task<string> CreateOrder(List<Models.ItemsDto> items, Models.AmountDto amount)
+        public async Task<string> CreateOrder(List<Models.ItemsDto> items, Models.AmountDto amount,int orderId,string correlationId)
         {
             var accessToken = await GetAccessToken();
             var client = _clientFactory.CreateClient();
@@ -37,7 +41,7 @@ namespace Eshop.Payement.Services
             request.Headers.Authorization =
                 new AuthenticationHeaderValue("Bearer", accessToken);
 
-            var data = OrderBodyDataMapping(items, amount);
+            var data = OrderBodyDataMapping(items, amount, orderId,correlationId);
             request.Content = JsonContent.Create(data);
 
             var response = await client.SendAsync(request);
@@ -54,7 +58,7 @@ namespace Eshop.Payement.Services
                 .GetString();
         }
 
-        private static global::System.Object OrderBodyDataMapping(List<Models.ItemsDto> items, Models.AmountDto amount)
+        private static global::System.Object OrderBodyDataMapping(List<Models.ItemsDto> items, Models.AmountDto amount, int orderId, string correlationId)
         {
             var intent = "CAPTURE";
             var payment_source = new
@@ -64,7 +68,7 @@ namespace Eshop.Payement.Services
                     experience_context = new
                     {
                         user_action = "PAY_NOW",
-                        return_url = "https://localhost:7294/api/payment/Return"
+                        return_url = $"https://localhost:7294/api/payment/Return?correlationId={correlationId}&orderId={orderId}"
 
                     }
                 }
@@ -142,7 +146,7 @@ namespace Eshop.Payement.Services
             return await JsonSerializer.DeserializeAsync<JsonElement>(CheckingResponseContent);
         }
 
-        public async Task<object> RefundPayment(string captureId, AmountDto? amount,string userId)
+        public async Task<object> RefundPayment(string captureId, Models.AmountDto? amount,string userId)
         {
             if(captureId == null || amount == null ||  userId == null)
             {
@@ -194,23 +198,7 @@ namespace Eshop.Payement.Services
             return DeserializedResponse;
         }
 
-        //public async Task<int> Save(string payload)
-        //{
-        //    var receivedHook = JsonSerializer.Deserialize<JsonElement>(payload);
-        //    if (receivedHook.GetProperty("resource").GetProperty("status").GetString() != "COMPLETED")
-        //    {
-        //        return 0;
-        //    }
-        //    var webhook = new Models.Webhook()
-        //    {
-        //        eventId = receivedHook.GetProperty("id").GetString(),
-        //        event_type = receivedHook.GetProperty("event_type").GetString(),
-        //        payload = payload
-        //    };
-        //    _context.WebhookLog.Add(webhook);
-        //    return await _context.SaveChangesAsync();
-        //}
-        public async Task<int> CapturePayment(string orderId,string userId)
+        public async Task<int> CapturePayment(string orderId,string userId,int orderSagaId,string correlationId)
         {
             var accessToken = await GetAccessToken();
 
@@ -225,8 +213,8 @@ namespace Eshop.Payement.Services
             var CheckingResponse = await client.SendAsync(ChekcOrderRequest);
 
             await using var CheckingResponseContent = await CheckingResponse.Content.ReadAsStreamAsync();
-            var Orderstatus = JsonSerializer.Deserialize<JsonElement>(CheckingResponseContent).GetProperty("status").GetString();
-            if (!CheckingResponse.IsSuccessStatusCode||Orderstatus!= "APPROVED")
+            var Orderstatus = JsonSerializer.Deserialize<JsonElement>(CheckingResponseContent).GetProperty("id").GetString();
+            if (!CheckingResponse.IsSuccessStatusCode||Orderstatus== null)
             {
                 return 0;
             }
@@ -271,12 +259,22 @@ namespace Eshop.Payement.Services
             };
 
                 _context.Payments.Add(CompletedOrder);
-
+                
+                await _publish.Publish(new PaymentProcessed()
+                {
+                    CorrelationId =Guid.Parse(correlationId),
+                    OrderId = orderSagaId,
+                    PaymentIntentId =orderId ,
+                });
             }
             else 
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
                 _log.LogError(errorContent);
+                await _publish.Publish(new OrderFailed
+                {
+                    CorrelationId = Guid.Parse(correlationId)
+                });
             }
                         
             return await _context.SaveChangesAsync();

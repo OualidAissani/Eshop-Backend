@@ -17,7 +17,7 @@ namespace Eshop.Orders.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.2")
+                .HasAnnotation("ProductVersion", "10.0.3")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -87,7 +87,7 @@ namespace Eshop.Orders.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<DateTime>("DeliveredAt")
+                    b.Property<DateTime?>("DeliveredAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("OrderNumber")
@@ -100,7 +100,7 @@ namespace Eshop.Orders.Migrations
                     b.Property<int>("PayementMethod")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime>("ShippedAt")
+                    b.Property<DateTime?>("ShippedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("ShippingAddress")
@@ -180,14 +180,19 @@ namespace Eshop.Orders.Migrations
                     b.Property<DateTime?>("OrderDate")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("OrderId")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.Property<int>("OrderId")
+                        .HasColumnType("integer");
 
                     b.Property<decimal>("OrderTotal")
                         .HasColumnType("numeric");
 
                     b.Property<string>("PaymentIntentId")
+                        .HasColumnType("text");
+
+                    b.Property<int>("PaymentMethod")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ProductsJson")
                         .HasColumnType("text");
 
                     b.HasKey("CorrelationId");

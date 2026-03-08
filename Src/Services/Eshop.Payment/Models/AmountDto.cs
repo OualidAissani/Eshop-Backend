@@ -1,4 +1,4 @@
-﻿namespace Eshop.Payement.Models
+﻿namespace Eshop.Payment.Models
 {
     public class AmountDto
     {

@@ -7,12 +7,18 @@ public record OrderSubmitted
     public int OrderId { get; init; }
     public decimal Total { get; init; }
     public string Email { get; init; }
-
-    public List<InventoryDto> Products { get; set; }
+    public PaymentMethods PaymentMethod { get; set; }
+    public List<OrderItemSagaDto>? PaymentItems { get; set; }
+    public List<InventoryUpdateDto> Products { get; set; }
 
 
 }
-
+public enum PaymentMethods
+{
+    CashOnDelivery,
+    CreditCard,
+    PayPal
+}
 public class InventoryDto
 {
     public int ProductId { get; init; }
@@ -24,7 +30,18 @@ public record ProcessPayment
     public Guid CorrelationId { get; set; }
 
     public int OrderId { get; init; }
+    public List<OrderItemSagaDto> Items { get; set; }
     public decimal Amount { get; init; }
+}
+public class OrderItemSagaDto
+{
+    public string name { get; set; }
+
+    public int quantity { get; set; }
+
+    public string description { get; set; }
+
+    public AmountDto unit_amount { get; set; }
 }
 
 public record PaymentProcessed

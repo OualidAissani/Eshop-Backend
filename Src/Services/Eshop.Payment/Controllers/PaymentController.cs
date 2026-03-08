@@ -1,6 +1,6 @@
-﻿using Eshop.Payement.Data;
-using Eshop.Payement.Models;
-using Eshop.Payement.Services.IServices;
+﻿using Eshop.Payment.Data;
+using Eshop.Payment.Models;
+using Eshop.Payment.Services.IServices;
 using Hangfire;
 using MassTransit;
 using Microsoft.AspNetCore.Authorization;
@@ -9,7 +9,7 @@ using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Text.Json;
 
-namespace Eshop.Payement.Controllers
+namespace Eshop.Payment.Controllers
 {
     [ApiController]
     [Authorize]
@@ -30,16 +30,14 @@ namespace Eshop.Payement.Controllers
             _httpContextAccessor = httpContextAccessor;
         }
 
-        [HttpPost("order")]
-        public async Task<IActionResult> CreateOrder(CreateOrder Order)
-        {
-            return Ok(await _payementService.CreateOrder(Order.Items, Order.Amount));
-        }
+
         [HttpGet("Return")]
-        public async Task<IActionResult> Capture([FromQuery] string Token)
+       // [AllowAnonymous]
+        public async Task<IActionResult> Capture([FromQuery] string Token, [FromQuery] int orderId, [FromQuery] string correlationId)
         {
-            var UserId= _httpContextAccessor.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (await _payementService.CapturePayment(Token,UserId) == 0)
+            var UserId= _httpContextAccessor.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier); //this wont work cause need auth 
+            var capturePayment = await _payementService.CapturePayment(Token, UserId, orderId, correlationId);
+            if (capturePayment== 0)
             {
                 return BadRequest("Payment capture failed");
             }

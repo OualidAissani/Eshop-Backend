@@ -15,7 +15,7 @@ namespace Eshop.Catalog.EventsHandler
         {
             var message = context.Message;
             var price= await _ProductService.GetProductPrice(message.ProductId);
-            var response = new GetProductResponse(price.Select(i => new GetProductResponseDto(i.Id, i.Price)).ToList());
+            var response = new GetProductResponse(price.Select(i => new GetProductResponseDto(i.Id, i.Price,i.Name)).ToList());
             await context.RespondAsync(response);
         }
     }

@@ -15,13 +15,13 @@ namespace Eshop.Orders.Models
 
         public string ShippingAddress{ get; set; }
 
-        public PayementMethods PayementMethod { get; set; }
+        public PaymentMethods PayementMethod { get; set; }
 
         public DateTime OrderedAt { get; set; } = DateTime.UtcNow;
 
-        public DateTime ShippedAt { get; set; }
+        public DateTime? ShippedAt { get; set; }
 
-        public DateTime DeliveredAt { get; set; }
+        public DateTime? DeliveredAt { get; set; }
 
         public List<OrderItem> OrderItems { get; set; } 
 

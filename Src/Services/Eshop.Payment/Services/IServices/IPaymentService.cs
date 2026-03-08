@@ -1,16 +1,16 @@
-﻿using Eshop.Payement.Models;
+﻿using Eshop.Payment.Models;
 using Microsoft.AspNetCore.Mvc;
 using System.Text.Json;
 
-namespace Eshop.Payement.Services.IServices
+namespace Eshop.Payment.Services.IServices
 {
     public interface IPaymentService
     {
         Task<string> GetAccessToken();
 
-        Task<string> CreateOrder(List<Models.ItemsDto> items, Models.AmountDto amount);
+        Task<string> CreateOrder(List<Models.ItemsDto> items, Models.AmountDto amount, int orderId, string correlationId);
 
-        Task<int> CapturePayment(string orderId, string userId);
+        Task<int> CapturePayment(string orderId, string userId, int orderSagaId, string correlationId);
 
         Task<JsonElement> GetCaptureDetails(string captureId);
 

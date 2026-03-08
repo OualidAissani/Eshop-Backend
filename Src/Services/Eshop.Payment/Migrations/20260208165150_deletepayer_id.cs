@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace Eshop.Payement.Migrations
+namespace Eshop.Payment.Migrations
 {
     /// <inheritdoc />
     public partial class deletepayer_id : Migration

@@ -26,14 +26,14 @@ var keycloakAuthority = ReferenceExpression.Create(
     $"{keycloak.GetEndpoint("http").Property(EndpointProperty.Url)}/realms/Eshop"
 );
 
-                                                         ///KEYCLAOCK NOT WORKING FIX IT NP
+                                                        
 var InventoryDb = Postgres.AddDatabase("InventoryDb");
 var OrderDb = Postgres.AddDatabase("OrderDb");
 var CatalogDb = Postgres.AddDatabase("CatalogDb");
 var PayementDb = Postgres.AddDatabase("PayementDb");
 
 var Catalog =builder.AddProject<Eshop_Catalog>("catalogApi")
-   // .WithHealthCheck("/health")
+   .WithHttpHealthCheck("/health")
     .WithReference(Rabbitmq)
     .WaitFor(Rabbitmq)
     .WithReference(CatalogDb)
@@ -44,7 +44,7 @@ var Catalog =builder.AddProject<Eshop_Catalog>("catalogApi")
     .WaitFor(keycloak);
 
 var Inventory=builder.AddProject<Eshop_Inventory>("inventoryApi")
-    //.WithHealthCheck("/health")
+    .WithHttpHealthCheck("/health")
     .WithReference(Rabbitmq)
     .WaitFor(Rabbitmq)
     .WithReference(Redis)
@@ -54,7 +54,7 @@ var Inventory=builder.AddProject<Eshop_Inventory>("inventoryApi")
     .WaitFor(keycloak);
 
 var Order=builder.AddProject<Eshop_Orders>("orderApi")
-   // .WithHealthCheck("/health")
+   .WithHttpHealthCheck("/health")
     .WithReference(Rabbitmq)
     .WaitFor(Rabbitmq)
     .WithReference(Redis)
@@ -65,7 +65,7 @@ var Order=builder.AddProject<Eshop_Orders>("orderApi")
     .WaitFor(keycloak);
 
 var Payement=builder.AddProject<Eshop_Payment>("paymentApi")
-   // .WithHealthCheck("/health")
+   .WithHttpHealthCheck("/health")
     .WithReference(Rabbitmq)
     .WaitFor(Rabbitmq)
     .WithReference(PayementDb)
@@ -74,7 +74,7 @@ var Payement=builder.AddProject<Eshop_Payment>("paymentApi")
     .WaitFor(keycloak);
 
 var Gateway=builder.AddProject<Eshop_Gateway>("Gateway")
-   //  .WithHealthCheck("/health")
+   .WithHttpHealthCheck("/health")
     .WithReference(Catalog)
     .WithReference(Order)
     .WithReference(Inventory)

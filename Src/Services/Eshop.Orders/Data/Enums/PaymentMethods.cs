@@ -1,6 +1,6 @@
 ﻿namespace Eshop.Orders.Data.Enums
 {
-    public enum PayementMethods
+    public enum PaymentMethods
     {
         CashOnDelivery,
         CreditCard,

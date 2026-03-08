@@ -26,7 +26,7 @@ namespace Eshop.Inventory.Services
         {
             return await _db.Inventories.AsNoTracking().FirstOrDefaultAsync(i => i.Id == InventoryId);
         }
-        public async Task<Models.Inventory> CreateInvetoryForProduct(Dtos.InventoryDto Inventory)
+        public async Task<Models.Inventory> CreateInventoryForProduct(Dtos.InventoryDto Inventory)
         {
             var response=await _Client.GetResponse<ProductExistenceResponse>(new VerifyProductExistence(Inventory.ProductId));
             if (response.Message.Exists == false)

@@ -1,7 +1,7 @@
-﻿using Eshop.Payement.Models;
+﻿using Eshop.Payment.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace Eshop.Payement.Data
+namespace Eshop.Payment.Data
 {
     public class PaymentDbContext : DbContext
     {
@@ -15,6 +15,6 @@ namespace Eshop.Payement.Data
         }
 
         public DbSet<Webhook> WebhookLog { get; set; }
-        public DbSet<Payment> Payments { get; set; }
+        public DbSet<Models.Payment> Payments { get; set; }
     }
 }

@@ -48,7 +48,7 @@ public class OrderSagaTests : IAsyncLifetime
             Total = 100m,
             Email = "test@test.com",
             PaymentMethod = PaymentMethods.CashOnDelivery,
-            Products = [new InventoryDto { ProductId = 1, Quantity = 2 }]
+            Products = [new InventoryUpdateDto { ProductId = 1, Quantity = 2 }]
         });
 
         (await _sagaHarness.Consumed.Any<OrderSubmitted>()).Should().BeTrue();
@@ -71,7 +71,7 @@ public class OrderSagaTests : IAsyncLifetime
             Total = 200m,
             Email = "test@test.com",
             PaymentMethod = PaymentMethods.CreditCard,
-            Products = [new InventoryDto { ProductId = 1, Quantity = 1 }],
+            Products = [new InventoryUpdateDto { ProductId = 1, Quantity = 1 }],
             PaymentItems =
             [
                 new OrderItemSagaDto
@@ -104,7 +104,7 @@ public class OrderSagaTests : IAsyncLifetime
             Total = 150m,
             Email = "test@test.com",
             PaymentMethod = PaymentMethods.PayPal,
-            Products = [new InventoryDto { ProductId = 1, Quantity = 1 }],
+            Products = [new InventoryUpdateDto { ProductId = 1, Quantity = 1 }],
             PaymentItems =
             [
                 new OrderItemSagaDto
@@ -146,7 +146,7 @@ public class OrderSagaTests : IAsyncLifetime
             Total = 75m,
             Email = "test@test.com",
             PaymentMethod = PaymentMethods.CashOnDelivery,
-            Products = [new InventoryDto { ProductId = 1, Quantity = 3 }]
+            Products = [new InventoryUpdateDto { ProductId = 1, Quantity = 3 }]
         });
 
         (await _sagaHarness.Consumed.Any<OrderSubmitted>()).Should().BeTrue();
@@ -176,7 +176,7 @@ public class OrderSagaTests : IAsyncLifetime
             Total = 300m,
             Email = "test@test.com",
             PaymentMethod = PaymentMethods.CreditCard,
-            Products = [new InventoryDto { ProductId = 1, Quantity = 1 }],
+            Products = [new InventoryUpdateDto { ProductId = 1, Quantity = 1 }],
             PaymentItems =
             [
                 new OrderItemSagaDto
@@ -212,7 +212,7 @@ public class OrderSagaTests : IAsyncLifetime
             Total = 250m,
             Email = "test@test.com",
             PaymentMethod = PaymentMethods.CashOnDelivery,
-            Products = [new InventoryDto { ProductId = 1, Quantity = 5 }]
+            Products = [new InventoryUpdateDto { ProductId = 1, Quantity = 5 }]
         });
 
         (await _sagaHarness.Consumed.Any<OrderSubmitted>()).Should().BeTrue();

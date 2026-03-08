@@ -106,7 +106,7 @@ public class PaymentServiceTests : IDisposable
         _handler.When(HttpMethod.Get, "v2/checkout/orders/", () =>
             new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = new StringContent("""{"status":"APPROVED"}""")
+                Content = new StringContent("""{"id":"ORDER_TOKEN","status":"APPROVED"}""")
             });
 
         _handler.When(HttpMethod.Post, "/capture", () =>
@@ -145,7 +145,7 @@ public class PaymentServiceTests : IDisposable
         _handler.When(HttpMethod.Get, "v2/checkout/orders/", () =>
             new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = new StringContent("""{"status":"CREATED"}""")
+                Content = new StringContent("""{"id":null}""")
             });
 
         var result = await _sut.CapturePayment("ORDER_TOKEN", "user1", orderSagaId: 1, Guid.NewGuid().ToString());
@@ -178,7 +178,7 @@ public class PaymentServiceTests : IDisposable
                 Content = new StringContent("""{"status":"COMPLETED","id":"REFUND123"}""")
             });
 
-        var result = await _sut.RefundPayment("CAP_REFUND", new AmountDto { value = 50.00m }, "user1");
+        var result = await _sut.RefundPayment("CAP_REFUND", new PaymentModels.AmountDto { value = "50.00" }, "user1");
 
         result.Should().NotBeNull();
         var payment = await _context.Payments.FirstAsync(p => p.CaptureId == "CAP_REFUND");
@@ -208,7 +208,7 @@ public class PaymentServiceTests : IDisposable
         });
         await _context.SaveChangesAsync();
 
-        var result = await _sut.RefundPayment("CAP_OTHER", new AmountDto { value = 50.00m }, "wrong_user");
+        var result = await _sut.RefundPayment("CAP_OTHER", new PaymentModels.AmountDto { value = "50.00" }, "wrong_user");
 
         result.Should().BeNull();
     }
@@ -216,7 +216,7 @@ public class PaymentServiceTests : IDisposable
     [Fact]
     public async Task RefundPayment_WhenPaymentNotFound_ReturnsNull()
     {
-        var result = await _sut.RefundPayment("NONEXISTENT", new AmountDto { value = 50.00m }, "user1");
+        var result = await _sut.RefundPayment("NONEXISTENT", new PaymentModels.AmountDto { value = "50.00" }, "user1");
 
         result.Should().BeNull();
     }

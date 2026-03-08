@@ -17,6 +17,7 @@ public class OrderServiceTests : IDisposable
     private readonly OrderDbContext _context;
     private readonly IRequestClient<GetProductRequest> _productClient;
     private readonly IRequestClient<ProductInventoryAvailibityForOrderRequest> _inventoryClient;
+    private readonly IRequestClient<CreatePaymentRecordRequest> _createPaymentOrderClient;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly IPublishEndpoint _publishEndpoint;
     private readonly OrderService _sut;
@@ -30,10 +31,11 @@ public class OrderServiceTests : IDisposable
         _context = new OrderDbContext(options);
         _productClient = Substitute.For<IRequestClient<GetProductRequest>>();
         _inventoryClient = Substitute.For<IRequestClient<ProductInventoryAvailibityForOrderRequest>>();
+        _createPaymentOrderClient = Substitute.For<IRequestClient<CreatePaymentRecordRequest>>();
         _httpContextAccessor = Substitute.For<IHttpContextAccessor>();
         _publishEndpoint = Substitute.For<IPublishEndpoint>();
 
-        _sut = new OrderService(_context, _productClient, _inventoryClient, _httpContextAccessor, _publishEndpoint);
+        _sut = new OrderService(_context, _productClient, _inventoryClient, _httpContextAccessor, _publishEndpoint, _createPaymentOrderClient);
     }
 
     public void Dispose() => _context.Dispose();
@@ -147,15 +149,15 @@ public class OrderServiceTests : IDisposable
         var result = await _sut.CreateOrder(orderDto, CancellationToken.None);
 
         result.Should().NotBeNull();
-        result.TotalPrice.Should().Be(50.00m);
-        result.OrderItems.Should().HaveCount(1);
-        result.OrderItems[0].ProductName.Should().Be("Widget");
-        result.OrderItems[0].UnitPrice.Should().Be(25.00m);
-        result.OrderItems[0].FullPrice.Should().Be(50.00m);
+        result.Order.TotalPrice.Should().Be(50.00m);
+        result.Order.OrderItems.Should().HaveCount(1);
+        result.Order.OrderItems[0].ProductName.Should().Be("Widget");
+        result.Order.OrderItems[0].UnitPrice.Should().Be(25.00m);
+        result.Order.OrderItems[0].FullPrice.Should().Be(50.00m);
 
         await _publishEndpoint.Received(1)
             .Publish(Arg.Is<OrderSubmitted>(e =>
-                e.OrderId == result.Id &&
+                e.OrderId == result.Order.Id &&
                 e.PaymentMethod == Events.PaymentMethods.CashOnDelivery),
                 Arg.Any<CancellationToken>());
     }
@@ -282,8 +284,8 @@ public class OrderServiceTests : IDisposable
         var result = await _sut.CreateOrder(orderDto, CancellationToken.None);
 
         result.Should().NotBeNull();
-        result.TotalPrice.Should().Be(65.00m); // (2 * 10) + (3 * 15)
-        result.OrderItems.Should().HaveCount(2);
+        result.Order.TotalPrice.Should().Be(65.00m); // (2 * 10) + (3 * 15)
+        result.Order.OrderItems.Should().HaveCount(2);
     }
 
     [Fact]

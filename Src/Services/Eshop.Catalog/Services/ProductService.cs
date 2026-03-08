@@ -182,7 +182,7 @@ namespace Eshop.Catalog.Services
                 .ToListAsync();
         }
         
-        public async Task<List<Products>> ProductSearch(string tag)
+        public async Task<List<ProductDto>> ProductSearch(string tag)
         {
            return await _context.Products
                 .Include(i=>i.Categories)
@@ -193,6 +193,18 @@ namespace Eshop.Catalog.Services
                 ||  (EF.Functions.TrigramsAreSimilar(p.Title,tag))
                 ||  (p.Categories.Any(i=>EF.Functions.TrigramsAreSimilar(i.Title,tag)))
                 ||  (p.Categories.Any(i => EF.Functions.TrigramsAreSimilar(i.Description, tag))))
+                .Select(i=> new ProductDto
+                {
+                    Id = i.Id,
+                    Title = i.Title,
+                    Status = i.Status,
+                    SpecialStatus = i.SpecialStatus,
+                    Description = i.Description,
+                    DisplayOrder = i.DisplayOrder,
+                    Price = i.Price,
+                    Media = i.Media.Select(m => new MediaDto { MediaUrl = m.Media }).ToList(),
+                    Categories = i.Categories.Select(c => new CategoryDto { Id = c.Id, Description = c.Description, Name = c.Title }).ToList()
+                })
                 .ToListAsync();
         }
 

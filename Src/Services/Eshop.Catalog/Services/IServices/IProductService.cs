@@ -23,5 +23,8 @@ namespace Eshop.Catalog.Services.IServices
 
         Task<bool> AssignProductToCategory(int productId, int categoryId, CancellationToken ct);
 
+        Task<List<ProductDto>> ProductSearch(string tag);
+
+
     }
 }

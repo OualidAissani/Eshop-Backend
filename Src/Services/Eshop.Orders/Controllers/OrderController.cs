@@ -8,6 +8,7 @@ using System.Text.Json;
 
 namespace Eshop.Orders.Controllers
 {
+    [ApiController]
     [Route("api/[controller]")]
     [Authorize]
     public class OrderController : ControllerBase

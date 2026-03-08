@@ -83,7 +83,7 @@ namespace Eshop.Catalog.Controllers
             return Ok(currentProduct);
         }
         
-        [HttpPost("update")]
+        [HttpPut]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateProduct([FromForm] Products product, IFormFile? formFile ,
             [FromHeader(Name = "x_Idempotency_Key")] string key,CancellationToken ct)
@@ -194,6 +194,22 @@ namespace Eshop.Catalog.Controllers
                     AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
                 });
             
+            return Ok(products);
+        }
+
+        [HttpGet("search")]
+        public async Task<IActionResult> Search([FromQuery] string q)
+        {
+            if (q == null)
+            {
+                return BadRequest("You To Add A Search Term/Tag");
+            }
+            var products=_productrepo.ProductSearch(q);
+            if (products == null)
+            {
+                return NotFound();
+            }
+
             return Ok(products);
         }
         

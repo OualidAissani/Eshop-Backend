@@ -8,8 +8,9 @@ namespace Eshop.Inventory.Services
         Task<List<Models.Inventory>> GetAllInventories();
         Task<Models.Inventory?> GetInventoryById(int InventoryId);
         Task<Models.Inventory> UpdateInventory(Dtos.InventoryDto inventoryDto);
-        Task<List<Models.Inventory>> UpdateQuantity(List<Dtos.InventoryDto> invDto);
+        Task<int> UpdateQuantity(List<Dtos.InventoryDto> invDto);
         Task<bool?> DeleteInventory(int InventoryId);
+        Task<List<Models.Inventory>> GetInvetoriesByProductsIds(List<int> productIds);
 
     }
 }

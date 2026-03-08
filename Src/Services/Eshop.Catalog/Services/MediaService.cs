@@ -23,7 +23,7 @@ namespace Eshop.Catalog.Services
             _configuration = configuration;
             _httpClientFactory = httpClietnt;
         }
-        public async Task<ProductMedia> CreateMedia(ProductMedia media, Stream fileStream,string contentType ,string fileName,CancellationToken ct)
+        public async Task<ProductMedia> CreateMedia(ProductMedia media, Stream fileStream, string contentType, string fileName, CancellationToken ct)
         {
             var httpClient = _httpClientFactory.CreateClient();
 
@@ -33,7 +33,6 @@ namespace Eshop.Catalog.Services
 
             content.Add(new StringContent(_configuration["UploadCare:Store"]), "UPLOADCARE_STORE");
 
-            //31a2bxztr3.ucarecd.net (+ uuid for actual image)
             var fileContent = new StreamContent(fileStream);
 
             fileContent.Headers.ContentType = new MediaTypeHeaderValue(contentType);
@@ -49,7 +48,7 @@ namespace Eshop.Catalog.Services
             using var doc = await JsonDocument.ParseAsync(responseStream, cancellationToken: ct);
             var uuid = doc.RootElement.GetProperty("file").GetString();
 
-            media.Media = uuid;
+            media.Media = _configuration["UploadCare:UploadCareBaseUrl"] + uuid;
 
             _context.Media.Add(media);
 

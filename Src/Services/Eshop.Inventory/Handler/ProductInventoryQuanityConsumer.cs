@@ -1,5 +1,6 @@
 ﻿using Eshop.Events;
 using Eshop.Inventory.Data;
+using Eshop.Inventory.Services;
 using FluentResults;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
@@ -9,15 +10,15 @@ namespace Eshop.Inventory.Handler
     public class ProductInventoryQuanityConsumer:IConsumer<ProductInventoryAvailibityForOrderRequest>
     {
 
-        private readonly InventoryDb _db;
-        public ProductInventoryQuanityConsumer(InventoryDb inventoryDb)
+        private readonly IInventoryService _inventoryService;
+        public ProductInventoryQuanityConsumer(IInventoryService inventoryService)
         {
-            _db = inventoryDb;
+            _inventoryService = inventoryService;
         }
         public async Task Consume(ConsumeContext<ProductInventoryAvailibityForOrderRequest> context)
         {
             var message = context.Message;
-            var productInventory=await _db.Inventories.Where(i => message.ProductsId.Contains(i.ProductId)).ToListAsync();
+            var productInventory=await _inventoryService.GetInvetoriesByProductsIds(message.ProductsId);
 
             if(productInventory==null ||productInventory.Count == 0)
             {

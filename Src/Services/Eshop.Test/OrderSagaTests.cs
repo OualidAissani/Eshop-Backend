@@ -1,4 +1,5 @@
-﻿using Eshop.Events;
+﻿
+using Eshop.Events;
 using Eshop.Orders.Sagas;
 using FluentAssertions;
 using MassTransit;

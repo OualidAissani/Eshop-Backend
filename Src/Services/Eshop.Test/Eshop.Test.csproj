@@ -27,6 +27,7 @@
     <ProjectReference Include="..\Eshop.Inventory\Eshop.Inventory.csproj" />
     <ProjectReference Include="..\Eshop.Events\Eshop.Events.csproj" />
     <ProjectReference Include="..\Eshop.Payment\Eshop.Payment.csproj" />
+    <ProjectReference Include="..\Eshop.Catalog\Eshop.Catalog.csproj" />
   </ItemGroup>
 
 </Project>

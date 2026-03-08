@@ -64,32 +64,22 @@ namespace Eshop.Inventory.Services
 
             return inventory;
         }
-        public async Task<List<Models.Inventory>> UpdateQuantity(List<Dtos.InventoryDto> invDto)
+        public async Task<int> UpdateQuantity(List<Dtos.InventoryDto> invDto)
         {
-            var productIds = invDto.Select(p => p.ProductId).ToList();
-            var inventories = await _db
-                .Inventories
-                .Where(i => productIds.Contains(i.ProductId))
-                .ToListAsync();
+            if (invDto == null || invDto.Count == 0)
+                return 0;
 
-            foreach (var inventory in inventories)
+            int totalUpdated = 0;
+
+            foreach (var item in invDto)
             {
-                var dto = invDto.FirstOrDefault(d => d.ProductId == inventory.ProductId);
-                if (dto != null && inventory.Quantity > dto.Quantity)
-                {
-                    inventory.Quantity -= dto.Quantity;
-                }
-                else
-                {
-                    _logger.LogError("insufficient ");
-                    return null;
-                }
-                
+                totalUpdated += await _db.Inventories
+                    .Where(i => i.ProductId == item.ProductId)
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(i => i.Quantity, item.Quantity));
             }
 
-            await _db.SaveChangesAsync();
-
-            return inventories;
+            return totalUpdated;
         }
         public async Task<bool?> DeleteInventory(int InventoryId)
         {
@@ -109,6 +99,14 @@ namespace Eshop.Inventory.Services
                 Console.WriteLine(e.Message);
                 return false;
             }
+        }
+
+        public async Task<List<Models.Inventory>> GetInvetoriesByProductsIds(List<int> productIds)
+        {
+            return await _db
+                .Inventories
+                .Where(i => productIds.Contains(i.ProductId))
+                .ToListAsync();
         }
     }
 }

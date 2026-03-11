@@ -42,7 +42,8 @@ namespace Eshop.Inventory.Handler
                 ProductId=i.ProductId,
                 Quantity=i.Quantity
             }).ToList();
-            if (await _inventoryService.UpdateQuantity(inventoryDto) !=productIds.Count())
+            var result = await _inventoryService.UpdateQuantity(inventoryDto);
+            if ( result.Value!=productIds.Count())
             {
                 await _publishEndpoint.Publish(new OrderFailed { CorrelationId = message.CorrelationId });
             }

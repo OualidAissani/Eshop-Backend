@@ -3,8 +3,8 @@ using Eshop.Catalog.Dtos;
 using Eshop.Catalog.Models;
 using Eshop.Catalog.Services.IServices;
 using Eshop.Events;
+using FluentResults;
 using MassTransit;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
 namespace Eshop.Catalog.Services
@@ -43,7 +43,7 @@ namespace Eshop.Catalog.Services
                 .ToListAsync();
         }
 
-        public async Task<dynamic> CreateProduct(ProductCreateDto product,CancellationToken ct)
+        public async Task<Result<ProductCreateResponseDto>> CreateProduct(ProductCreateDto product,CancellationToken ct)
         {
             var strategy = _context.Database.CreateExecutionStrategy();
 
@@ -58,19 +58,32 @@ namespace Eshop.Catalog.Services
                     SpecialStatus= product.SpecialStatus,
                     DisplayOrder= product.DisplayOrder,
                 };
+
                 if(product.Categories!=null && product.Categories.Count>0)
                 {
                     var categories = await _context.Categories.Where(c => product.Categories.Contains(c.Id)).ToListAsync();
                     productobj.Categories = categories;
                 }
-                _context.Products.Add(productobj);
-                var result = await _context.SaveChangesAsync(ct);
 
-                return new { productobj.Id, productobj.Description };
+                _context.Products.Add(productobj);
+
+                var result = await _context.SaveChangesAsync(ct);
+                if (result == 0)
+                {
+                    return Result.Fail<ProductCreateResponseDto>("Failed To Create Product");
+                }
+
+                var response = new ProductCreateResponseDto()
+                {
+                    Id = productobj.Id,
+                    Description = productobj.Description
+                };
+
+                return response;
             });
         }
         
-        public async Task<ProductDto> UpdateProduct(Products product,Stream mediafile,string contentType,string filename,CancellationToken ct)
+        public async Task<Result<ProductDto>> UpdateProduct(Products product,Stream mediafile,string contentType,string filename,CancellationToken ct)
         {
             if (mediafile != null)
             {
@@ -85,9 +98,9 @@ namespace Eshop.Catalog.Services
 
             var result=await _context.SaveChangesAsync(ct);
 
-            if(result<=0)
+            if(result==0)
             {
-                throw new Exception("Failed to update product");
+                return Result.Fail("Failed To Update Product");
             }
             
             await _publish.Publish(new UpdateCartProduct(product.Id, product.Title, product.Price));
@@ -103,8 +116,10 @@ namespace Eshop.Catalog.Services
             };
         }
         
-        public async Task<bool> DeleteProduct(int productId, CancellationToken ct)
+        public async Task<Result<bool>> DeleteProduct(int productId, CancellationToken ct)
         {
+            ArgumentNullException.ThrowIfNull(productId);
+
             var strategy = _context.Database.CreateExecutionStrategy();
 
             return await strategy.ExecuteAsync(async () =>
@@ -112,12 +127,16 @@ namespace Eshop.Catalog.Services
                 var product = await _context.Products.Include(i => i.Media).Where(I => I.Id == productId).FirstOrDefaultAsync();
                 if (product == null)
                 {
-                    return false;
+                    return Result.Fail($"The product with Id {productId} Not Found");
                 }
                 var media = await Task.WhenAll(product.Media.Select(s => _mediaService.DeleteMedia(s.Media,ct)));
                 _context.Products.Remove(product);
 
                 var result = await _context.SaveChangesAsync(ct);
+                if(result == null)
+                {
+                    return Result.Fail<bool>("There Was An Issue Deleting The Product");
+                }
                 return true;
             });
         }
@@ -158,7 +177,7 @@ namespace Eshop.Catalog.Services
 
                 })
                 .OrderBy(d => d.DisplayOrder == null ? d.Id : d.DisplayOrder)
-                .ToListAsync();            
+                .ToListAsync();
         }
         
         public async Task<List<ProductDto>> GetProductsByCategory(int categoryId)
@@ -254,14 +273,18 @@ namespace Eshop.Catalog.Services
             };
         }
 
-        public async Task<bool> AssignProductToCategory(int productId, int categoryId,CancellationToken ct)
+        public async Task<Result<bool>> AssignProductToCategory(int productId, int categoryId,CancellationToken ct)
         {
+            if(productId<=0 || categoryId<=0)
+            {
+               throw new ArgumentException("Product or Category isnt valid");
+            }
+
             var product=await _context.Products.Include(p => p.Categories).FirstOrDefaultAsync(p => p.Id == productId);
 
             if (product == null)
             {
-                _logger.LogError("Product with id {id} not found", productId);
-                return false;
+                return Result.Fail($"Product with id {productId} not found");
             }
 
             if (product.Categories.Any(i => i.Id == categoryId))
@@ -272,15 +295,14 @@ namespace Eshop.Catalog.Services
             var category = await _context.Categories.FindAsync(new object[] { categoryId }, ct);
             if (category == null)
             {
-                _logger.LogError("Category with id {id} not found", categoryId);
-                return false;
+                return Result.Fail($"Category with id {categoryId} not found");
             }
 
             product.Categories.Add(category);
 
             if (await _context.SaveChangesAsync(ct) == 0)
             {
-                return false;
+                return Result.Fail("Failed to assign product to category");
             }
             return true;
 

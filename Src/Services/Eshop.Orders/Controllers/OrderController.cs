@@ -107,18 +107,24 @@ namespace Eshop.Orders.Controllers
 
             var userId= _httpContextAccessor.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
             order.UserId = userId;
-            var createdOrder = await _orderService.CreateOrder(order,ct);
-
-            if(createdOrder == null)
+            try
             {
-                return BadRequest("We having a problem processing your request.");
+                var createdOrder = await _orderService.CreateOrder(order,ct);
+                await _cache.SetStringAsync(cacheKey,JsonSerializer.Serialize(createdOrder),new DistributedCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow= TimeSpan.FromMinutes(5)
+                });
+                await _cache.RemoveAsync($"Orders:{userId}:All");
+                return Ok(createdOrder);
             }
-            await _cache.SetStringAsync(cacheKey,JsonSerializer.Serialize(createdOrder),new DistributedCacheEntryOptions
+            catch (ArgumentException ex)
             {
-                AbsoluteExpirationRelativeToNow= TimeSpan.FromMinutes(5)
-            });
-
-            return Ok(createdOrder);
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         //[Authorize]
@@ -131,12 +137,15 @@ namespace Eshop.Orders.Controllers
         [HttpDelete]
         public async Task<IActionResult> DeleteOrder(int id,CancellationToken ct)
         {
+            var userId = _httpContextAccessor.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
             var deleteResult=await _orderService.DeleteOrder(id,ct);
 
             if(!deleteResult)
             {
                 return NotFound();
             }
+            await _cache.RemoveAsync($"Orders:{userId}:All");
+            await _cache.RemoveAsync($"Order:{userId}:{id}");
 
             return NoContent();
         }

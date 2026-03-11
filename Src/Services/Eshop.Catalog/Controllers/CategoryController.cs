@@ -35,11 +35,11 @@ namespace Eshop.Catalog.Controllers
         public async Task<IActionResult> CreateCategory(CategoryCreateDto dto, CancellationToken ct)
         {
             var category = await _categoryService.CreateAsync(dto, ct);
-            if (category == null)
+            if (category.IsFailed)
             {
-                return BadRequest("Failed to create category");
+                return BadRequest(category.Errors.First().Message);
             }
-            return CreatedAtAction(nameof(GetCategoryById), new { id = category.Id }, category);
+            return CreatedAtAction(nameof(GetCategoryById), new { id = category.Value.Id }, category.Value);
         }
 
         [Authorize(Roles = "Admin")]
@@ -47,11 +47,11 @@ namespace Eshop.Catalog.Controllers
         public async Task<IActionResult> UpdateCategory(int id, CategoryUpdateDto dto, CancellationToken ct)
         {
             var category = await _categoryService.UpdateAsync(id, dto, ct);
-            if (category == null)
+            if (category.IsFailed)
             {
-                return BadRequest("Failed to update category");
+                return BadRequest(category.Errors.First().Message);
             }
-            return Ok(category);
+            return Ok(category.Value);
         }
 
         [Authorize(Roles = "Admin")]
@@ -59,9 +59,9 @@ namespace Eshop.Catalog.Controllers
         public async Task<IActionResult> DeleteCategory(int id, CancellationToken ct)
         {
             var result = await _categoryService.DeleteAsync(id, ct);
-            if (!result)
+            if (result.IsFailed)
             {
-                return BadRequest("Failed to delete category");
+                return BadRequest(result.Errors.First().Message);
             }
             return Ok();
 

@@ -2,12 +2,9 @@
 using Eshop.Orders.Data;
 using Eshop.Orders.Models;
 using Eshop.Orders.Services.IServices;
-using FluentResults;
 using MassTransit;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
-using System.Net.Http.Headers;
 using System.Security.Claims;
 namespace Eshop.Orders.Services
 {
@@ -86,9 +83,10 @@ namespace Eshop.Orders.Services
             }).ToList();
 
             _context.Orders.Add(newOrder);
+
             if (await _context.SaveChangesAsync() == 0)
             {
-                return null;
+                throw new Exception("Error Occured While Saving Order To The Db");
             }
           
                 var paymentItems=new List<Events.OrderItemSagaDto>();
@@ -127,7 +125,7 @@ namespace Eshop.Orders.Services
                         CorrelationId = correlationId,
                         PaymentMethod = (Eshop.Events.PaymentMethods)newOrder.PayementMethod,
                         Total = newOrder.TotalPrice,
-                        Email = "test@gmail.com",
+                        Email = "test@gmail.com",//placeholder
                         Products = inventoryParameter,
                         PaymentItems = paymentItems??null
                     });
@@ -143,8 +141,9 @@ namespace Eshop.Orders.Services
 
         private async Task<(Dictionary<int, ProductInventoryItem> inventoryDict, Dictionary<int, GetProductResponseDto> pricesDict)> OrderValidations(OrderDto order,CancellationToken ct)
         {
-            if (order == null)
-                throw new ArgumentNullException(nameof(order));
+
+            ArgumentNullException.ThrowIfNull(order);
+
             if (order.Products == null || !order.Products.Any())
                 throw new ArgumentException("Order must contain at least one product.");
 
@@ -171,7 +170,6 @@ namespace Eshop.Orders.Services
 
             if (unavailable.Any())
             {
-
                 throw new Exception($"Products unavailable: {string.Join(", ", unavailable)}");
             }
 
@@ -186,7 +184,7 @@ namespace Eshop.Orders.Services
 
         public async Task<bool> DeleteOrder(int orderId,CancellationToken ct)
         {
-            if(orderId==0)
+            if(orderId<=0)
             {
                 return false;
             }
@@ -195,11 +193,12 @@ namespace Eshop.Orders.Services
             try
             {
                 var order = await _context.Orders.FindAsync(orderId);
-                if(order.UserId!= userId)
+                if(order == null || order.UserId != userId)
                 {
                     return false;
                 }
                 _context.Orders.Remove(order);
+
                 return await _context.SaveChangesAsync() > 0;
             }
             catch (Exception ex)
@@ -212,7 +211,7 @@ namespace Eshop.Orders.Services
         {
             if (order == null || order.Products == null || !order.Products.Any())
             {
-                return null;
+                throw new ArgumentNullException(nameof(order), "Order and its products cannot be null or empty.");
             }
 
             throw new NotImplementedException();

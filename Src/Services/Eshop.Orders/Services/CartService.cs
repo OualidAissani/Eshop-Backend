@@ -159,7 +159,7 @@ namespace Eshop.Orders.Services
             {
                 return null;
             }
-            var CartItem = await _context.CartItems.FirstOrDefaultAsync(ci => ci.ProductId ==cartItem.ProductId && ci.Cart.UserId==GetUserId());
+            var CartItem = await _context.CartItems.FirstOrDefaultAsync(ci => ci.ProductId ==cartItem.ProductId);
 
             if (CartItem == null)
             {

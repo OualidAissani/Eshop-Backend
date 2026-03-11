@@ -1,5 +1,6 @@
 ﻿using Eshop.Catalog.Dtos;
 using Eshop.Catalog.Models;
+using FluentResults;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -9,15 +10,15 @@ namespace Eshop.Catalog.Services.IServices
 {
     public interface ICategoryService
     {
-        Task<Categories> CreateAsync(CategoryCreateDto dto, CancellationToken cancellationToken);
+        Task<Result<Categories>> CreateAsync(CategoryCreateDto dto, CancellationToken cancellationToken);
 
-        Task<Categories> UpdateAsync(int id, CategoryUpdateDto dto, CancellationToken cancellationToken);
+        Task<Result<Categories>> UpdateAsync(int id, CategoryUpdateDto dto, CancellationToken cancellationToken);
 
-        Task<bool> DeleteAsync(int id, CancellationToken cancellationToken);
+        Task<Result<bool>> DeleteAsync(int id, CancellationToken cancellationToken);
 
-        Task<Categories?> GetByIdAsync(int id, CancellationToken cancellationToken);
+        Task<CategoryDto?> GetByIdAsync(int id, CancellationToken cancellationToken);
 
-        Task<List<Categories>> GetAllAsync(CancellationToken cancellationToken );
+        Task<List<CategoryDto>> GetAllAsync(CancellationToken cancellationToken );
 
 
     }

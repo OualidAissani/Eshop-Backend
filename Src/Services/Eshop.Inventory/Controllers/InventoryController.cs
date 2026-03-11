@@ -58,7 +58,6 @@ namespace Eshop.Inventory.Controllers
             });
             return Ok(inventory);
         }
-        [Authorize]
         [HttpPost]
         public async Task<IActionResult> CreateInventory([FromBody] InventoryDto inventoryDto, [FromHeader(Name = "x_Idempotency_Key")] string key)
         {
@@ -77,6 +76,7 @@ namespace Eshop.Inventory.Controllers
             {
                 AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
             });
+            await _cache.RemoveAsync("Inventories:All");
             return CreatedAtAction(nameof(GetInventoryById), new { id = inventory?.Id }, inventory?? null);
         }
         [Authorize]
@@ -84,14 +84,14 @@ namespace Eshop.Inventory.Controllers
         public async Task<IActionResult> DeleteInventory(int id)
         {
             var result = await _inventoryService.DeleteInventory(id);
-            if (result == null)
+            if (result.IsFailed)
             {
-                return NotFound();
+                return NotFound(result.Errors.First().Message);
             }
-            if (result == false)
-            {
-                return BadRequest();
-            }
+            
+            await _cache.RemoveAsync($"Inventory:{id}");
+
+            await _cache.RemoveAsync("Inventories:All");
             return NoContent();
         }
         [HttpPut]
@@ -108,15 +108,17 @@ namespace Eshop.Inventory.Controllers
                 return Ok(JsonSerializer.Deserialize<Models.Inventory>(cached));
             }
             var result = await _inventoryService.UpdateInventory(inventoryDto);
-            if (result == null)
+            if (result.IsFailed)
             {
-                return BadRequest("Inventory not found");
+                return BadRequest(result.Errors.First().Message);
             }
             await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(result), new DistributedCacheEntryOptions
             {
                 AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
             });
-            return Ok(result);
+            await _cache.RemoveAsync($"Inventory:{result.Value.Id}");
+            await _cache.RemoveAsync("Inventories:All");
+            return Ok(result.Value);
         }
         [HttpPut("UpdateQuantity")]
         //Change later
@@ -126,7 +128,7 @@ namespace Eshop.Inventory.Controllers
             {
                 return BadRequest("Idempotency Key is required");
             }
-            var cacheKey = $"Idempotency:Inventory:UpdatePrice:{key}";
+            var cacheKey = $"Idempotency:Inventory:UpdateQuantity:{key}";
             var cached = await _cache.GetAsync(cacheKey);
 
             if (cached != null)
@@ -134,17 +136,17 @@ namespace Eshop.Inventory.Controllers
                 return Ok(JsonSerializer.Deserialize<List<Models.Inventory>>(cached));
             }
             var result = await _inventoryService.UpdateQuantity(invDto);
-            if (result == null)
+            if (result.IsFailed)
             {
-                return BadRequest("No Change Happened");
+                return BadRequest(result.Errors.First().Message);
             }
 
                 await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(result), new DistributedCacheEntryOptions
                 {
                     AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
                 });
-            
-            return Ok(result);
+            await _cache.RemoveAsync("Inventories:All");
+            return Ok(result.Value);
         }
     }
 }

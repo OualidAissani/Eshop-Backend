@@ -1,4 +1,4 @@
-﻿using Eshop.Inventory.Dtos;
+﻿using FluentResults;
 
 namespace Eshop.Inventory.Services
 {
@@ -7,9 +7,9 @@ namespace Eshop.Inventory.Services
         Task<Models.Inventory> CreateInventoryForProduct(Dtos.InventoryDto Inventory);
         Task<List<Models.Inventory>> GetAllInventories();
         Task<Models.Inventory?> GetInventoryById(int InventoryId);
-        Task<Models.Inventory> UpdateInventory(Dtos.InventoryDto inventoryDto);
-        Task<int> UpdateQuantity(List<Dtos.InventoryDto> invDto);
-        Task<bool?> DeleteInventory(int InventoryId);
+        Task<Result<Models.Inventory>> UpdateInventory(Dtos.InventoryDto inventoryDto);
+        Task<Result<int>> UpdateQuantity(List<Dtos.InventoryDto> invDto);
+        Task<Result<bool?>> DeleteInventory(int InventoryId);
         Task<List<Models.Inventory>> GetInvetoriesByProductsIds(List<int> productIds);
 
     }

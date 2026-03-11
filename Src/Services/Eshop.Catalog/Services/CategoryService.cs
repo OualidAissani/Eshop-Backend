@@ -2,6 +2,7 @@
 using Eshop.Catalog.Dtos;
 using Eshop.Catalog.Models;
 using Eshop.Catalog.Services.IServices;
+using FluentResults;
 using Microsoft.EntityFrameworkCore;
 
 namespace Eshop.Catalog.Services
@@ -16,9 +17,9 @@ namespace Eshop.Catalog.Services
             _logger = logger;
         }
 
-        public async Task<Categories> CreateAsync(CategoryCreateDto dto, CancellationToken cancellationToken )
+        public async Task<Result<Categories>> CreateAsync(CategoryCreateDto dto, CancellationToken cancellationToken )
         {
-
+            ArgumentNullException.ThrowIfNull(dto);
             var category=new Categories()
             {
                 Title=dto.Title,
@@ -28,54 +29,55 @@ namespace Eshop.Catalog.Services
             _context.Categories.Add(category);
             if(await _context.SaveChangesAsync(cancellationToken) == 0)
             {
-                _logger.LogError("Db Returned 0 rows effected");
-                return null;
+                return Result.Fail("Error Creating Category Try Again Later");
             }
 
             return category;
         }
 
 
-        public async Task<bool> DeleteAsync(int id, CancellationToken cancellationToken )
+        public async Task<Result<bool>> DeleteAsync(int id, CancellationToken cancellationToken )
         {
             var category= await _context.Categories.FindAsync(id);
-            if (category == null)
-            {
-                _logger.LogError("Category with id {id} not found", id);
-                return false;
-            }
+
+            ArgumentNullException.ThrowIfNull(category);
+
             _context.Categories.Remove(category);
             if(await _context.SaveChangesAsync(cancellationToken) == 0)
             {
-                _logger.LogError("0 rows effected");
-                return false;
+                return Result.Fail("Error Deleting Category Try Again Later");
             }
             return true;
         }
 
-        public async Task<List<Categories>> GetAllAsync(CancellationToken cancellationToken)
+        public async Task<List<CategoryDto>> GetAllAsync(CancellationToken cancellationToken)
         {
-            return await _context.Categories.AsNoTracking().ToListAsync(cancellationToken);
+            return await _context.Categories.AsNoTracking().Select(i=> new CategoryDto {
+                Id= i.Id,
+                Description= i.Description,
+                Name= i.Title
+            }).ToListAsync(cancellationToken);
         }
 
-        public async Task<Categories> GetByIdAsync(int id, CancellationToken cancellationToken)
+        public async Task<CategoryDto> GetByIdAsync(int id, CancellationToken cancellationToken)
         {
-            return await _context.Categories.AsNoTracking().FirstOrDefaultAsync(i=>i.Id==id,cancellationToken);
+            return await _context.Categories.AsNoTracking().Select(i=>new CategoryDto {
+                Id= i.Id,
+                Description = i.Description,
+                Name = i.Title
+            }).FirstOrDefaultAsync(i=>i.Id==id,cancellationToken);
         }
 
-        public async Task<Categories> UpdateAsync(int id, CategoryUpdateDto dto, CancellationToken cancellationToken)
+        public async Task<Result<Categories>> UpdateAsync(int id, CategoryUpdateDto dto, CancellationToken cancellationToken)
         {
-            var category= await _context.Categories.FindAsync(id);
-            if (category == null)
-            {
-                _logger.LogError("Category with id {id} not found", id);
-                return null;
-            }
-            if (dto == null) {
 
-                _logger.LogError("Category update dto is null");
-                return null;
-            }
+            ArgumentNullException.ThrowIfNull(dto);
+
+            var category = await _context.Categories.FindAsync(id);
+
+            if(category==null) return Result.Fail("Category Not Found");
+
+
             if (dto.Title != null)
             {
                 category.Title = dto.Title;
@@ -86,8 +88,7 @@ namespace Eshop.Catalog.Services
             }
             if(await _context.SaveChangesAsync(cancellationToken) == 0)
             {
-                _logger.LogError("");
-                return null;
+                return Result.Fail("Error Updating Category Try Again Later");
             }
             return category;
         }

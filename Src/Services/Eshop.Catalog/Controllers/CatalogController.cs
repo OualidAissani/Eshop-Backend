@@ -57,14 +57,14 @@ namespace Eshop.Catalog.Controllers
 
             var result = await _productrepo.CreateProduct(product,ct);
 
-            if(result == null)
+            if(result.IsFailed)
             {
-                return BadRequest("Product Creation Failed");
+                return BadRequest(result.Errors.First().Message);
             }
             var media = new ProductMedia()
             {
-                ProductId = result.Id,
-                Description = result.Description
+                ProductId = result.Value.Id,
+                Description = result.Value.Description
             };
 
             foreach (var file in formFile)
@@ -74,12 +74,19 @@ namespace Eshop.Catalog.Controllers
                 await _mediaService.CreateMedia(media,stream,file.ContentType,file.FileName,ct);
 
             }
-            Products currentProduct = await _productrepo.GetProductById(result.Id);
+            var currentProduct = await _productrepo.GetProductById(result.Value.Id);
 
             await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(currentProduct), new DistributedCacheEntryOptions
             {
                 AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
             });
+            if (currentProduct?.Categories != null)
+            {
+                foreach (var category in currentProduct.Categories)
+                {
+                    await _cache.RemoveAsync($"Products:Category={category.Id}");
+                }
+            }
             return Ok(currentProduct);
         }
         
@@ -98,21 +105,31 @@ namespace Eshop.Catalog.Controllers
             {
                 return Ok(JsonSerializer.Deserialize<Products>(cached) ?? null);
             }
-            var result=new ProductDto();
+             var stream=Stream.Null;
+
             if (formFile != null)
             {
-                using var stream = formFile.OpenReadStream();
-                result = await _productrepo.UpdateProduct(product, stream, formFile.ContentType, formFile.FileName,ct);
+              stream = formFile.OpenReadStream();
+
             }
-            else
-            {
-                 result = await _productrepo.UpdateProduct(product, Stream.Null, string.Empty, string.Empty,ct);
-            }
+
+            var result = await _productrepo.UpdateProduct(product, stream, formFile.ContentType, formFile.FileName, ct);
+
+            await stream.DisposeAsync();
+
             await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(result), new DistributedCacheEntryOptions
             {
                 AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
             });
-            return Ok(result);
+            await _cache.RemoveAsync($"Products:Id={result.Value.Id}");
+            if (result.Value.Categories != null)
+            {
+                foreach (var category in result.Value.Categories)
+                {
+                    await _cache.RemoveAsync($"Products:Category={category.Id}");
+                }
+            }
+            return Ok(result.Value);
 
         }
 
@@ -120,10 +137,19 @@ namespace Eshop.Catalog.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteProduct(int Id,CancellationToken ct)
         {
+            var product = await _productrepo.GetProductById(Id);
             var result = await _productrepo.DeleteProduct(Id,ct);
-            if (!result)
+            if (result.IsFailed)
             {
-                return NotFound();
+                return BadRequest(result.Errors.First().Message);
+            }
+            await _cache.RemoveAsync($"Products:Id={Id}");
+            if (product?.Categories != null)
+            {
+                foreach (var category in product.Categories)
+                {
+                    await _cache.RemoveAsync($"Products:Category={category.Id}");
+                }
             }
             return Ok(new {message="The Product Has Been Deleted Successfully"});
         }
@@ -135,7 +161,7 @@ namespace Eshop.Catalog.Controllers
             var cached = await _cache.GetStringAsync(cacheKey);
             if (cached != null)
             {
-                var cachedResult = JsonSerializer.Deserialize<PaginatedResult<Products>>(cached);
+                var cachedResult = JsonSerializer.Deserialize<PaginatedResult<ProductDto>>(cached);
                 return Ok(cachedResult);
             }
             if (User.Identity.IsAuthenticated)
@@ -204,7 +230,7 @@ namespace Eshop.Catalog.Controllers
             {
                 return BadRequest("You To Add A Search Term/Tag");
             }
-            var products=_productrepo.ProductSearch(q);
+            var products=await _productrepo.ProductSearch(q);
             if (products == null)
             {
                 return NotFound();

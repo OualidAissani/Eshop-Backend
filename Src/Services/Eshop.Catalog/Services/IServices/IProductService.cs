@@ -1,5 +1,6 @@
 ﻿using Eshop.Catalog.Dtos;
 using Eshop.Catalog.Models;
+using FluentResults;
 
 namespace Eshop.Catalog.Services.IServices
 {
@@ -7,11 +8,11 @@ namespace Eshop.Catalog.Services.IServices
     {
         Task<List<ProductPriceDto>> GetProductPrice(List<int> ProductId);
 
-        Task<dynamic> CreateProduct(ProductCreateDto product,CancellationToken ct);
+        Task<Result<ProductCreateResponseDto>> CreateProduct(ProductCreateDto product,CancellationToken ct);
 
-        Task<ProductDto> UpdateProduct(Products product, Stream mediafile, string contentType, string filename, CancellationToken ct);
+        Task<Result<ProductDto>> UpdateProduct(Products product, Stream mediafile, string contentType, string filename, CancellationToken ct);
 
-        Task<bool> DeleteProduct(int productId,CancellationToken ct);
+        Task<Result<bool>> DeleteProduct(int productId,CancellationToken ct);
 
         Task<ProductDto> GetProductById(int productId);
 
@@ -21,7 +22,7 @@ namespace Eshop.Catalog.Services.IServices
 
         Task<List<ProductDto>> GetProductsByCategory(int categoryId);
 
-        Task<bool> AssignProductToCategory(int productId, int categoryId, CancellationToken ct);
+        Task<Result<bool>> AssignProductToCategory(int productId, int categoryId, CancellationToken ct);
 
         Task<List<ProductDto>> ProductSearch(string tag);
 

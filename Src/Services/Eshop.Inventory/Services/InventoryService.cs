@@ -2,6 +2,7 @@
 using Eshop.Inventory.Data;
 using Eshop.Inventory.Dtos;
 using Eshop.Inventory.Models;
+using FluentResults;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 
@@ -42,32 +43,34 @@ namespace Eshop.Inventory.Services
             await _db.SaveChangesAsync();
             return inventory;
         }
-        public async Task<Models.Inventory> UpdateInventory(Dtos.InventoryDto inventoryDto)
+        public async Task<Result<Models.Inventory>> UpdateInventory(Dtos.InventoryDto inventoryDto)
         {
-            if(inventoryDto==null)
+            if(inventoryDto==null || inventoryDto.Quantity < 0|| inventoryDto.ProductId <= 0)
             {
-                return null;
+                throw new ArgumentNullException();
             }
-            if (inventoryDto.Quantity < 0)
-            {
-                return null;
-            }
-            if(inventoryDto.ProductId <= 0)
-            {
-                return null;
-            }
+            
             var inventory = await _db.Inventories.Where(i=>i.ProductId==inventoryDto.ProductId).FirstOrDefaultAsync();
+
+
+            if (inventory == null) return Result.Fail($"Inventory For Product With Id {inventory.ProductId} Not Found");
+
+
             inventory.Quantity = inventoryDto.Quantity;
             inventory.ProductId = inventoryDto.ProductId;
             _db.Inventories.Update(inventory);
-            await _db.SaveChangesAsync();
+
+            if(await _db.SaveChangesAsync()==0)
+            {
+                return Result.Fail("Error Updating Inventory Try Again Later");
+            }
 
             return inventory;
         }
-        public async Task<int> UpdateQuantity(List<Dtos.InventoryDto> invDto)
+        public async Task<Result<int>> UpdateQuantity(List<Dtos.InventoryDto> invDto)
         {
             if (invDto == null || invDto.Count == 0)
-                return 0;
+                throw new ArgumentNullException();
 
             int totalUpdated = 0;
 
@@ -78,20 +81,29 @@ namespace Eshop.Inventory.Services
                     .ExecuteUpdateAsync(s => s
                         .SetProperty(i => i.Quantity, item.Quantity));
             }
-
+            if (totalUpdated == 0)
+            {
+                return Result.Fail("Error Updating Inventory Try Again Later");
+            }
             return totalUpdated;
         }
-        public async Task<bool?> DeleteInventory(int InventoryId)
+        public async Task<Result<bool?>> DeleteInventory(int InventoryId)
         {
+            ArgumentNullException.ThrowIfNull(InventoryId);
+            var inventory = await _db.Inventories.FindAsync(InventoryId);
+            if (inventory == null)
+            {
+                return Result.Fail($"The Inventory with ID {InventoryId} Not Found");
+            }
+
             try
             {
-                var inventory=await _db.Inventories.FindAsync(InventoryId);
-                if (inventory == null)
-                {
-                    return false;
-                }
                 _db.Inventories.Remove(inventory);
-                await _db.SaveChangesAsync();
+
+                if(await _db.SaveChangesAsync()==0)
+                {
+                    return Result.Fail("There was an issue Deleting The Inventory");
+                }
                 return true;
             }
             catch (DbUpdateConcurrencyException e)

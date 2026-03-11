@@ -129,11 +129,17 @@ namespace Eshop.Orders.Controllers
         [HttpDelete]
         public async Task<IActionResult> DeleteCartItem(int cartItemId,CancellationToken ct)
         {
+            var userId = _contextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? _contextAccessor.HttpContext?.User.FindFirst("sub")?.Value;
             var result = await _cartService.DeleteCartItem(cartItemId,ct);
 
             if (!result)
             {
                 return BadRequest("Failed to delete item from cart.");
+            }
+            if (userId != null)
+            {
+                await _cache.RemoveAsync($"Cart:{userId}:Items");
             }
             return Ok("Item deleted successfully.");
         }
@@ -166,6 +172,13 @@ namespace Eshop.Orders.Controllers
             {
                 AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
             });
+            var userId = _contextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? _contextAccessor.HttpContext?.User.FindFirst("sub")?.Value;
+            if (userId != null)
+            {
+                await _cache.RemoveAsync($"Cart:{userId}:Items");
+            }
+            await _cache.RemoveAsync($"Cart:{updatedItem.CartId}");
 
             return Ok(updatedItem);
         }
@@ -175,13 +188,19 @@ namespace Eshop.Orders.Controllers
         [HttpDelete("clear/{cartId}")]
         public async Task<IActionResult> ClearCart(int cartId,CancellationToken ct)
         {
+            var userId = _contextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? _contextAccessor.HttpContext?.User.FindFirst("sub")?.Value;
             var result = await _cartService.ClearCart(cartId, ct);
 
             if (!result)
             {
                 return BadRequest("Failed to clear cart.");
             }
-
+            await _cache.RemoveAsync($"Cart:{cartId}");
+            if (userId != null)
+            {
+                await _cache.RemoveAsync($"Cart:{userId}:Items");
+            }
             return Ok("Cart cleared successfully.");
         }
 

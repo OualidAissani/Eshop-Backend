@@ -25,6 +25,9 @@ namespace Eshop.Catalog.Services
         }
         public async Task<ProductMedia> CreateMedia(ProductMedia media, Stream fileStream, string contentType, string fileName, CancellationToken ct)
         {
+            ArgumentNullException.ThrowIfNull(media);
+            ArgumentNullException.ThrowIfNull(fileStream);
+
             var httpClient = _httpClientFactory.CreateClient();
 
             using var content = new MultipartFormDataContent();

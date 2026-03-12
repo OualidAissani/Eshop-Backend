@@ -12,6 +12,6 @@ namespace Eshop.Payment.Models
         public DateTime CapturedAt { get; set; }
 
 
-        public string UserId { get; set; }
+        public string? UserId { get; set; }
     }
 }

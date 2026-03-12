@@ -26,7 +26,7 @@ namespace Eshop.Orders.EventHandler
             if (await _cartService.UpdateCartItem(updateCartItemDto, context.CancellationToken) == null)
             {
 
-                throw new NullReferenceException("The update Failed!!");
+                return;
             }
         }
     }

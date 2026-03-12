@@ -53,7 +53,7 @@ namespace Eshop.Inventory.Services
             var inventory = await _db.Inventories.Where(i=>i.ProductId==inventoryDto.ProductId).FirstOrDefaultAsync();
 
 
-            if (inventory == null) return Result.Fail($"Inventory For Product With Id {inventory.ProductId} Not Found");
+            if (inventory == null) return Result.Fail($"Inventory For Product With Id {inventoryDto.ProductId} Not Found");
 
 
             inventory.Quantity = inventoryDto.Quantity;
@@ -89,7 +89,10 @@ namespace Eshop.Inventory.Services
         }
         public async Task<Result<bool?>> DeleteInventory(int InventoryId)
         {
-            ArgumentNullException.ThrowIfNull(InventoryId);
+            if (InventoryId <= 0)
+            {
+                throw new ArgumentNullException("Inventory Id is not valid");
+            }
             var inventory = await _db.Inventories.FindAsync(InventoryId);
             if (inventory == null)
             {

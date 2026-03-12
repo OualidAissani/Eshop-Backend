@@ -32,10 +32,10 @@ namespace Eshop.Payment.Controllers
 
 
         [HttpGet("Return")]
-       // [AllowAnonymous]
+        [AllowAnonymous]
         public async Task<IActionResult> Capture([FromQuery] string Token, [FromQuery] int orderId, [FromQuery] string correlationId)
         {
-            var UserId= _httpContextAccessor.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier); //this wont work cause need auth 
+            var UserId= _httpContextAccessor.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier)??string.Empty;//to change
             var capturePayment = await _payementService.CapturePayment(Token, UserId, orderId, correlationId);
             if (capturePayment== 0)
             {

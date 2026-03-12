@@ -255,8 +255,8 @@ namespace Eshop.Payment.Services
                 Amount = decimal.Parse(deserializedResponse.RootElement.GetProperty("purchase_units").EnumerateArray().FirstOrDefault().GetProperty("payments").GetProperty("captures")
                 .EnumerateArray().FirstOrDefault().GetProperty("amount").GetProperty("value").GetString()),
                 CapturedAt = DateTime.UtcNow,
-                UserId=userId
-            };
+                UserId=userId??string.Empty
+                };
 
                 _context.Payments.Add(CompletedOrder);
                 

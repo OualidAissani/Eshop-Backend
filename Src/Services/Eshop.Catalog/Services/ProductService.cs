@@ -118,8 +118,10 @@ namespace Eshop.Catalog.Services
         
         public async Task<Result<bool>> DeleteProduct(int productId, CancellationToken ct)
         {
-            ArgumentNullException.ThrowIfNull(productId);
-
+            if(productId<= 0)
+            {
+                throw new ArgumentException("Product Id is not valid");
+            }
             var strategy = _context.Database.CreateExecutionStrategy();
 
             return await strategy.ExecuteAsync(async () =>

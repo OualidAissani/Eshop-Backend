@@ -19,10 +19,16 @@ namespace Eshop.Inventory.Handler
         }
         public async Task Consume(ConsumeContext<ReductInventoryQuantityFromAnOrder> context)
         {
-            var message=context.Message;
+            var message = context.Message;
 
             var productIds = message.Products.Select(p => p.ProductId).ToList();
             var inventories = await _inventoryService.GetInvetoriesByProductsIds(productIds);
+
+            if (inventories.Count != productIds.Count)
+            {
+                await _publishEndpoint.Publish(new OrderFailed { CorrelationId = message.CorrelationId });
+                return;
+            }
 
             foreach (var inventory in inventories)
             {
@@ -34,16 +40,17 @@ namespace Eshop.Inventory.Handler
                 else
                 {
                     await _publishEndpoint.Publish(new OrderFailed { CorrelationId = message.CorrelationId });
+                    return;
                 }
 
             }
-            var inventoryDto = inventories.Select(i=> new Dtos.InventoryDto
+            var inventoryDto = inventories.Select(i => new Dtos.InventoryDto
             {
-                ProductId=i.ProductId,
-                Quantity=i.Quantity
+                ProductId = i.ProductId,
+                Quantity = i.Quantity
             }).ToList();
             var result = await _inventoryService.UpdateQuantity(inventoryDto);
-            if ( result.Value!=productIds.Count())
+            if (result.Value != productIds.Count())
             {
                 await _publishEndpoint.Publish(new OrderFailed { CorrelationId = message.CorrelationId });
             }

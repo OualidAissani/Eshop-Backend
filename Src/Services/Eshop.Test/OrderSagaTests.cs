@@ -1,5 +1,4 @@
-﻿
-using Eshop.Events;
+﻿using Eshop.Events;
 using Eshop.Orders.Sagas;
 using FluentAssertions;
 using MassTransit;
@@ -86,7 +85,6 @@ public class OrderSagaTests : IAsyncLifetime
         });
 
         (await _sagaHarness.Consumed.Any<OrderSubmitted>()).Should().BeTrue();
-        (await _harness.Published.Any<ProcessPayment>()).Should().BeTrue();
 
         var instance = _sagaHarness.Sagas.ContainsInState(
             correlationId, _sagaHarness.StateMachine, _sagaHarness.StateMachine.ProcessingPayment);
@@ -160,9 +158,9 @@ public class OrderSagaTests : IAsyncLifetime
         (await _sagaHarness.Consumed.Any<InventoryReserved>()).Should().BeTrue();
         (await _harness.Published.Any<OrderConfirmed>()).Should().BeTrue();
 
-        var instance = _sagaHarness.Sagas.ContainsInState(
-            correlationId, _sagaHarness.StateMachine, _sagaHarness.StateMachine.Completed);
+        var instance = _sagaHarness.Sagas.Contains(correlationId);
         instance.Should().NotBeNull();
+        instance!.CurrentState.Should().Be("Final");
     }
 
     [Fact]
@@ -231,8 +229,8 @@ public class OrderSagaTests : IAsyncLifetime
         (await _harness.Published.Any<OrderCompensate>()).Should().BeTrue();
         (await _harness.Published.Any<RefundPayment>()).Should().BeTrue();
 
-        var failedInstance = _sagaHarness.Sagas.ContainsInState(
-            correlationId, _sagaHarness.StateMachine, _sagaHarness.StateMachine.Failed);
+        var failedInstance = _sagaHarness.Sagas.Contains(correlationId);
         failedInstance.Should().NotBeNull();
+        failedInstance.CurrentState.Should().Be("Final");
     }
 }

@@ -2,7 +2,7 @@
 # This .gitignore file was automatically created by Microsoft(R) Visual Studio.
 ################################################################################
 
-/.vs
+/.vs/
 **/appsettings.json
 **/appsettings.*.json
 /Src/Services/Eshop.Web/
@@ -10,3 +10,10 @@
 /Src/Services/plan.txt  
 /Src/Services/Endpoints.http
 **/Eshop.Web/
+/Src/Services/Eshop.Web/bin/
+**/Eshop.Web/obj/
+/Src/Services/Eshop.Test/PaymentServiceTests.cs
+/.github
+.vs
+.github
+/Src/Services/Eshop.Test/PaymentServiceTests.cs

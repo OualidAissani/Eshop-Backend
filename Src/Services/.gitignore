@@ -368,3 +368,4 @@ docker-compose.yml
 TODO.md
 Eshop.Payment/appsettings.Development.json
 Eshop.Payment/appsettings.json
+Eshop.Test/PaymentServiceTests.cs

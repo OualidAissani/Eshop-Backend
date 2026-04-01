@@ -76,10 +76,13 @@ namespace Eshop.Inventory.Services
 
             foreach (var item in invDto)
             {
-                totalUpdated += await _db.Inventories
-                    .Where(i => i.ProductId == item.ProductId)
-                    .ExecuteUpdateAsync(s => s
-                        .SetProperty(i => i.Quantity, item.Quantity));
+
+                var inv = await _db.Inventories
+                    .Where(i => i.ProductId == item.ProductId).FirstOrDefaultAsync();
+                inv.Quantity= item.Quantity;
+
+                totalUpdated+=await _db.SaveChangesAsync();
+
             }
             if (totalUpdated == 0)
             {

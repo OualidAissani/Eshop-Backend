@@ -1,12 +1,14 @@
 ﻿using Eshop.Events;
 using Eshop.Inventory.Data;
 using Eshop.Inventory.Handler;
+using Eshop.Inventory.Services;
 using FluentAssertions;
+using Imposter.Abstractions;
 using MassTransit;
 using MassTransit.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Xunit;
+using Microsoft.Extensions.Logging;
 using Xunit;
 
 namespace Eshop.Test;
@@ -15,12 +17,22 @@ public class InventoryConsumerTests : IAsyncLifetime
 {
     private ServiceProvider _provider = null!;
     private ITestHarness _harness = null!;
+    private string _dbName = null!;
+
 
     public async Task InitializeAsync()
     {
+        _dbName = Guid.NewGuid().ToString();
+
+        var requestClientImposter = IRequestClient<VerifyProductExistence>.Imposter();
+        var loggerImposter = ILogger<InventoryService>.Imposter();
+
         _provider = new ServiceCollection()
             .AddDbContext<InventoryDb>(opts =>
-                opts.UseInMemoryDatabase(Guid.NewGuid().ToString()))
+                opts.UseInMemoryDatabase(_dbName))
+            .AddScoped<IInventoryService, InventoryService>()
+            .AddSingleton(requestClientImposter.Instance())
+            .AddSingleton(loggerImposter.Instance())
             .AddMassTransitTestHarness(cfg =>
             {
                 cfg.AddConsumer<ReductInventoryQuantityFromAnOrderConsumer>();

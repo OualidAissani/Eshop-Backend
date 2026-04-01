@@ -1,14 +1,28 @@
 ﻿using Eshop.Events;
+using Eshop.Inventory.Services;
 using Eshop.Orders.Data;
 using Eshop.Orders.Models;
 using Eshop.Orders.Services;
+using Eshop.Orders.Services.IServices;
+using Eshop.Payment.Services.IServices;
 using FluentAssertions;
+using Imposter.Abstractions;
 using MassTransit;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
-using NSubstitute;
+using Microsoft.Extensions.Logging;
 using System.Security.Claims;
 using Xunit;
+
+[assembly: GenerateImposter(typeof(IHttpClientFactory))]
+[assembly: GenerateImposter(typeof(IRequestClient<>))]
+[assembly: GenerateImposter(typeof(Response<>))]
+[assembly: GenerateImposter(typeof(IPublishEndpoint))]
+[assembly: GenerateImposter(typeof(IHttpContextAccessor))]
+[assembly: GenerateImposter(typeof(ILogger<>))]
+[assembly: GenerateImposter(typeof(ICartService))]
+[assembly: GenerateImposter(typeof(IInventoryService))]
+[assembly: GenerateImposter(typeof(IPaymentService))]
 
 namespace Eshop.Test;
 
@@ -22,6 +36,13 @@ public class OrderServiceTests : IDisposable
     private readonly IPublishEndpoint _publishEndpoint;
     private readonly OrderService _sut;
 
+
+    private readonly IPublishEndpointImposter _publishEndpointImposter;
+    private readonly IRequestClientImposter<ProductInventoryAvailibityForOrderRequest> _inventoryClientImposter;
+    private readonly IRequestClientImposter<GetProductRequest> _productClientImposter;
+    private readonly IHttpContextAccessorImposter _httpContextAccessorImposter;
+    private readonly IRequestClientImposter<CreatePaymentRecordRequest> _createPaymentClientImposter; 
+
     public OrderServiceTests()
     {
         var options = new DbContextOptionsBuilder<OrderDbContext>()
@@ -29,11 +50,21 @@ public class OrderServiceTests : IDisposable
             .Options;
 
         _context = new OrderDbContext(options);
-        _productClient = Substitute.For<IRequestClient<GetProductRequest>>();
-        _inventoryClient = Substitute.For<IRequestClient<ProductInventoryAvailibityForOrderRequest>>();
-        _createPaymentOrderClient = Substitute.For<IRequestClient<CreatePaymentRecordRequest>>();
-        _httpContextAccessor = Substitute.For<IHttpContextAccessor>();
-        _publishEndpoint = Substitute.For<IPublishEndpoint>();
+
+        _productClientImposter = IRequestClient<GetProductRequest>.Imposter();
+        _productClient = _productClientImposter.Instance();
+
+        _publishEndpointImposter = IPublishEndpoint.Imposter();
+        _publishEndpoint = _publishEndpointImposter.Instance();
+
+        _httpContextAccessorImposter = IHttpContextAccessor.Imposter();
+        _httpContextAccessor = _httpContextAccessorImposter.Instance();
+
+        _inventoryClientImposter = IRequestClient<ProductInventoryAvailibityForOrderRequest>.Imposter();
+        _inventoryClient = _inventoryClientImposter.Instance();
+
+        _createPaymentClientImposter = IRequestClient<CreatePaymentRecordRequest>.Imposter();
+        _createPaymentOrderClient = _createPaymentClientImposter.Instance();
 
         _sut = new OrderService(_context, _productClient, _inventoryClient, _httpContextAccessor, _publishEndpoint, _createPaymentOrderClient);
     }
@@ -155,11 +186,13 @@ public class OrderServiceTests : IDisposable
         result.Order.OrderItems[0].UnitPrice.Should().Be(25.00m);
         result.Order.OrderItems[0].FullPrice.Should().Be(50.00m);
 
-        await _publishEndpoint.Received(1)
-            .Publish(Arg.Is<OrderSubmitted>(e =>
+
+        _publishEndpointImposter
+            .Publish(Arg<OrderSubmitted>.Is(e =>
                 e.OrderId == result.Order.Id &&
                 e.PaymentMethod == Events.PaymentMethods.CashOnDelivery),
-                Arg.Any<CancellationToken>());
+                Arg<CancellationToken>.Any())
+            .Called(Count.Once());
     }
 
     [Fact]
@@ -177,15 +210,27 @@ public class OrderServiceTests : IDisposable
             inventoryItems: [new ProductInventoryItem(1, 10, 50)],
             products: [new GetProductResponseDto(1, 30.00m, "Gadget")]);
 
+        var url = "https://www.paypal.com";
+        var createPaymentResponseImposter = Response<CreatePaymentRecordResponse>.Imposter();
+        createPaymentResponseImposter.Message.Getter().Returns(new CreatePaymentRecordResponse(url));
+
+          _createPaymentClientImposter.GetResponse<CreatePaymentRecordResponse>(
+            Arg<CreatePaymentRecordRequest>.Any(),
+            Arg<CancellationToken>.Any(),Arg<RequestTimeout>.Any())
+            .ReturnsAsync(createPaymentResponseImposter.Instance());
+        //CreatePaymentRecordResponse
         var result = await _sut.CreateOrder(orderDto, CancellationToken.None);
 
         result.Should().NotBeNull();
-        await _publishEndpoint.Received(1)
-            .Publish(Arg.Is<OrderSubmitted>(e =>
+
+
+        _publishEndpointImposter
+            .Publish(Arg<OrderSubmitted>.Is(e =>
                 e.PaymentMethod == Events.PaymentMethods.CreditCard &&
                 e.PaymentItems != null &&
                 e.PaymentItems.Count == 1),
-                Arg.Any<CancellationToken>());
+                Arg<CancellationToken>.Any())
+            .Called(Count.Once());
     }
 
     [Fact]
@@ -305,12 +350,14 @@ public class OrderServiceTests : IDisposable
 
         await _sut.CreateOrder(orderDto, CancellationToken.None);
 
-        await _publishEndpoint.Received(1)
-            .Publish(Arg.Is<OrderSubmitted>(e =>
+
+        _publishEndpointImposter
+            .Publish(Arg<OrderSubmitted>.Is(e =>
                 e.PaymentMethod == Events.PaymentMethods.CashOnDelivery &&
                 e.PaymentItems != null &&
                 e.PaymentItems.Count == 0),
-                Arg.Any<CancellationToken>());
+                Arg<CancellationToken>.Any())
+            .Called(Count.Once());
     }
 
     [Fact]
@@ -324,9 +371,10 @@ public class OrderServiceTests : IDisposable
             UserId = "user1"
         };
 
-        _inventoryClient.GetResponse<ProductInventoryAvailibityForOrderResponse>(
-            Arg.Any<ProductInventoryAvailibityForOrderRequest>(),
-            Arg.Any<CancellationToken>())
+        _inventoryClientImposter.GetResponse<ProductInventoryAvailibityForOrderResponse>(
+            Arg<ProductInventoryAvailibityForOrderRequest>.Any(),
+            Arg<CancellationToken>.Any(),
+            Arg<RequestTimeout>.Any())
             .Returns(Task.FromException<Response<ProductInventoryAvailibityForOrderResponse>>(
                 new MassTransit.RequestTimeoutException("test-request-id")));
 
@@ -395,21 +443,27 @@ public class OrderServiceTests : IDisposable
         List<ProductInventoryItem> inventoryItems,
         List<GetProductResponseDto> products)
     {
-        var inventoryResponse = Substitute.For<Response<ProductInventoryAvailibityForOrderResponse>>();
-        inventoryResponse.Message.Returns(new ProductInventoryAvailibityForOrderResponse(inventoryItems));
+        var inventoryResponseImposter = Response<ProductInventoryAvailibityForOrderResponse>.Imposter();
+        inventoryResponseImposter.Message.Getter().Returns(new ProductInventoryAvailibityForOrderResponse(inventoryItems));
 
-        _inventoryClient.GetResponse<ProductInventoryAvailibityForOrderResponse>(
-            Arg.Any<ProductInventoryAvailibityForOrderRequest>(),
-            Arg.Any<CancellationToken>())
-            .Returns(inventoryResponse);
 
-        var productResponse = Substitute.For<Response<GetProductResponse>>();
-        productResponse.Message.Returns(new GetProductResponse(products));
 
-        _productClient.GetResponse<GetProductResponse>(
-            Arg.Any<GetProductRequest>(),
-            Arg.Any<CancellationToken>())
-            .Returns(productResponse);
+        _inventoryClientImposter.GetResponse<ProductInventoryAvailibityForOrderResponse>(
+            Arg<ProductInventoryAvailibityForOrderRequest>.Any(),
+            Arg<CancellationToken>.Any()
+            ,Arg<RequestTimeout>.Any()
+            )
+            .ReturnsAsync(inventoryResponseImposter.Instance());
+
+        var productResponseImposter = Response<GetProductResponse>.Imposter();
+        productResponseImposter.Message.Getter().Returns(new GetProductResponse(products));
+
+
+        _productClientImposter.GetResponse<GetProductResponse>(
+            Arg<GetProductRequest>.Any()
+            ,Arg<CancellationToken>.Any()
+            ,Arg<RequestTimeout>.Any())
+            .ReturnsAsync(productResponseImposter.Instance());
     }
 
     private void SetupHttpContextUser(string userId)
@@ -418,7 +472,7 @@ public class OrderServiceTests : IDisposable
         var identity = new ClaimsIdentity(claims, "TestAuth");
         var principal = new ClaimsPrincipal(identity);
         var httpContext = new DefaultHttpContext { User = principal };
-        _httpContextAccessor.HttpContext.Returns(httpContext);
+        _httpContextAccessorImposter.HttpContext.Getter().Returns(httpContext);
     }
 
     private static Order CreateOrder(string userId, decimal totalPrice) => new()

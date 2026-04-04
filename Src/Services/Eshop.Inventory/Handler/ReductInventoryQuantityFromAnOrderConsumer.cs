@@ -29,21 +29,34 @@ namespace Eshop.Inventory.Handler
                 await _publishEndpoint.Publish(new OrderFailed { CorrelationId = message.CorrelationId });
                 return;
             }
+            //var inventoryDictionary=inventories.ToDictionary(i => i.ProductId);
 
-            foreach (var inventory in inventories)
+
+            //var dtos = new List<Models.Inventory>();
+
+
+            var NewProductsValues = message.Products.ToDictionary(i=>i.ProductId);
+
+            //var availableProductToReserve=NewProductsValues
+            //    .Where(i=> inventoryDictionary
+            //    .ContainsKey(i.Key) && inventoryDictionary[i.Key].Quantity >= i.Value.Quantity)
+            //    .ToList();
+            foreach(var item in inventories)
             {
-                var dto = message.Products.FirstOrDefault(d => d.ProductId == inventory.ProductId);
-                if (dto != null && inventory.Quantity >= dto.Quantity)
+                if(NewProductsValues.TryGetValue(item.ProductId,out var match))
                 {
-                    inventory.Quantity -= dto.Quantity;
+                    if (item.Quantity >= match.Quantity)
+                    {
+                        item.Quantity-=match.Quantity;
+                    }
+                    else
+                    {
+                        await _publishEndpoint.Publish(new OrderFailed { CorrelationId = message.CorrelationId });
+                        return;
+                    }
                 }
-                else
-                {
-                    await _publishEndpoint.Publish(new OrderFailed { CorrelationId = message.CorrelationId });
-                    return;
-                }
-
             }
+
             var inventoryDto = inventories.Select(i => new Dtos.InventoryDto
             {
                 ProductId = i.ProductId,

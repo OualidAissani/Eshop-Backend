@@ -85,7 +85,7 @@ namespace Eshop.Catalog.Services
         
         public async Task<Result<ProductDto>> UpdateProduct(Products product,Stream mediafile,string contentType,string filename,CancellationToken ct)
         {
-            if (mediafile != null)
+            if (mediafile != Stream.Null && contentType!=null)
             {
                 var media = new ProductMedia()
                 {

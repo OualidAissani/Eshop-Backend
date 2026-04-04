@@ -113,7 +113,7 @@ namespace Eshop.Catalog.Controllers
 
             }
 
-            var result = await _productrepo.UpdateProduct(product, stream, formFile.ContentType??string.Empty, formFile.FileName??string.Empty, ct);
+            var result = await _productrepo.UpdateProduct(product, stream, formFile?.ContentType??string.Empty, formFile?.FileName??string.Empty, ct);
 
             await stream.DisposeAsync();
 

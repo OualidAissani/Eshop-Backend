@@ -74,16 +74,16 @@ namespace Eshop.Inventory.Services
 
             int totalUpdated = 0;
 
-            foreach (var item in invDto)
+            var invs = await _db.Inventories
+                    .Where(i => invDto.Select(d=>d.ProductId).Contains(i.ProductId)).ToListAsync();
+
+            var invDtopDictionary = invDto.ToDictionary(i => i.ProductId);
+
+            foreach (var item in invs)
             {
-
-                var inv = await _db.Inventories
-                    .Where(i => i.ProductId == item.ProductId).FirstOrDefaultAsync();
-                inv.Quantity= item.Quantity;
-
-                totalUpdated+=await _db.SaveChangesAsync();
-
+                item.Quantity = invDtopDictionary[item.ProductId].Quantity;
             }
+            totalUpdated = await _db.SaveChangesAsync();
             if (totalUpdated == 0)
             {
                 return Result.Fail("Error Updating Inventory Try Again Later");

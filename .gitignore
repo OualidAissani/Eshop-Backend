@@ -12,8 +12,7 @@
 **/Eshop.Web/
 /Src/Services/Eshop.Web/bin/
 **/Eshop.Web/obj/
-/Src/Services/Eshop.Test/PaymentServiceTests.cs
 /.github
 .vs
 .github
-/Src/Services/Eshop.Test/PaymentServiceTests.cs
+/Src/Services/Eshop.Web/Eshop.Web.csproj

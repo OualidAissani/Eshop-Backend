@@ -1,6 +1,5 @@
 <Solution>
   <Folder Name="/Solution Items/">
-    <File Path="../../../../../Desktop/Eshop API Collection.json" />
     <File Path="docker-compose.yml" />
     <File Path="note.txt" />
     <File Path="plan.txt" />
@@ -16,6 +15,6 @@
     <Project Path="Eshop.Payment/Eshop.Payment.csproj" />
     <Project Path="Eshop.ServiceDefaults/Eshop.ServiceDefaults.csproj" />
     <Project Path="Eshop.Test/Eshop.Test.csproj" Id="29aec7b2-b5c1-4d7c-9006-5bd5dda7443e" />
-    <Project Path="Eshop.Web/Eshop.Web.csproj" Id="a89c7174-5473-4778-b495-e42d59b9fc20" />
+    //<Project Path="Eshop.Web/Eshop.Web.csproj" Id="a89c7174-5473-4778-b495-e42d59b9fc20" />
   </Folder>
 </Solution>

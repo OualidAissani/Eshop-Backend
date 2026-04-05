@@ -90,7 +90,7 @@ namespace Eshop.Catalog.Controllers
             return CreatedAtAction(nameof(GetProductById),new {id=currentProduct?.Id},currentProduct);
         }
         
-        [HttpPut("/{id}")]
+        [HttpPut("{id}")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateProduct(int id,[FromForm] ProductsUpdateDto product, IFormFile? formFile ,
             [FromHeader(Name = "x_Idempotency_Key")] string key,CancellationToken ct)
@@ -128,7 +128,6 @@ namespace Eshop.Catalog.Controllers
             });
 
             await _cache.RemoveAsync($"Products:Id={result.Value.Id}");
-            await _cache.RemoveAsync($"Products:List:*");
 
             if (result.Value.Categories != null)
             {

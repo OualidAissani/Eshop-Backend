@@ -30,7 +30,7 @@ var keycloakAuthority = ReferenceExpression.Create(
 var InventoryDb = Postgres.AddDatabase("InventoryDb");
 var OrderDb = Postgres.AddDatabase("OrderDb");
 var CatalogDb = Postgres.AddDatabase("CatalogDb");
-var PayementDb = Postgres.AddDatabase("PayementDb");
+var PayementDb = Postgres.AddDatabase("PaymentDb");
 
 var Catalog =builder.AddProject<Eshop_Catalog>("catalogApi")
    .WithHttpHealthCheck("/health")

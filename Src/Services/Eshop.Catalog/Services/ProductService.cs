@@ -94,7 +94,7 @@ namespace Eshop.Catalog.Services
                 };
                 await _mediaService.CreateMedia(media,mediafile, contentType, filename,ct);
             }
-            var product = await _context.Products.FirstOrDefaultAsync(i=>i.Id==ProductId);
+            var product = await _context.Products.Include(i=>i.Categories).AsSplitQuery().FirstOrDefaultAsync(i=>i.Id==ProductId);
 
             if (product == null)
             {
@@ -103,34 +103,16 @@ namespace Eshop.Catalog.Services
             if(productDto.CategoriesId!=null && productDto.CategoriesId.Count>0)
             {
                 var categories = await _context.Categories.AsNoTracking().Where(c => productDto.CategoriesId.Contains(c.Id)).ToListAsync();
-                product.Categories.AddRange(categories);
+                product.Categories=categories;
             }
-            if (productDto.Title != null)
-            {
-                product.Title = productDto.Title;
-            }
-            if (productDto.Description != null)
-            {
-                product.Description = productDto.Description;
-            }
-            if (productDto.Price != null)
-            {
-                product.Price = productDto.Price;
-            }
-            if (productDto.Status != null)
-            {
-                product.Status = productDto.Status;
-            }
-            if (productDto.SpecialStatus != null)
-            {
-                product.SpecialStatus= productDto.SpecialStatus;
-            }
-            if (productDto.DisplayOrder != null)
-            {
-                product.DisplayOrder=productDto.DisplayOrder;
-            }
+            product.Title = productDto.Title ?? product.Title;
+            product.Description = productDto.Description ?? product.Description;
+            product.Price = productDto.Price<=0? product.Price:productDto.Price;
+            product.Status = productDto.Status;
+            product.SpecialStatus = productDto.SpecialStatus;
+            product.DisplayOrder = productDto.DisplayOrder ?? product.DisplayOrder;
+            //NEED NEW CONCEPT maybe replace only no addition for category
 
-            _context.Products.Update(product);
 
             var result=await _context.SaveChangesAsync(ct);
 

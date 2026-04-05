@@ -14,7 +14,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 
-builder.AddNpgsqlDbContext<PaymentDbContext>("PayementDb");
+builder.AddNpgsqlDbContext<PaymentDbContext>("PaymentDb");
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();

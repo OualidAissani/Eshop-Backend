@@ -10,7 +10,7 @@ namespace Eshop.Catalog.Services.IServices
 
         Task<Result<ProductCreateResponseDto>> CreateProduct(ProductCreateDto product,CancellationToken ct);
 
-        Task<Result<ProductDto>> UpdateProduct(Products product, Stream mediafile, string contentType, string filename, CancellationToken ct);
+        Task<Result<ProductDto>> UpdateProduct(int ProductId, ProductsUpdateDto productDto, Stream mediafile, string contentType, string filename, CancellationToken ct);
 
         Task<Result<bool>> DeleteProduct(int productId,CancellationToken ct);
 

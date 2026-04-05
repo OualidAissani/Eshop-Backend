@@ -72,6 +72,8 @@ namespace Eshop.Orders.Services
                     return null;
                 }
                 userCart = cart;
+                cartItemEntity.CartId= cart.Id;
+
             }
             if (userCart.CartItems.Any(i => i.ProductId == cartItem.ProductId))
             {

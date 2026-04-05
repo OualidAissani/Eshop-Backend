@@ -4,7 +4,7 @@ namespace Eshop.Inventory.Services
 {
     public interface IInventoryService
     {
-        Task<Models.Inventory> CreateInventoryForProduct(Dtos.InventoryDto Inventory);
+        Task<Result<Models.Inventory>> CreateInventoryForProduct(Dtos.InventoryDto Inventory);
         Task<List<Models.Inventory>> GetAllInventories();
         Task<Result<int>> PushUpdatetOdB(List<Models.Inventory> inventories);
         Task<Models.Inventory?> GetInventoryById(int InventoryId);

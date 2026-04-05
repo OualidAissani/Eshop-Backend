@@ -90,9 +90,9 @@ namespace Eshop.Catalog.Controllers
             return CreatedAtAction(nameof(GetProductById),new {id=currentProduct?.Id},currentProduct);
         }
         
-        [HttpPut]
+        [HttpPut("/{id}")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> UpdateProduct([FromForm] Products product, IFormFile? formFile ,
+        public async Task<IActionResult> UpdateProduct(int id,[FromForm] ProductsUpdateDto product, IFormFile? formFile ,
             [FromHeader(Name = "x_Idempotency_Key")] string key,CancellationToken ct)
         {
             if (key == null)
@@ -113,16 +113,23 @@ namespace Eshop.Catalog.Controllers
 
             }
 
-            var result = await _productrepo.UpdateProduct(product, stream, formFile?.ContentType??string.Empty, formFile?.FileName??string.Empty, ct);
+            var result = await _productrepo.UpdateProduct(id,product, stream, formFile?.ContentType??string.Empty, formFile?.FileName??string.Empty, ct);
 
             await stream.DisposeAsync();
+
+            if(result.IsFailed)
+            {
+                return BadRequest(result.Errors.First().Message);
+            }
 
             await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(result), new DistributedCacheEntryOptions
             {
                 AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
             });
+
             await _cache.RemoveAsync($"Products:Id={result.Value.Id}");
             await _cache.RemoveAsync($"Products:List:*");
+
             if (result.Value.Categories != null)
             {
                 foreach (var category in result.Value.Categories)
@@ -130,6 +137,7 @@ namespace Eshop.Catalog.Controllers
                     await _cache.RemoveAsync($"Products:Category={category.Id}");
                 }
             }
+
             return Ok(result.Value);
 
         }

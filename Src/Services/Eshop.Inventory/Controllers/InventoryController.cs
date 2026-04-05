@@ -58,6 +58,7 @@ namespace Eshop.Inventory.Controllers
             });
             return Ok(inventory);
         }
+
         [HttpPost]
         public async Task<IActionResult> CreateInventory([FromBody] InventoryDto inventoryDto, [FromHeader(Name = "x_Idempotency_Key")] string key)
         {
@@ -71,14 +72,24 @@ namespace Eshop.Inventory.Controllers
             {
                 return CreatedAtAction(nameof(GetInventoryById), new { id = JsonSerializer.Deserialize<Models.Inventory>(cached)?.Id }, JsonSerializer.Deserialize<Models.Inventory>(cached) ?? null);
             }
+
             var inventory = await _inventoryService.CreateInventoryForProduct(inventoryDto);
+
+            if (inventory.IsFailed)
+            {
+                return BadRequest("");
+            }
+
             await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(inventory), new DistributedCacheEntryOptions
             {
                 AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
             });
+
             await _cache.RemoveAsync("Inventories:All");
-            return CreatedAtAction(nameof(GetInventoryById), new { id = inventory?.Id }, inventory?? null);
+
+            return CreatedAtAction(nameof(GetInventoryById), new { id = inventory?.Value.Id }, inventory.Value);
         }
+
         [Authorize]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteInventory(int id)

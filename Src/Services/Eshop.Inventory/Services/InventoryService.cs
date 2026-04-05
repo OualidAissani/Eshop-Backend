@@ -27,7 +27,7 @@ namespace Eshop.Inventory.Services
         {
             return await _db.Inventories.AsNoTracking().FirstOrDefaultAsync(i => i.Id == InventoryId);
         }
-        public async Task<Models.Inventory> CreateInventoryForProduct(Dtos.InventoryDto Inventory)
+        public async Task<Result<Models.Inventory>> CreateInventoryForProduct(Dtos.InventoryDto Inventory)
         {
             var response=await _Client.GetResponse<ProductExistenceResponse>(new VerifyProductExistence(Inventory.ProductId));
             if (response.Message.Exists == false)
@@ -40,7 +40,10 @@ namespace Eshop.Inventory.Services
                 Quantity=Inventory.Quantity
             };
             _db.Inventories.Add(inventory);
-            await _db.SaveChangesAsync();
+            if(await _db.SaveChangesAsync()==0)
+            {
+                return Result.Fail("Error Creating Inventory Try Again Later");
+            }
             return inventory;
         }
         public async Task<Result<Models.Inventory>> UpdateInventory(Dtos.InventoryDto inventoryDto)

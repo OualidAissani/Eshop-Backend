@@ -83,31 +83,67 @@ namespace Eshop.Catalog.Services
             });
         }
         
-        public async Task<Result<ProductDto>> UpdateProduct(Products product,Stream mediafile,string contentType,string filename,CancellationToken ct)
+        public async Task<Result<ProductDto>> UpdateProduct(int ProductId,ProductsUpdateDto productDto,Stream mediafile,string contentType,string filename,CancellationToken ct)
         {
             if (mediafile != Stream.Null && contentType!=null)
             {
                 var media = new ProductMedia()
                 {
-                    ProductId = product.Id,
-                    Description = product.Description,
+                    ProductId = ProductId,
+                    Description = productDto.Description,
                 };
                 await _mediaService.CreateMedia(media,mediafile, contentType, filename,ct);
             }
+            var product = await _context.Products.FirstOrDefaultAsync(i=>i.Id==ProductId);
+
+            if (product == null)
+            {
+                return Result.Fail<ProductDto>($"The product with Id {ProductId} Not Found");
+            }
+            if(productDto.CategoriesId!=null && productDto.CategoriesId.Count>0)
+            {
+                var categories = await _context.Categories.AsNoTracking().Where(c => productDto.CategoriesId.Contains(c.Id)).ToListAsync();
+                product.Categories.AddRange(categories);
+            }
+            if (productDto.Title != null)
+            {
+                product.Title = productDto.Title;
+            }
+            if (productDto.Description != null)
+            {
+                product.Description = productDto.Description;
+            }
+            if (productDto.Price != null)
+            {
+                product.Price = productDto.Price;
+            }
+            if (productDto.Status != null)
+            {
+                product.Status = productDto.Status;
+            }
+            if (productDto.SpecialStatus != null)
+            {
+                product.SpecialStatus= productDto.SpecialStatus;
+            }
+            if (productDto.DisplayOrder != null)
+            {
+                product.DisplayOrder=productDto.DisplayOrder;
+            }
+
             _context.Products.Update(product);
 
             var result=await _context.SaveChangesAsync(ct);
 
             if(result==0)
             {
-                return Result.Fail("Failed To Update Product");
+                return Result.Fail<ProductDto>("Failed To Update Product");
             }
             
             await _publish.Publish(new UpdateCartProduct(product.Id, product.Title, product.Price));
 
             return new ProductDto()
             {
-                Id = product.Id,
+                Id = ProductId,
                 Description = product.Description,
                 Title = product.Title,
                 Price = product.Price,

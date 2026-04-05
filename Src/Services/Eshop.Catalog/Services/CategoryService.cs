@@ -72,6 +72,7 @@ namespace Eshop.Catalog.Services
         {
 
             ArgumentNullException.ThrowIfNull(dto);
+            if(id<=0) return Result.Fail("Invalid Id");
 
             var category = await _context.Categories.FindAsync(id);
 

@@ -69,7 +69,6 @@ builder.Services.AddHttpClient();
 
 builder.Services.AddMassTransit(x =>
 {
-    x.AddConsumer<ProcessPaymentConsumer>();
     x.AddConsumer<CreatePaymentConsumer>();
     x.UsingRabbitMq((context, cfg) =>
     {

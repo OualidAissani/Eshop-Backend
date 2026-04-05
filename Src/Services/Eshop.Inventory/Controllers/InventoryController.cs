@@ -121,7 +121,7 @@ namespace Eshop.Inventory.Controllers
             return Ok(result.Value);
         }
         [HttpPut("UpdateQuantity")]
-        //Change later
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateQuantity([FromBody] List<InventoryDto> invDto, [FromHeader(Name = "x_Idempotency_Key")] string key)
         {
             if(key == null)

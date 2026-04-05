@@ -135,7 +135,7 @@ namespace Eshop.Catalog.Services
                 _context.Products.Remove(product);
 
                 var result = await _context.SaveChangesAsync(ct);
-                if(result == null)
+                if(result == 0)
                 {
                     return Result.Fail<bool>("There Was An Issue Deleting The Product");
                 }

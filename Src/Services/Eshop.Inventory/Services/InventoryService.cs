@@ -90,6 +90,18 @@ namespace Eshop.Inventory.Services
             }
             return totalUpdated;
         }
+        public async Task<Result<int>> PushUpdatetOdB(List<Models.Inventory> inventories)
+        {
+            if (inventories == null || inventories.Count == 0)
+                throw new ArgumentNullException();
+            _db.Inventories.UpdateRange(inventories);
+            int totalUpdated = await _db.SaveChangesAsync();
+            if (totalUpdated == 0)
+            {
+                return Result.Fail("Error Updating Inventory Try Again Later");
+            }
+            return totalUpdated;
+        }
         public async Task<Result<bool?>> DeleteInventory(int InventoryId)
         {
             if (InventoryId <= 0)

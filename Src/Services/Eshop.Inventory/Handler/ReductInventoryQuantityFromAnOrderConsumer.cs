@@ -29,18 +29,8 @@ namespace Eshop.Inventory.Handler
                 await _publishEndpoint.Publish(new OrderFailed { CorrelationId = message.CorrelationId });
                 return;
             }
-            //var inventoryDictionary=inventories.ToDictionary(i => i.ProductId);
-
-
-            //var dtos = new List<Models.Inventory>();
-
 
             var NewProductsValues = message.Products.ToDictionary(i=>i.ProductId);
-
-            //var availableProductToReserve=NewProductsValues
-            //    .Where(i=> inventoryDictionary
-            //    .ContainsKey(i.Key) && inventoryDictionary[i.Key].Quantity >= i.Value.Quantity)
-            //    .ToList();
             foreach(var item in inventories)
             {
                 if(NewProductsValues.TryGetValue(item.ProductId,out var match))
@@ -57,12 +47,12 @@ namespace Eshop.Inventory.Handler
                 }
             }
 
-            var inventoryDto = inventories.Select(i => new Dtos.InventoryDto
-            {
-                ProductId = i.ProductId,
-                Quantity = i.Quantity
-            }).ToList();
-            var result = await _inventoryService.UpdateQuantity(inventoryDto);
+            //var inventoryDto = inventories.Select(i => new Dtos.InventoryDto
+            //{
+            //    ProductId = i.ProductId,
+            //    Quantity = i.Quantity
+            //}).ToList();
+            var result = await _inventoryService.PushUpdatetOdB(inventories);
             if (result.Value != productIds.Count())
             {
                 await _publishEndpoint.Publish(new OrderFailed { CorrelationId = message.CorrelationId });

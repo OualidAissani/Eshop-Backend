@@ -87,7 +87,7 @@ namespace Eshop.Catalog.Controllers
                     await _cache.RemoveAsync($"Products:Category={category.Id}");
                 }
             }
-            return Ok(currentProduct);
+            return CreatedAtAction(nameof(GetProductById),new {id=currentProduct?.Id},currentProduct);
         }
         
         [HttpPut]
@@ -122,6 +122,7 @@ namespace Eshop.Catalog.Controllers
                 AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
             });
             await _cache.RemoveAsync($"Products:Id={result.Value.Id}");
+            await _cache.RemoveAsync($"Products:List:*");
             if (result.Value.Categories != null)
             {
                 foreach (var category in result.Value.Categories)
@@ -144,6 +145,7 @@ namespace Eshop.Catalog.Controllers
                 return BadRequest(result.Errors.First().Message);
             }
             await _cache.RemoveAsync($"Products:Id={Id}");
+            await _cache.RemoveAsync($"Products:List:*");
             if (product?.Categories != null)
             {
                 foreach (var category in product.Categories)

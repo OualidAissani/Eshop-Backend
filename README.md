@@ -1,5 +1,5 @@
 # Eshop Backend (In-Progress)
-
+[![CI](https://github.com/OualidAissani/Eshop-Backend/actions/workflows/ci.yml/badge.svg)](https://github.com/OualidAissani/Eshop-Backend/actions/workflows/ci.yml)
 A microservices-based e-commerce backend built with .NET 10, featuring independent services for product catalog management, inventory tracking, and order processing with a Blazor web frontend.
 
 ## Architecture

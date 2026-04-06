@@ -12,7 +12,5 @@
 **/Eshop.Web/
 /Src/Services/Eshop.Web/bin/
 **/Eshop.Web/obj/
-/.github
 .vs
-.github
 /Src/Services/Eshop.Web/Eshop.Web.csproj

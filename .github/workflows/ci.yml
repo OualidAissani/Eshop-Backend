@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ "master", "main" ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ "master", "main" ]
+    branches: [ "main" ]
 
 jobs:
   build-and-test:
@@ -34,4 +34,9 @@ jobs:
         run: dotnet build Src/Services/Eshop.slnx --no-restore --configuration Release
 
       - name: Test
-        run: dotnet test Src/Services/Eshop.slnx --no-build --configuration Release --verbosity normal
+        run: dotnet test Src/Services/Eshop.slnx --no-build --configuration Release --verbosity normal --logger "trx;LogFileName=results.xml" --collect:"XPlat Code Coverage"
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: "**/*.trx"

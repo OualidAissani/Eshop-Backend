@@ -37,11 +37,14 @@ builder.Services.AddMassTransit(o =>
        r.ExistingDbContext<OrderDbContext>();
        r.UsePostgres();
    });
-
+    o.AddEntityFrameworkOutbox<OrderDbContext>(cfg =>
+    {
+        cfg.UsePostgres();
+        cfg.UseBusOutbox();
+    });
 
     o.AddConsumer<UpdateCartProductConsumer>();
     o.AddConsumer<OrderCompensateConsumer>();
-    o.AddRequestClient<ProductExistRequest>(new Uri("queue:check-product-existence"));
     o.AddRequestClient<GetProductRequest>(new Uri("queue:get-product-request"));
     o.AddRequestClient<ProductInventoryAvailibityForOrderRequest>(new Uri("queue:product-inventory-availability"));
     o.AddRequestClient<ProductStockRequest>(new Uri("queue:product-stock-request"));

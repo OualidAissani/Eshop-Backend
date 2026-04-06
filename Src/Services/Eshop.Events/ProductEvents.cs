@@ -48,27 +48,5 @@ public record GetProductResponse
     }
 }
 
-public record ProductExistRequest
-{
-    public int ProductId { get; init; }
-    public ProductExistRequest()
-    {
-        
-    }
-    public ProductExistRequest(int productId)
-    {
-        ProductId=productId;
-    }
-}
-
-public record ProductExistResponse
-{
-    public bool IsAvailable { get; init; }
-    public ProductExistResponse() { }
-    public ProductExistResponse(bool IsAvailable)
-    {
-        this.IsAvailable = IsAvailable;
-    }
-}
 
 public record UpdateCartProduct(int ProductId , string ProductName , decimal FullPrice);

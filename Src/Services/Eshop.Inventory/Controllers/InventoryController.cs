@@ -23,7 +23,7 @@ namespace Eshop.Inventory.Controllers
             _cache = cache;
         }
         [HttpGet]
-        public async Task<IActionResult> GetAllInventories()
+        public async Task<IActionResult> GetAllInventories( CancellationToken ct)
         {
             var cacheKey="Inventories:All";
             var cached = await _cache.GetAsync(cacheKey);
@@ -31,7 +31,7 @@ namespace Eshop.Inventory.Controllers
             {
                 return Ok(JsonSerializer.Deserialize<List<Models.Inventory>>(cached));
             }
-            var inventories = await _inventoryService.GetAllInventories();
+            var inventories = await _inventoryService.GetAllInventories(ct);
             await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(inventories), new DistributedCacheEntryOptions
             {
                 AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5)
@@ -39,7 +39,7 @@ namespace Eshop.Inventory.Controllers
             return Ok(inventories);
         }
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetInventoryById(int id)
+        public async Task<IActionResult> GetInventoryById(int id, CancellationToken ct)
         {
             var cacheKey = $"Inventory:{id}";
             var cached = await _cache.GetAsync(cacheKey);
@@ -47,7 +47,7 @@ namespace Eshop.Inventory.Controllers
             {
                 return Ok(JsonSerializer.Deserialize<Models.Inventory>(cached));
             }
-            var inventory = await _inventoryService.GetInventoryById(id);
+            var inventory = await _inventoryService.GetInventoryById(id,ct);
             if (inventory == null)
             {
                 return NotFound();
@@ -60,7 +60,7 @@ namespace Eshop.Inventory.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateInventory([FromBody] InventoryDto inventoryDto, [FromHeader(Name = "x_Idempotency_Key")] string key)
+        public async Task<IActionResult> CreateInventory([FromBody] InventoryDto inventoryDto, CancellationToken ct, [FromHeader(Name = "x_Idempotency_Key")] string key)
         {
             if (key == null)
             {
@@ -73,7 +73,7 @@ namespace Eshop.Inventory.Controllers
                 return CreatedAtAction(nameof(GetInventoryById), new { id = JsonSerializer.Deserialize<Models.Inventory>(cached)?.Id }, JsonSerializer.Deserialize<Models.Inventory>(cached) ?? null);
             }
 
-            var inventory = await _inventoryService.CreateInventoryForProduct(inventoryDto);
+            var inventory = await _inventoryService.CreateInventoryForProduct(inventoryDto,ct);
 
             if (inventory.IsFailed)
             {
@@ -92,9 +92,9 @@ namespace Eshop.Inventory.Controllers
 
         [Authorize]
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteInventory(int id)
+        public async Task<IActionResult> DeleteInventory(int id, CancellationToken ct)
         {
-            var result = await _inventoryService.DeleteInventory(id);
+            var result = await _inventoryService.DeleteInventory(id, ct);
             if (result.IsFailed)
             {
                 return NotFound(result.Errors.First().Message);
@@ -106,7 +106,7 @@ namespace Eshop.Inventory.Controllers
             return NoContent();
         }
         [HttpPut]
-        public async Task<IActionResult> UpdateInventory([FromBody] InventoryDto inventoryDto,[FromHeader(Name = "x_Idempotency_Key")] string key)
+        public async Task<IActionResult> UpdateInventory([FromBody] InventoryDto inventoryDto, CancellationToken ct, [FromHeader(Name = "x_Idempotency_Key")] string key)
         {
             if (key == null)
             {
@@ -118,7 +118,7 @@ namespace Eshop.Inventory.Controllers
             {
                 return Ok(JsonSerializer.Deserialize<Models.Inventory>(cached));
             }
-            var result = await _inventoryService.UpdateInventory(inventoryDto);
+            var result = await _inventoryService.UpdateInventory(inventoryDto, ct);
             if (result.IsFailed)
             {
                 return BadRequest(result.Errors.First().Message);
@@ -133,7 +133,7 @@ namespace Eshop.Inventory.Controllers
         }
         [HttpPut("UpdateQuantity")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> UpdateQuantity([FromBody] List<InventoryDto> invDto, [FromHeader(Name = "x_Idempotency_Key")] string key)
+        public async Task<IActionResult> UpdateQuantity([FromBody] List<InventoryDto> invDto, CancellationToken ct, [FromHeader(Name = "x_Idempotency_Key")] string key)
         {
             if(key == null)
             {
@@ -146,7 +146,7 @@ namespace Eshop.Inventory.Controllers
             {
                 return Ok(JsonSerializer.Deserialize<List<Models.Inventory>>(cached));
             }
-            var result = await _inventoryService.UpdateQuantity(invDto);
+            var result = await _inventoryService.UpdateQuantity(invDto,ct);
             if (result.IsFailed)
             {
                 return BadRequest(result.Errors.First().Message);

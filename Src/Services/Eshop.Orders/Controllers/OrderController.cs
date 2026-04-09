@@ -25,12 +25,12 @@ namespace Eshop.Orders.Controllers
         }
         [Authorize(Roles = "Admin")]
         [HttpGet("GetAllOrders")]
-        public async Task<IActionResult> GetAllOrders()
+        public async Task<IActionResult> GetAllOrders( CancellationToken ct)
         {
-            return Ok(await _orderService.GetAllOrders());
+            return Ok(await _orderService.GetAllOrders(ct));
         }
         [HttpGet("GetAllUserOrders")]
-        public async Task<IActionResult> GetAllUserOrders()
+        public async Task<IActionResult> GetAllUserOrders( CancellationToken ct)
         {
             var userId = _httpContextAccessor.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
 
@@ -43,7 +43,7 @@ namespace Eshop.Orders.Controllers
                 return Ok(JsonSerializer.Deserialize<List<Order>>(cachedData));
             }
 
-            var orders=await _orderService.GetAllUserOrderAsync(userId);
+            var orders=await _orderService.GetAllUserOrderAsync(userId, ct);
 
             if(orders==null || orders.Count==0)
             {
@@ -59,7 +59,7 @@ namespace Eshop.Orders.Controllers
         }
 
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetOrderById(int id)
+        public async Task<IActionResult> GetOrderById(int id, CancellationToken ct)
         {
             var userId = _httpContextAccessor.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
 
@@ -72,7 +72,7 @@ namespace Eshop.Orders.Controllers
                 return Ok(JsonSerializer.Deserialize<Order>(cachedData));
             }
 
-            var order = await _orderService.GetOrderById(id,userId);
+            var order = await _orderService.GetOrderById(id,userId, ct);
 
             if (order == null)
             {

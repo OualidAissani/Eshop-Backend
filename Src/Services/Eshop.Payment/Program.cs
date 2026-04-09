@@ -107,3 +107,4 @@ void MigrateDatabase()
     var database = scope.ServiceProvider.GetRequiredService<PaymentDbContext>();
     database.Database.Migrate();
 }
+public partial class Program { }

@@ -25,7 +25,7 @@ namespace Eshop.Orders.Controllers
         }
 
         [HttpGet("user")]
-        public async Task<IActionResult> GetUserCart()
+        public async Task<IActionResult> GetUserCart(CancellationToken ct)
         {
             var user = _contextAccessor.HttpContext?.User;
 
@@ -47,7 +47,7 @@ namespace Eshop.Orders.Controllers
 
             }
 
-            var cart = await _cartService.GetCartItemByUserId(userId);
+            var cart = await _cartService.GetCartItemByUserId(userId,ct);
 
             if(cart==null)
             {
@@ -60,7 +60,7 @@ namespace Eshop.Orders.Controllers
             return Ok(cart);
         }
         [HttpGet("{cartId}")]
-        public async Task<IActionResult> GetCartById(int cartId)
+        public async Task<IActionResult> GetCartById(int cartId, CancellationToken ct)
         {
             var cachedItemKey= $"Cart:{cartId}";
 
@@ -71,7 +71,7 @@ namespace Eshop.Orders.Controllers
                 return Ok(JsonSerializer.Deserialize<List<CartItem>>(cachedItem));
             }
 
-            var cart = await _cartService.GetAllCartItems(cartId);
+            var cart = await _cartService.GetAllCartItems(cartId,ct);
 
             if (cart == null)
             {
@@ -133,9 +133,9 @@ namespace Eshop.Orders.Controllers
                 ?? _contextAccessor.HttpContext?.User.FindFirst("sub")?.Value;
             var result = await _cartService.DeleteCartItem(cartItemId,ct);
 
-            if (!result)
+            if (result.IsFailed)
             {
-                return BadRequest("Failed to delete item from cart.");
+                return BadRequest(result.Errors.First().Message);
             }
             if (userId != null)
             {
@@ -178,7 +178,7 @@ namespace Eshop.Orders.Controllers
             {
                 await _cache.RemoveAsync($"Cart:{userId}:Items");
             }
-            await _cache.RemoveAsync($"Cart:{updatedItem.CartId}");
+            await _cache.RemoveAsync($"Cart:{updatedItem.Value.CartId}");
 
             return Ok(updatedItem);
         }
@@ -192,9 +192,9 @@ namespace Eshop.Orders.Controllers
                 ?? _contextAccessor.HttpContext?.User.FindFirst("sub")?.Value;
             var result = await _cartService.ClearCart(cartId, ct);
 
-            if (!result)
+            if (result.IsFailed)
             {
-                return BadRequest("Failed to clear cart.");
+                return BadRequest(result.Errors.First().Message);
             }
             await _cache.RemoveAsync($"Cart:{cartId}");
             if (userId != null)

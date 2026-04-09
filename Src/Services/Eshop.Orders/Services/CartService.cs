@@ -29,7 +29,7 @@ namespace Eshop.Orders.Services
                 ?? _httpContextAccessor.HttpContext?.User.FindFirst("sub")?.Value;
         }
 
-        public async Task<CartItem> AddCartItem(CartItemDto cartItem ,CancellationToken ct)
+        public async Task<Result<CartItem>> AddCartItem(CartItemDto cartItem ,CancellationToken ct)
         {
             if (cartItem == null || cartItem.Quantity <= 0 || cartItem.FullPrice <= 0)
             {
@@ -91,7 +91,7 @@ namespace Eshop.Orders.Services
             return userCart.CartItems.FirstOrDefault(i => i.ProductId == cartItemEntity.ProductId);
         }
 
-        public async Task<bool> ClearCart(int cartId,CancellationToken ct)
+        public async Task<Result<bool>> ClearCart(int cartId,CancellationToken ct)
         {
             var cart = await _context.Carts
                 .FirstOrDefaultAsync(i => i.Id==cartId && i.UserId== GetUserId());
@@ -109,7 +109,7 @@ namespace Eshop.Orders.Services
 
         }
 
-        public async Task<bool> DeleteCartItem(int cartItemId,CancellationToken ct)
+        public async Task<Result<bool>> DeleteCartItem(int cartItemId,CancellationToken ct)
         {
 
             if (cartItemId == 0)
@@ -132,30 +132,30 @@ namespace Eshop.Orders.Services
             return true;
         }
 
-        public async Task<List<CartItem>> GetAllCartItems(int cartId)
+        public async Task<Result<List<CartItem>>> GetAllCartItems(int cartId,CancellationToken ct)
         {
            var cartitems=await _context.CartItems
                 .AsNoTracking()
                 .Where(ci => ci.CartId == cartId && ci.Cart.UserId== GetUserId())
-                .ToListAsync();
+                .ToListAsync(ct);
 
             return cartitems;
         }
 
-        public async Task<CartItem?> GetCartItemById(int cartItemId)
+        public async Task<Result<CartItem?>> GetCartItemById(int cartItemId, CancellationToken ct)
         {
             return await _context.CartItems
                 .AsNoTracking()
-                .FirstOrDefaultAsync(ci => ci.Id == cartItemId);
+                .FirstOrDefaultAsync(ci => ci.Id == cartItemId, ct);
         }
-        public async Task<Cart?> GetCartItemByUserId(string userId)
+        public async Task<Result<Cart?>> GetCartItemByUserId(string userId, CancellationToken ct)
         {
             return await _context.Carts
                 .Include(ci=>ci.CartItems)
                 .AsNoTracking()
-                .FirstOrDefaultAsync(ci => ci.UserId.Equals(userId));
+                .FirstOrDefaultAsync(ci => ci.UserId.Equals(userId),ct);
         }
-        public async Task<CartItem> UpdateCartItem(UpdateCartItemDto cartItem,CancellationToken ct)
+        public async Task<Result<CartItem>> UpdateCartItem(UpdateCartItemDto cartItem,CancellationToken ct)
         {
             if (cartItem == null)
             {
@@ -182,7 +182,7 @@ namespace Eshop.Orders.Services
 
             var cartItem=await _context.CartItems.Where(ci => ci.ProductId == productId).ToListAsync();
 
-            _context.Remove(cartItem);
+            _context.RemoveRange(cartItem);
 
             if(await _context.SaveChangesAsync(ct) == 0)
             {

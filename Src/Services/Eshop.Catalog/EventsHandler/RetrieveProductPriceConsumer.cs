@@ -14,7 +14,7 @@ namespace Eshop.Catalog.EventsHandler
         public async Task Consume(ConsumeContext<GetProductRequest> context)
         {
             var message = context.Message;
-            var price= await _ProductService.GetProductPrice(message.ProductId);
+            var price= await _ProductService.GetProductPrice(message.ProductId,context.CancellationToken);
             var response = new GetProductResponse(price.Select(i => new GetProductResponseDto(i.Id, i.Price,i.Name)).ToList());
             await context.RespondAsync(response);
         }

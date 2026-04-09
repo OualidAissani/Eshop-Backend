@@ -128,7 +128,7 @@ namespace Eshop.Catalog.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteProduct(int Id,CancellationToken ct)
         {
-            var product = await _productrepo.GetProductById(Id);
+            var product = await _productrepo.GetProductById(Id, ct);
             var result = await _productrepo.DeleteProduct(Id,ct);
             if (result.IsFailed)
             {
@@ -147,7 +147,7 @@ namespace Eshop.Catalog.Controllers
         }
         
         [HttpGet]
-        public async Task<ActionResult<PaginatedResult<Products>>> GetProducts([FromQuery] int? lastId,[FromQuery] int pageSize = 10)
+        public async Task<ActionResult<PaginatedResult<Products>>> GetProducts([FromQuery] int? lastId, CancellationToken ct, [FromQuery] int pageSize = 10)
         {
             var cacheKey= $"Products:List:PageSize={pageSize}:LastId={lastId}";
             var cached = await _cache.GetStringAsync(cacheKey);
@@ -164,7 +164,7 @@ namespace Eshop.Catalog.Controllers
             {
                 PageSize = pageSize,
                 LastId=lastId
-            });
+            },ct);
             await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(result), new DistributedCacheEntryOptions
             {
                 AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30)
@@ -173,7 +173,7 @@ namespace Eshop.Catalog.Controllers
         }
         
         [HttpGet("{id}")]
-        public async Task<ActionResult<Products>> GetProductById(int id)
+        public async Task<ActionResult<Products>> GetProductById(int id, CancellationToken ct)
         {
             var cacheKey = $"Products:Id={id}";
             var cached = await _cache.GetStringAsync(cacheKey);
@@ -182,7 +182,7 @@ namespace Eshop.Catalog.Controllers
                 var cachedProduct = JsonSerializer.Deserialize<Products>(cached);
                 return Ok(cachedProduct);
             }
-            var product = await _productrepo.GetProductById(id);
+            var product = await _productrepo.GetProductById(id, ct);
 
             if (product == null)
             {
@@ -196,7 +196,7 @@ namespace Eshop.Catalog.Controllers
         }
         
         [HttpGet("category/{categoryId}")]
-        public async Task<ActionResult<List<Products>>> GetProductsByCategory(int categoryId)
+        public async Task<ActionResult<List<Products>>> GetProductsByCategory(int categoryId, CancellationToken ct)
         {
             var cachedKey=$"Products:Category={categoryId}";
             var cached = await _cache.GetStringAsync(cachedKey);
@@ -205,7 +205,7 @@ namespace Eshop.Catalog.Controllers
                 return Ok(JsonSerializer.Deserialize<List<Products>>(cached));
             }
 
-            var products = await _productrepo.GetProductsByCategory(categoryId);
+            var products = await _productrepo.GetProductsByCategory(categoryId,ct);
 
                 await _cache.SetStringAsync(cachedKey, JsonSerializer.Serialize(products), new DistributedCacheEntryOptions
                 {

@@ -81,7 +81,7 @@ public class OrderServiceTests : IDisposable
             CreateOrder(userId: "user2", totalPrice: 200m));
         await _context.SaveChangesAsync();
 
-        var result = await _sut.GetAllOrders();
+        var result = await _sut.GetAllOrders(CancellationToken.None);
 
         result.Should().HaveCount(2);
     }
@@ -89,7 +89,7 @@ public class OrderServiceTests : IDisposable
     [Fact]
     public async Task GetAllOrders_WhenEmpty_ReturnsEmptyList()
     {
-        var result = await _sut.GetAllOrders();
+        var result = await _sut.GetAllOrders(CancellationToken.None);
 
         result.Should().BeEmpty();
     }
@@ -107,7 +107,7 @@ public class OrderServiceTests : IDisposable
             CreateOrder(userId: "user2", totalPrice: 120m));
         await _context.SaveChangesAsync();
 
-        var result = await _sut.GetAllUserOrderAsync("user1");
+        var result = await _sut.GetAllUserOrderAsync("user1", CancellationToken.None);
 
         result.Should().HaveCount(2);
         result.Should().AllSatisfy(o => o.UserId.Should().Be("user1"));
@@ -116,7 +116,7 @@ public class OrderServiceTests : IDisposable
     [Fact]
     public async Task GetAllUserOrderAsync_WhenNoOrders_ReturnsEmptyList()
     {
-        var result = await _sut.GetAllUserOrderAsync("nonexistent");
+        var result = await _sut.GetAllUserOrderAsync("nonexistent", CancellationToken.None);
 
         result.Should().BeEmpty();
     }
@@ -132,7 +132,7 @@ public class OrderServiceTests : IDisposable
         _context.Orders.Add(order);
         await _context.SaveChangesAsync();
 
-        var result = await _sut.GetOrderById(order.Id, "user1");
+        var result = await _sut.GetOrderById(order.Id, "user1", CancellationToken.None);
 
         result.Should().NotBeNull();
         result!.TotalPrice.Should().Be(99.99m);
@@ -141,7 +141,7 @@ public class OrderServiceTests : IDisposable
     [Fact]
     public async Task GetOrderById_WhenOrderNotFound_ReturnsNull()
     {
-        var result = await _sut.GetOrderById(999, "user1");
+        var result = await _sut.GetOrderById(999, "user1", CancellationToken.None);
 
         result.Should().BeNull();
     }
@@ -153,7 +153,7 @@ public class OrderServiceTests : IDisposable
         _context.Orders.Add(order);
         await _context.SaveChangesAsync();
 
-        var result = await _sut.GetOrderById(order.Id, "wrongUser");
+        var result = await _sut.GetOrderById(order.Id, "wrongUser",CancellationToken.None);
 
         result.Should().BeNull();
     }

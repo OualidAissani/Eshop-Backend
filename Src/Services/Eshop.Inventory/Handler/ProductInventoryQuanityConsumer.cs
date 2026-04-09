@@ -18,7 +18,7 @@ namespace Eshop.Inventory.Handler
         public async Task Consume(ConsumeContext<ProductInventoryAvailibityForOrderRequest> context)
         {
             var message = context.Message;
-            var productInventory=await _inventoryService.GetInvetoriesByProductsIds(message.ProductsId);
+            var productInventory=await _inventoryService.GetInvetoriesByProductsIds(message.ProductsId,context.CancellationToken);
 
             if(productInventory==null ||productInventory.Count == 0)
             {

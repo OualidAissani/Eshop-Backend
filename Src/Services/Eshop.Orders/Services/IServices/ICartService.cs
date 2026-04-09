@@ -5,19 +5,19 @@ namespace Eshop.Orders.Services.IServices
 {
     public interface ICartService
     {
-        Task<List<CartItem>> GetAllCartItems(int cartId);
+        Task<Result<List<CartItem>>> GetAllCartItems(int cartId,CancellationToken ct);
 
-        Task<CartItem?> GetCartItemById(int cartItemId);
+        Task<Result<CartItem?>> GetCartItemById(int cartItemId, CancellationToken ct);
 
-        Task<CartItem> AddCartItem(CartItemDto cartItem, CancellationToken ct);
+        Task<Result<CartItem>> AddCartItem(CartItemDto cartItem, CancellationToken ct);
 
-        Task<CartItem> UpdateCartItem(UpdateCartItemDto cartItem, CancellationToken ct);
+        Task<Result<CartItem>> UpdateCartItem(UpdateCartItemDto cartItem, CancellationToken ct);
 
-        Task<Cart?> GetCartItemByUserId(string userId);
+        Task<Result<Cart?>> GetCartItemByUserId(string userId, CancellationToken ct);
 
-        Task<bool> DeleteCartItem(int cartItemId, CancellationToken ct);
+        Task<Result<bool>> DeleteCartItem(int cartItemId, CancellationToken ct);
         Task<Result<bool>> DeleteCartItemByProductId(int productId, CancellationToken ct);
 
-        Task<bool> ClearCart(int cartId, CancellationToken ct);
+        Task<Result<bool>> ClearCart(int cartId, CancellationToken ct);
     }
 }

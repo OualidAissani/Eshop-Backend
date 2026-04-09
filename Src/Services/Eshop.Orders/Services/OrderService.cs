@@ -27,25 +27,25 @@ namespace Eshop.Orders.Services
             _publishEndpoint = publishEndpoint;
             _createPaymentOrderClient = createPaymentOrderClient;
         }
-        public async Task<List<Order>> GetAllOrders()
+        public async Task<List<Order>> GetAllOrders( CancellationToken ct)
         {
-            return await _context.Orders.AsNoTracking().ToListAsync();
+            return await _context.Orders.AsNoTracking().ToListAsync(ct);
         }
-        public async Task<List<Order>> GetAllUserOrderAsync(string userId)
+        public async Task<List<Order>> GetAllUserOrderAsync(string userId, CancellationToken ct)
         {
             return await _context
                 .Orders
                 .Where(i => i.UserId == userId)
                 .AsNoTracking()
-                .ToListAsync();
+                .ToListAsync(ct);
 
         }
-        public async Task<Order?> GetOrderById(int orderId,string userId)
+        public async Task<Order?> GetOrderById(int orderId,string userId, CancellationToken ct)
         {
             return await _context
                 .Orders
                 .AsNoTracking()
-                .FirstOrDefaultAsync(o => o.Id == orderId && o.UserId==userId);
+                .FirstOrDefaultAsync(o => o.Id == orderId && o.UserId==userId,ct);
         }
 
         public async Task<CreateOrderResponseDto> CreateOrder(OrderDto order,CancellationToken ct)
@@ -84,7 +84,7 @@ namespace Eshop.Orders.Services
 
             _context.Orders.Add(newOrder);
 
-            if (await _context.SaveChangesAsync() == 0)
+            if (await _context.SaveChangesAsync(ct) == 0)
             {
                 throw new Exception("Error Occured While Saving Order To The Db");
             }
@@ -192,14 +192,14 @@ namespace Eshop.Orders.Services
             var userId=user.FindFirst(ClaimTypes.NameIdentifier).Value;
             try
             {
-                var order = await _context.Orders.FindAsync(orderId);
+                var order = await _context.Orders.FirstOrDefaultAsync(o => o.Id == orderId, ct);
                 if(order == null || order.UserId != userId)
                 {
                     return false;
                 }
                 _context.Orders.Remove(order);
 
-                return await _context.SaveChangesAsync() > 0;
+                return await _context.SaveChangesAsync(ct) > 0;
             }
             catch (Exception ex)
             {

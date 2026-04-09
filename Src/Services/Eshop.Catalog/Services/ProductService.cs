@@ -30,7 +30,7 @@ namespace Eshop.Catalog.Services
             _logger = logger;
             _publish = publish;
         }
-        public async Task<List<ProductPriceDto>> GetProductPrice(List<int> ProductId)
+        public async Task<List<ProductPriceDto>> GetProductPrice(List<int> ProductId, CancellationToken ct)
         {
             return await _context
                 .Products
@@ -41,7 +41,7 @@ namespace Eshop.Catalog.Services
                     Price = i.Price,
                     Name=i.Title
                 })
-                .ToListAsync();
+                .ToListAsync(ct);
         }
 
         public async Task<Result<ProductDto>> CreateProduct(ProductCreateDto product, List<IFormFile> formFile, CancellationToken ct)
@@ -69,7 +69,7 @@ namespace Eshop.Catalog.Services
 
                 if(product.Categories!=null && product.Categories.Count>0)
                 {
-                    var categories = await _context.Categories.Where(c => product.Categories.Contains(c.Id)).ToListAsync();
+                    var categories = await _context.Categories.Where(c => product.Categories.Contains(c.Id)).ToListAsync(ct);
                     productobj.Categories = categories;
                 }
 
@@ -101,7 +101,7 @@ namespace Eshop.Catalog.Services
 
                 }
 
-                var currentProduct = await GetProductById(productobj.Id);
+                var currentProduct = await GetProductById(productobj.Id,ct);
 
                 return currentProduct;
             });
@@ -123,7 +123,7 @@ namespace Eshop.Catalog.Services
 
             }
 
-            var product = await _context.Products.Include(i=>i.Categories).AsSplitQuery().FirstOrDefaultAsync(i=>i.Id==ProductId);
+            var product = await _context.Products.Include(i=>i.Categories).AsSplitQuery().FirstOrDefaultAsync(i=>i.Id==ProductId, ct);
 
             if (product == null)
             {
@@ -135,7 +135,7 @@ namespace Eshop.Catalog.Services
                 var categories = await _context.Categories
                     .AsNoTracking()
                     .Where(c => productDto.CategoriesId.Contains(c.Id))
-                    .ToListAsync();
+                    .ToListAsync(ct);
 
                 product.Categories=categories;
             }
@@ -179,7 +179,7 @@ namespace Eshop.Catalog.Services
 
             return await strategy.ExecuteAsync(async () =>
             {
-                var product = await _context.Products.Include(i => i.Media).Where(I => I.Id == productId).FirstOrDefaultAsync();
+                var product = await _context.Products.Include(i => i.Media).Where(I => I.Id == productId).FirstOrDefaultAsync(ct);
                 if (product == null)
                 {
                     return Result.Fail($"The product with Id {productId} Not Found");
@@ -197,7 +197,7 @@ namespace Eshop.Catalog.Services
             });
         }
         
-        public async Task<ProductDto> GetProductById(int productId)
+        public async Task<ProductDto> GetProductById(int productId, CancellationToken ct)
         {
             return await _context.Products
                 .Select(i => new ProductDto
@@ -213,10 +213,10 @@ namespace Eshop.Catalog.Services
                     Categories = i.Categories.Select(c => new CategoryDto { Id = c.Id, Description = c.Description, Name = c.Title }).ToList()
 
                 })
-                .FirstOrDefaultAsync(p => p.Id == productId);
+                .FirstOrDefaultAsync(p => p.Id == productId,ct);
         }
         
-        public async Task<List<ProductDto>> GetAllProducts()
+        public async Task<List<ProductDto>> GetAllProducts(CancellationToken ct)
         {
             return await _context.Products
                 .Select(i => new ProductDto
@@ -233,10 +233,10 @@ namespace Eshop.Catalog.Services
 
                 })
                 .OrderBy(d => d.DisplayOrder == null ? d.Id : d.DisplayOrder)
-                .ToListAsync();
+                .ToListAsync(ct);
         }
         
-        public async Task<List<ProductDto>> GetProductsByCategory(int categoryId)
+        public async Task<List<ProductDto>> GetProductsByCategory(int categoryId, CancellationToken ct)
         {
             return await _context.Products
                 .Where(c => c.Categories.Any(cat => cat.Id == categoryId))
@@ -254,7 +254,7 @@ namespace Eshop.Catalog.Services
 
             })                
                 .OrderBy(d => d.DisplayOrder == null ? d.Id : d.DisplayOrder)
-                .ToListAsync();
+                .ToListAsync(ct);
         }
         
         public async Task<List<ProductDto>> ProductSearch(string tag,CancellationToken ct)
@@ -283,7 +283,7 @@ namespace Eshop.Catalog.Services
                 .ToListAsync(ct);
         }
 
-        public async Task<PaginatedResult<ProductDto>> GetProductsAsync(PaginationParams paging)
+        public async Task<PaginatedResult<ProductDto>> GetProductsAsync(PaginationParams paging, CancellationToken ct)
         {
             paging.Validate();
 
@@ -311,7 +311,7 @@ namespace Eshop.Catalog.Services
             })
             .OrderBy(p=>p.Id)
             .Take(paging.PageSize+1)
-            .ToListAsync();
+            .ToListAsync(ct);
 
             int? nextCursor = null;
             if (items.Count > paging.PageSize)
@@ -336,7 +336,7 @@ namespace Eshop.Catalog.Services
                throw new ArgumentException("Product or Category isnt valid");
             }
 
-            var product=await _context.Products.Include(p => p.Categories).FirstOrDefaultAsync(p => p.Id == productId);
+            var product=await _context.Products.Include(p => p.Categories).FirstOrDefaultAsync(p => p.Id == productId,ct);
 
             if (product == null)
             {

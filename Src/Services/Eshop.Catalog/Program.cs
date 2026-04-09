@@ -122,3 +122,4 @@ void MigrateDatabase()
     var dbContext = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
     dbContext.Database.Migrate();
 }
+public partial class Program { }

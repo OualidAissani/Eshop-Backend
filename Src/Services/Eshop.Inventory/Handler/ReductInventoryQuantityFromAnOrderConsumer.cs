@@ -22,7 +22,7 @@ namespace Eshop.Inventory.Handler
             var message = context.Message;
 
             var productIds = message.Products.Select(p => p.ProductId).ToList();
-            var inventories = await _inventoryService.GetInvetoriesByProductsIds(productIds);
+            var inventories = await _inventoryService.GetInvetoriesByProductsIds(productIds, context.CancellationToken);
 
             if (inventories.Count != productIds.Count)
             {
@@ -52,7 +52,7 @@ namespace Eshop.Inventory.Handler
             //    ProductId = i.ProductId,
             //    Quantity = i.Quantity
             //}).ToList();
-            var result = await _inventoryService.PushUpdatetOdB(inventories);
+            var result = await _inventoryService.PushUpdatetOdB(inventories,context.CancellationToken);
             if (result.Value != productIds.Count())
             {
                 await _publishEndpoint.Publish(new OrderFailed { CorrelationId = message.CorrelationId });

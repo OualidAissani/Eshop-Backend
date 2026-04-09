@@ -1,7 +1,5 @@
 ﻿using Eshop.Events;
 using Eshop.Inventory.Data;
-using Eshop.Inventory.Dtos;
-using Eshop.Inventory.Models;
 using FluentResults;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
@@ -19,15 +17,15 @@ namespace Eshop.Inventory.Services
             _db = db;
             _logger = logger;
         }
-        public async Task<List<Models.Inventory>> GetAllInventories()
+        public async Task<List<Models.Inventory>> GetAllInventories(CancellationToken ct)
         {
-            return await _db.Inventories.AsNoTracking().ToListAsync();
+            return await _db.Inventories.AsNoTracking().ToListAsync(ct);
         }
-        public async Task<Models.Inventory?> GetInventoryById(int InventoryId)
+        public async Task<Models.Inventory?> GetInventoryById(int InventoryId, CancellationToken ct)
         {
-            return await _db.Inventories.AsNoTracking().FirstOrDefaultAsync(i => i.Id == InventoryId);
+            return await _db.Inventories.AsNoTracking().FirstOrDefaultAsync(i => i.Id == InventoryId, ct);
         }
-        public async Task<Result<Models.Inventory>> CreateInventoryForProduct(Dtos.InventoryDto Inventory)
+        public async Task<Result<Models.Inventory>> CreateInventoryForProduct(Dtos.InventoryDto Inventory, CancellationToken ct)
         {
             var response=await _Client.GetResponse<ProductExistenceResponse>(new VerifyProductExistence(Inventory.ProductId));
             if (response.Message.Exists == false)
@@ -40,20 +38,20 @@ namespace Eshop.Inventory.Services
                 Quantity=Inventory.Quantity
             };
             _db.Inventories.Add(inventory);
-            if(await _db.SaveChangesAsync()==0)
+            if(await _db.SaveChangesAsync(ct)==0)
             {
                 return Result.Fail("Error Creating Inventory Try Again Later");
             }
             return inventory;
         }
-        public async Task<Result<Models.Inventory>> UpdateInventory(Dtos.InventoryDto inventoryDto)
+        public async Task<Result<Models.Inventory>> UpdateInventory(Dtos.InventoryDto inventoryDto, CancellationToken ct)
         {
             if(inventoryDto==null || inventoryDto.Quantity < 0|| inventoryDto.ProductId <= 0)
             {
                 throw new ArgumentNullException();
             }
             
-            var inventory = await _db.Inventories.Where(i=>i.ProductId==inventoryDto.ProductId).FirstOrDefaultAsync();
+            var inventory = await _db.Inventories.Where(i=>i.ProductId==inventoryDto.ProductId).FirstOrDefaultAsync(ct);
 
 
             if (inventory == null) return Result.Fail($"Inventory For Product With Id {inventoryDto.ProductId} Not Found");
@@ -63,14 +61,14 @@ namespace Eshop.Inventory.Services
             inventory.ProductId = inventoryDto.ProductId;
             _db.Inventories.Update(inventory);
 
-            if(await _db.SaveChangesAsync()==0)
+            if(await _db.SaveChangesAsync(ct)==0)
             {
                 return Result.Fail("Error Updating Inventory Try Again Later");
             }
 
             return inventory;
         }
-        public async Task<Result<int>> UpdateQuantity(List<Dtos.InventoryDto> invDto)
+        public async Task<Result<int>> UpdateQuantity(List<Dtos.InventoryDto> invDto, CancellationToken ct)
         {
             if (invDto == null || invDto.Count == 0)
                 throw new ArgumentNullException();
@@ -78,7 +76,7 @@ namespace Eshop.Inventory.Services
             int totalUpdated = 0;
 
             var invs = await _db.Inventories
-                    .Where(i => invDto.Select(d=>d.ProductId).Contains(i.ProductId)).ToListAsync();
+                    .Where(i => invDto.Select(d=>d.ProductId).Contains(i.ProductId)).ToListAsync(ct);
 
             var invDtopDictionary = invDto.ToDictionary(i => i.ProductId);
 
@@ -86,32 +84,32 @@ namespace Eshop.Inventory.Services
             {
                 item.Quantity = invDtopDictionary[item.ProductId].Quantity;
             }
-            totalUpdated = await _db.SaveChangesAsync();
+            totalUpdated = await _db.SaveChangesAsync(ct);
             if (totalUpdated == 0)
             {
                 return Result.Fail("Error Updating Inventory Try Again Later");
             }
             return totalUpdated;
         }
-        public async Task<Result<int>> PushUpdatetOdB(List<Models.Inventory> inventories)
+        public async Task<Result<int>> PushUpdatetOdB(List<Models.Inventory> inventories, CancellationToken ct)
         {
             if (inventories == null || inventories.Count == 0)
                 throw new ArgumentNullException();
             _db.Inventories.UpdateRange(inventories);
-            int totalUpdated = await _db.SaveChangesAsync();
+            int totalUpdated = await _db.SaveChangesAsync(ct);
             if (totalUpdated == 0)
             {
                 return Result.Fail("Error Updating Inventory Try Again Later");
             }
             return totalUpdated;
         }
-        public async Task<Result<bool?>> DeleteInventory(int InventoryId)
+        public async Task<Result<bool?>> DeleteInventory(int InventoryId, CancellationToken ct)
         {
             if (InventoryId <= 0)
             {
                 throw new ArgumentNullException("Inventory Id is not valid");
             }
-            var inventory = await _db.Inventories.FindAsync(InventoryId);
+            var inventory = await _db.Inventories.FirstOrDefaultAsync(i => i.Id == InventoryId, ct);
             if (inventory == null)
             {
                 return Result.Fail($"The Inventory with ID {InventoryId} Not Found");
@@ -121,7 +119,7 @@ namespace Eshop.Inventory.Services
             {
                 _db.Inventories.Remove(inventory);
 
-                if(await _db.SaveChangesAsync()==0)
+                if(await _db.SaveChangesAsync(ct)==0)
                 {
                     return Result.Fail("There was an issue Deleting The Inventory");
                 }
@@ -134,12 +132,12 @@ namespace Eshop.Inventory.Services
             }
         }
 
-        public async Task<List<Models.Inventory>> GetInvetoriesByProductsIds(List<int> productIds)
+        public async Task<List<Models.Inventory>> GetInvetoriesByProductsIds(List<int> productIds, CancellationToken ct)
         {
             return await _db
                 .Inventories
                 .Where(i => productIds.Contains(i.ProductId))
-                .ToListAsync();
+                .ToListAsync(ct);
         }
     }
 }

@@ -39,6 +39,11 @@ builder.Services.AddMassTransit(o =>
     o.AddConsumer<RetrieveProductPriceConsumer>();
     o.AddConsumer<VerifyProductExistenceConsumer>();
 
+    o.AddEntityFrameworkOutbox<CatalogDbContext>(cfg =>
+    {
+        cfg.UsePostgres();
+        cfg.UseBusOutbox();
+    });
     o.UsingRabbitMq((context, cfg) =>
     {
         cfg.ConfigureEndpoints(context);

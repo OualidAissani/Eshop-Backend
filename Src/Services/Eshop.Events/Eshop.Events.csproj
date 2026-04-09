@@ -8,7 +8,7 @@
 
   <ItemGroup>
     <PackageReference Include="FluentResults" Version="4.0.0" />
-    <PackageReference Include="SonarAnalyzer.CSharp" Version="10.19.0.132793">
+    <PackageReference Include="SonarAnalyzer.CSharp" Version="10.22.0.136894">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>

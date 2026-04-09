@@ -19,7 +19,11 @@ namespace Eshop.Catalog.Services
 
         public async Task<Result<Categories>> CreateAsync(CategoryCreateDto dto, CancellationToken cancellationToken )
         {
-            ArgumentNullException.ThrowIfNull(dto);
+            if (dto is null)
+            {
+                return Result.Fail<Categories>("Invalid category payload");
+            }
+
             var category=new Categories()
             {
                 Title=dto.Title,
@@ -29,7 +33,7 @@ namespace Eshop.Catalog.Services
             _context.Categories.Add(category);
             if(await _context.SaveChangesAsync(cancellationToken) == 0)
             {
-                return Result.Fail("Error Creating Category Try Again Later");
+                return Result.Fail<Categories>("Error Creating Category Try Again Later");
             }
 
             return category;
@@ -38,9 +42,16 @@ namespace Eshop.Catalog.Services
 
         public async Task<Result<bool>> DeleteAsync(int id, CancellationToken cancellationToken )
         {
+            if(id<=0)
+                {
+                   new ArgumentNullException(nameof(id));
+            }
             var category= await _context.Categories.FindAsync(id);
 
-            ArgumentNullException.ThrowIfNull(category);
+            if (category == null)
+            {
+                return Result.Fail("Category Not Found");
+            }
 
             _context.Categories.Remove(category);
             if(await _context.SaveChangesAsync(cancellationToken) == 0)
@@ -79,14 +90,10 @@ namespace Eshop.Catalog.Services
             if(category==null) return Result.Fail("Category Not Found");
 
 
-            if (dto.Title != null)
-            {
-                category.Title = dto.Title;
-            }
-            if (dto.Description != null) {
-
-                category.Description=dto.Description;
-            }
+                category.Title = dto.Title??category.Title;
+            
+                category.Description=dto.Description?? category.Description;
+            
             if(await _context.SaveChangesAsync(cancellationToken) == 0)
             {
                 return Result.Fail("Error Updating Category Try Again Later");

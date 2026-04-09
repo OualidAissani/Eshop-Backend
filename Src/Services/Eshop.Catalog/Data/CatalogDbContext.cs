@@ -1,6 +1,6 @@
 ﻿using Eshop.Catalog.Models;
 using Microsoft.EntityFrameworkCore;
-
+using MassTransit;
 namespace Eshop.Catalog.Data
 {
     public class CatalogDbContext : DbContext
@@ -31,7 +31,9 @@ namespace Eshop.Catalog.Data
                 .HasIndex(c => c.Title)
                 .IsUnique();
 
-
+            modelBuilder.AddInboxStateEntity();
+            modelBuilder.AddOutboxMessageEntity();
+            modelBuilder.AddOutboxStateEntity();
 
         }
         public DbSet<Products> Products { get; set; }

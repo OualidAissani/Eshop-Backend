@@ -1,4 +1,5 @@
 ﻿using Eshop.Orders.Models;
+using FluentResults;
 
 namespace Eshop.Orders.Services.IServices
 {
@@ -15,6 +16,7 @@ namespace Eshop.Orders.Services.IServices
         Task<Cart?> GetCartItemByUserId(string userId);
 
         Task<bool> DeleteCartItem(int cartItemId, CancellationToken ct);
+        Task<Result<bool>> DeleteCartItemByProductId(int productId, CancellationToken ct);
 
         Task<bool> ClearCart(int cartId, CancellationToken ct);
     }

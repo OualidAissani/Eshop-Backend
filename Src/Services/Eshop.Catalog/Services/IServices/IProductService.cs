@@ -8,9 +8,8 @@ namespace Eshop.Catalog.Services.IServices
     {
         Task<List<ProductPriceDto>> GetProductPrice(List<int> ProductId);
 
-        Task<Result<ProductCreateResponseDto>> CreateProduct(ProductCreateDto product,CancellationToken ct);
-
-        Task<Result<ProductDto>> UpdateProduct(int ProductId, ProductsUpdateDto productDto, Stream mediafile, string contentType, string filename, CancellationToken ct);
+        Task<Result<ProductDto>> CreateProduct(ProductCreateDto product, List<IFormFile>? formFile, CancellationToken ct);
+        Task<Result<ProductDto>> UpdateProduct(int ProductId, ProductsUpdateDto productDto, List<IFormFile> formFile, CancellationToken ct);
 
         Task<Result<bool>> DeleteProduct(int productId,CancellationToken ct);
 
@@ -24,7 +23,7 @@ namespace Eshop.Catalog.Services.IServices
 
         Task<Result<bool>> AssignProductToCategory(int productId, int categoryId, CancellationToken ct);
 
-        Task<List<ProductDto>> ProductSearch(string tag);
+        Task<List<ProductDto>> ProductSearch(string tag, CancellationToken ct);
 
 
     }

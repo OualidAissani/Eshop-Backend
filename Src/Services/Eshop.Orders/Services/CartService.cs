@@ -177,6 +177,20 @@ namespace Eshop.Orders.Services
             return CartItem;
         }
 
+        public async Task<Result<bool>> DeleteCartItemByProductId(int productId,CancellationToken ct)
+        {
+
+            var cartItem=await _context.CartItems.Where(ci => ci.ProductId == productId).ToListAsync();
+
+            _context.Remove(cartItem);
+
+            if(await _context.SaveChangesAsync(ct) == 0)
+            {
+                return Result.Fail<bool>("There was an issue Deleling The cart item");
+            }
+            return true;
+        }
+
 
     }
 }

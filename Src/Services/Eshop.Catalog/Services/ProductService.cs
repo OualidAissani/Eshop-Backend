@@ -22,7 +22,8 @@ namespace Eshop.Catalog.Services
             ILogger<ProductService> logger,
             IConfiguration configurations,
             IHttpClientFactory httpClientFactory,
-            IPublishEndpoint publish)
+            IPublishEndpoint publish
+            )
         {
             _context = context;
             _mediaService = mediaService;
@@ -43,8 +44,15 @@ namespace Eshop.Catalog.Services
                 .ToListAsync();
         }
 
-        public async Task<Result<ProductCreateResponseDto>> CreateProduct(ProductCreateDto product,CancellationToken ct)
+        public async Task<Result<ProductDto>> CreateProduct(ProductCreateDto product, List<IFormFile> formFile, CancellationToken ct)
         {
+
+            ArgumentNullException.ThrowIfNull(product);
+            if(formFile == null || formFile.Count == 0)
+            {
+                return Result.Fail<ProductDto>("Atleast One Image Attached To The Product");
+            }
+
             var strategy = _context.Database.CreateExecutionStrategy();
 
             return await strategy.ExecuteAsync(async () =>
@@ -70,7 +78,7 @@ namespace Eshop.Catalog.Services
                 var result = await _context.SaveChangesAsync(ct);
                 if (result == 0)
                 {
-                    return Result.Fail<ProductCreateResponseDto>("Failed To Create Product");
+                    return Result.Fail<ProductDto>("Failed To Create Product");
                 }
 
                 var response = new ProductCreateResponseDto()
@@ -79,40 +87,67 @@ namespace Eshop.Catalog.Services
                     Description = productobj.Description
                 };
 
-                return response;
+                var media = new ProductMedia()
+                {
+                    ProductId = productobj.Id,
+                    Description = productobj.Description
+                };
+
+                foreach (var file in formFile)
+                {
+                    using var stream = file.OpenReadStream();
+
+                    await _mediaService.CreateMedia(media, stream, file.ContentType, file.FileName, ct);
+
+                }
+
+                var currentProduct = await GetProductById(productobj.Id);
+
+                return currentProduct;
             });
         }
         
-        public async Task<Result<ProductDto>> UpdateProduct(int ProductId,ProductsUpdateDto productDto,Stream mediafile,string contentType,string filename,CancellationToken ct)
+        public async Task<Result<ProductDto>> UpdateProduct(int ProductId,ProductsUpdateDto productDto,List<IFormFile> formFile,CancellationToken ct)
         {
-            if (mediafile != Stream.Null && contentType!=null)
+            var media = new ProductMedia()
             {
-                var media = new ProductMedia()
-                {
-                    ProductId = ProductId,
-                    Description = productDto.Description,
-                };
-                await _mediaService.CreateMedia(media,mediafile, contentType, filename,ct);
+                ProductId = ProductId,
+                Description = productDto.Description
+            };
+
+            foreach (var file in formFile)
+            {
+                using var stream = file.OpenReadStream();
+
+                await _mediaService.CreateMedia(media, stream, file.ContentType, file.FileName, ct);
+
             }
+
             var product = await _context.Products.Include(i=>i.Categories).AsSplitQuery().FirstOrDefaultAsync(i=>i.Id==ProductId);
 
             if (product == null)
             {
                 return Result.Fail<ProductDto>($"The product with Id {ProductId} Not Found");
             }
+
             if(productDto.CategoriesId!=null && productDto.CategoriesId.Count>0)
             {
-                var categories = await _context.Categories.AsNoTracking().Where(c => productDto.CategoriesId.Contains(c.Id)).ToListAsync();
+                var categories = await _context.Categories
+                    .AsNoTracking()
+                    .Where(c => productDto.CategoriesId.Contains(c.Id))
+                    .ToListAsync();
+
                 product.Categories=categories;
             }
+
+
             product.Title = productDto.Title ?? product.Title;
             product.Description = productDto.Description ?? product.Description;
             product.Price = productDto.Price<=0? product.Price:productDto.Price;
             product.Status = productDto.Status;
             product.SpecialStatus = productDto.SpecialStatus;
             product.DisplayOrder = productDto.DisplayOrder ?? product.DisplayOrder;
-            //NEED NEW CONCEPT maybe replace only no addition for category
-
+            
 
             var result=await _context.SaveChangesAsync(ct);
 
@@ -157,6 +192,7 @@ namespace Eshop.Catalog.Services
                 {
                     return Result.Fail<bool>("There Was An Issue Deleting The Product");
                 }
+                await _publish.Publish(new DeleteCartProduct(productId));
                 return true;
             });
         }
@@ -221,17 +257,17 @@ namespace Eshop.Catalog.Services
                 .ToListAsync();
         }
         
-        public async Task<List<ProductDto>> ProductSearch(string tag)
+        public async Task<List<ProductDto>> ProductSearch(string tag,CancellationToken ct)
         {
            return await _context.Products
                 .Include(i=>i.Categories)
                 .AsNoTracking()
                 .AsSplitQuery()
                 .Where(p=>
-                    (EF.Functions.TrigramsAreSimilar(p.Description,tag))
-                ||  (EF.Functions.TrigramsAreSimilar(p.Title,tag))
-                ||  (p.Categories.Any(i=>EF.Functions.TrigramsAreSimilar(i.Title,tag)))
-                ||  (p.Categories.Any(i => EF.Functions.TrigramsAreSimilar(i.Description, tag))))
+                    (EF.Functions.TrigramsSimilarity(p.Description,tag)>0.3)
+                ||  (EF.Functions.TrigramsSimilarity(p.Title,tag)>0.3)
+                ||  (p.Categories.Any(i=>EF.Functions.TrigramsSimilarity(i.Title,tag)>0.3))
+                ||  (p.Categories.Any(i => EF.Functions.TrigramsSimilarity(i.Description, tag)>0.3)))
                 .Select(i=> new ProductDto
                 {
                     Id = i.Id,
@@ -244,7 +280,7 @@ namespace Eshop.Catalog.Services
                     Media = i.Media.Select(m => new MediaDto { MediaUrl = m.Media }).ToList(),
                     Categories = i.Categories.Select(c => new CategoryDto { Id = c.Id, Description = c.Description, Name = c.Title }).ToList()
                 })
-                .ToListAsync();
+                .ToListAsync(ct);
         }
 
         public async Task<PaginatedResult<ProductDto>> GetProductsAsync(PaginationParams paging)

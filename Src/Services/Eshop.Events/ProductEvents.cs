@@ -50,3 +50,4 @@ public record GetProductResponse
 
 
 public record UpdateCartProduct(int ProductId , string ProductName , decimal FullPrice);
+public record DeleteCartProduct(int ProductId);

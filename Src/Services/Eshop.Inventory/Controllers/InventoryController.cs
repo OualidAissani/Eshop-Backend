@@ -107,7 +107,8 @@ namespace Eshop.Inventory.Controllers
             return NoContent();
         }
         [HttpPut]
-        public async Task<IActionResult> UpdateInventory([FromBody] InventoryDto inventoryDto, CancellationToken ct, [FromHeader(Name = "x_Idempotency_Key")] string key)
+        public async Task<IActionResult> UpdateInventory([FromBody] InventoryDto inventoryDto, CancellationToken ct,
+            [FromHeader(Name = "x-Idempotency-Key")] string key)
         {
             if (key == null)
             {
@@ -134,7 +135,8 @@ namespace Eshop.Inventory.Controllers
         }
         [HttpPut("UpdateQuantity")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> UpdateQuantity([FromBody] List<InventoryDto> invDto, CancellationToken ct, [FromHeader(Name = "x_Idempotency_Key")] string key)
+        public async Task<IActionResult> UpdateQuantity([FromBody] List<InventoryDto> invDto, CancellationToken ct,
+            [FromHeader(Name = "x-Idempotency-Key")] string key)
         {
             if(key == null)
             {

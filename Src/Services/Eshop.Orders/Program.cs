@@ -42,7 +42,7 @@ builder.Services.AddMassTransit(o =>
         cfg.UsePostgres();
         cfg.UseBusOutbox();
     });
-
+    o.AddConsumer<OrderConfirmedConsumer>();
     o.AddConsumer<UpdateCartProductConsumer>();
     o.AddConsumer<OrderCompensateConsumer>();
     o.AddRequestClient<GetProductRequest>(new Uri("queue:get-product-request"));

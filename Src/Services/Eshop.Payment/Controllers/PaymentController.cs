@@ -17,15 +17,15 @@ namespace Eshop.Payment.Controllers
     public class PaymentController:ControllerBase
     {
         private readonly IPaymentService _payementService;
-        private readonly IBackgroundJobClient _backgroundJobClient;
+        //private readonly IBackgroundJobClient _backgroundJobClient;
         private readonly IConfiguration _configuration;
         private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public PaymentController(IPaymentService payementService, IBackgroundJobClient backgroundClient,
+        public PaymentController(IPaymentService payementService,// IBackgroundJobClient backgroundClient,
             IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
         {
             _payementService = payementService;
-            _backgroundJobClient = backgroundClient;
+           // _backgroundJobClient = backgroundClient;
             _configuration = configuration;
             _httpContextAccessor = httpContextAccessor;
         }

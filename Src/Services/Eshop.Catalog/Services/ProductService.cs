@@ -131,14 +131,10 @@ namespace Eshop.Catalog.Services
             return await strategy.ExecuteAsync(async () =>
             {
 
-                var media = new ProductMedia()
-                {
-                    ProductId = ProductId,
-                    Description = productDto.Description
-                };
-                DeleteOldProductMedia(media, product, ct);
+                
+                await DeleteOldProductMedia(ProductId, product, ct);
 
-                Update(productDto, formFile, media, product, ct);
+                await Update(ProductId, productDto, formFile, product, ct);
 
                 var result = await _context.SaveChangesAsync(ct);
 
@@ -414,7 +410,7 @@ namespace Eshop.Catalog.Services
 
 
 
-        private async void Update(ProductsUpdateDto productDto, List<IFormFile> formFile, ProductMedia media, Products product, CancellationToken ct)
+        private async Task Update(int ProductId,ProductsUpdateDto productDto, List<IFormFile> formFile, Products product, CancellationToken ct)
         {
             if (productDto.CategoriesId != null && productDto.CategoriesId.Count > 0)
             {
@@ -427,6 +423,11 @@ namespace Eshop.Catalog.Services
             }
             foreach (var file in formFile)
             {
+                var media = new ProductMedia()
+                {
+                    ProductId = ProductId,
+                    Description = productDto.Description
+                };
                 using var stream = file.OpenReadStream();
 
                 await _mediaService.CreateMedia(media, stream, file.ContentType, file.FileName, ct);
@@ -441,9 +442,15 @@ namespace Eshop.Catalog.Services
             product.DisplayOrder = productDto.DisplayOrder ?? product.DisplayOrder;
         }
 
-        private async void DeleteOldProductMedia(ProductMedia media, Products product, CancellationToken ct)
+        private async Task DeleteOldProductMedia(int ProductId, Products product, CancellationToken ct)
         {
             var CurrentMediaCount = product.Media.Count();
+            
+            if (CurrentMediaCount == 0)
+            {
+                return; 
+            }
+            
             var mediaRetryPolicy = Policy
                 .Handle<Exception>()
                 .WaitAndRetryAsync(
@@ -456,7 +463,7 @@ namespace Eshop.Catalog.Services
 
             await mediaRetryPolicy.ExecuteAsync(async () =>
             {
-                var DeletionResult = await Task.WhenAll(_context.Media.Where(i => i.ProductId == media.ProductId)
+                var DeletionResult = await Task.WhenAll(product.Media
                                              .Select(i => _mediaService.DeleteMedia(i.Media, ct))
                                              .ToList());
                 if (DeletionResult.Count(c => c) != CurrentMediaCount)

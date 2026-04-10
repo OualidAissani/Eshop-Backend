@@ -52,6 +52,12 @@ namespace Eshop.Test
                     Content = new StringContent("""{"file":"abc-123-uuid"}""")
                 });
 
+            _handler.When(HttpMethod.Delete, "api.uploadcare.com", () =>
+                new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("""{"status":"success"}""")
+                });
+
             _httpClientFactoryImposter = IHttpClientFactory.Imposter();
             _httpClientFactoryImposter.CreateClient(Arg<string>.Any()).Returns(new HttpClient(_handler));
             _httpClientFactory = _httpClientFactoryImposter.Instance();

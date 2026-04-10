@@ -73,8 +73,6 @@ public record RefundPayment
 
 public record OrderConfirmed
 {
-    public Guid CorrelationId { get; set; }
-
     public int OrderId { get; init; }
 }
 

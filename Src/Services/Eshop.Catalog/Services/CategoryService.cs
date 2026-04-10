@@ -44,7 +44,7 @@ namespace Eshop.Catalog.Services
         {
             if(id<=0)
                 {
-                   new ArgumentNullException(nameof(id));
+                   throw new ArgumentOutOfRangeException(nameof(id), "Id must be greater than zero.");
             }
             var category= await _context.Categories.FindAsync(id);
 

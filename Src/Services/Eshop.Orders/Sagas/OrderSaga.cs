@@ -28,8 +28,8 @@ namespace Eshop.Orders.Sagas
 
     public class OrderStateMachineSaga : MassTransitStateMachine<OrderState>
     {
-
-        public OrderStateMachineSaga()
+        private readonly ILogger<OrderStateMachineSaga> _logger;
+        public OrderStateMachineSaga(ILogger<OrderStateMachineSaga> logger)
         {
 
             Event(() => OrderSubmitted, x => x.CorrelateById(context => context.Message.CorrelationId));
@@ -43,7 +43,7 @@ namespace Eshop.Orders.Sagas
                 When(OrderSubmitted)
                     .Then(context =>
                     {
-                        Console.WriteLine($"OrderSubmitted received for OrderId: {context.Message.OrderId}");
+                        _logger.LogInformation($"OrderSubmitted received for OrderId: {context.Message.OrderId}");
 
                         context.Saga.OrderTotal = context.Message.Total;
                         context.Saga.CustomerEmail = context.Message.Email;
@@ -81,13 +81,14 @@ namespace Eshop.Orders.Sagas
                 {
                     OrderId = context.Saga.OrderId
                 }))
+                .TransitionTo(Failed)
+                .Finalize()
                 );
 
             During(ReservingInventory,
                 When(InventoryReserved)
                 .PublishAsync(context => context.Init<OrderConfirmed>(new
                 {
-                    CorrelationId = context.Saga.CorrelationId,
                     OrderId = context.Saga.OrderId,
                 }))
                 .TransitionTo(Completed)
@@ -99,7 +100,9 @@ namespace Eshop.Orders.Sagas
                 }))
                 .PublishAsync(context => context.Init<RefundPayment>(new
                 {
-
+                    CorrelationId= context.Saga.CorrelationId,
+                    OrderId = context.Saga.OrderId,
+                    Amount=context.Saga.OrderTotal
                 }))
                 .TransitionTo(Failed)
                 .Finalize()

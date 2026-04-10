@@ -1,4 +1,5 @@
 ﻿using Eshop.Orders.Models;
+using FluentResults;
 
 namespace Eshop.Orders.Services.IServices
 {
@@ -10,13 +11,17 @@ namespace Eshop.Orders.Services.IServices
 
         Task<Order?> GetOrderById(int orderId, string userId, CancellationToken ct);
 
-        Task<CreateOrderResponseDto> CreateOrder(OrderDto order, CancellationToken ct);
+        Task<Result<CreateOrderResponseDto>> CreateOrder(OrderDto order, CancellationToken ct);
 
      //  Task<Order> OrderCart(int cartId,CancellationToken ct);
 
         Task<Order> UpdateOrder(OrderDto order,CancellationToken ct);
 
-        Task<bool> DeleteOrder(int orderId, CancellationToken ct);
+        Task<Result<bool>> DeleteOrder(int orderId, CancellationToken ct);
+
+        Task<Result<bool>> OrderConfirmed(int orderId, CancellationToken ct);
+
+         Task<Result<bool>> MatchUserWithOrder(int orderId,string userId, CancellationToken ct);
 
     }
 }

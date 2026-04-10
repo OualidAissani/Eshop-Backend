@@ -2,6 +2,7 @@
 using Eshop.Orders.Data;
 using Eshop.Orders.Models;
 using Eshop.Orders.Services.IServices;
+using FluentResults;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
@@ -48,7 +49,8 @@ namespace Eshop.Orders.Services
                 .FirstOrDefaultAsync(o => o.Id == orderId && o.UserId==userId,ct);
         }
 
-        public async Task<CreateOrderResponseDto> CreateOrder(OrderDto order,CancellationToken ct)
+        //refactory is a must
+        public async Task<Result<CreateOrderResponseDto>> CreateOrder(OrderDto order,CancellationToken ct)
         {
 
             (Dictionary<int, ProductInventoryItem> inventoryDict, Dictionary<int, GetProductResponseDto> pricesDict) = await OrderValidations(order,ct);
@@ -127,8 +129,10 @@ namespace Eshop.Orders.Services
                         Total = newOrder.TotalPrice,
                         Email = "test@gmail.com",//placeholder
                         Products = inventoryParameter,
-                        PaymentItems = paymentItems??null
+                        PaymentItems = paymentItems??new List<Events.OrderItemSagaDto>()
                     });
+
+            await _context.SaveChangesAsync(ct);
 
             return new CreateOrderResponseDto
             {
@@ -182,28 +186,31 @@ namespace Eshop.Orders.Services
             }
         }
 
-        public async Task<bool> DeleteOrder(int orderId,CancellationToken ct)
+        public async Task<Result<bool>> DeleteOrder(int orderId,CancellationToken ct)
         {
             if(orderId<=0)
             {
-                return false;
+                return Result.Fail<bool>("Invalid order ID.");
             }
-            var user = _httpContextAccessor.HttpContext.User;
-            var userId=user.FindFirst(ClaimTypes.NameIdentifier).Value;
+           
             try
             {
                 var order = await _context.Orders.FirstOrDefaultAsync(o => o.Id == orderId, ct);
-                if(order == null || order.UserId != userId)
+                if(order == null)
                 {
-                    return false;
+                    return Result.Fail<bool>("Order not found.");
                 }
                 _context.Orders.Remove(order);
 
-                return await _context.SaveChangesAsync(ct) > 0;
+                if(await _context.SaveChangesAsync(ct) == 0)
+                {
+                    return Result.Fail<bool>($"Failed to delete order {orderId}.");
+                }
+                return true;
             }
             catch (Exception ex)
             {
-                return false;
+                return Result.Fail<bool>($"Failed to delete order {orderId}: {ex.Message}");
             }
         }
 
@@ -215,6 +222,32 @@ namespace Eshop.Orders.Services
             }
 
             throw new NotImplementedException();
+        }
+
+        public async Task<Result<bool>> OrderConfirmed(int orderId, CancellationToken ct)
+        {
+            var order = await _context.Orders.FirstOrDefaultAsync(o => o.Id == orderId,ct);
+
+            order.Status = Data.Enums.OrderStatus.Confirmed;
+
+            if(await _context.SaveChangesAsync(ct) ==0)
+            {
+                return Result.Fail<bool>("Failed to update order status to confirmed.");
+            }
+
+            return true;
+
+        }
+
+        public async Task<Result<bool>> MatchUserWithOrder(int orderId,string userId, CancellationToken ct)
+        {
+
+            var order = await _context.Orders.AsNoTracking().FirstOrDefaultAsync(o => o.Id == orderId, ct);
+            if (order == null)
+            {
+                return Result.Fail<bool>("Order not found.");
+            }
+            return order.UserId == userId;
         }
 
         //public async Task<Order> OrderCart(int cartId,CancellationToken ct)

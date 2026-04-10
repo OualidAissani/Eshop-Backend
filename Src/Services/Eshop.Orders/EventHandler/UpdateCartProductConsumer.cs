@@ -23,10 +23,12 @@ namespace Eshop.Orders.EventHandler
                 FullPrice = message.FullPrice,
                 ProductName = message.ProductName
             };
-            if (await _cartService.UpdateCartItem(updateCartItemDto, context.CancellationToken) == null)
+            var result = await _cartService.UpdateCartItem(updateCartItemDto, context.CancellationToken);
+            if (result.IsFailed)
             {
 
-                return;
+                throw new InvalidOperationException(
+                                   result.Errors.FirstOrDefault()?.Message);
             }
         }
     }

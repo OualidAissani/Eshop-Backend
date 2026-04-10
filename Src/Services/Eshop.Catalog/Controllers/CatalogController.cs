@@ -36,7 +36,7 @@ namespace Eshop.Catalog.Controllers
         [Authorize(Roles = "Admin")]
         //Need Change
         public async Task<IActionResult> CreateProduct([FromForm] ProductCreateDto product, List<IFormFile> formFile,
-            [FromHeader(Name = "x_Idempotency_Key")] string key,CancellationToken ct)
+            [FromHeader(Name = "x-Idempotency-Key")] string key,CancellationToken ct)
         {
             if(product == null)
             {
@@ -83,7 +83,7 @@ namespace Eshop.Catalog.Controllers
         [HttpPut("{id}")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateProduct(int id,[FromForm] ProductsUpdateDto product, List<IFormFile> formFile ,
-            [FromHeader(Name = "x_Idempotency_Key")] string key,CancellationToken ct)
+            [FromHeader(Name = "x-Idempotency-Key")] string key,CancellationToken ct)
         {
             if (key == null)
             {
@@ -156,10 +156,7 @@ namespace Eshop.Catalog.Controllers
                 var cachedResult = JsonSerializer.Deserialize<PaginatedResult<ProductDto>>(cached);
                 return Ok(cachedResult);
             }
-            if (User.Identity.IsAuthenticated)
-            {
-                var user = User.Identity.Name;
-            }
+
             var result = await _productrepo.GetProductsAsync(new PaginationParams
             {
                 PageSize = pageSize,
@@ -222,11 +219,22 @@ namespace Eshop.Catalog.Controllers
             {
                 return BadRequest("You To Add A Search Term/Tag");
             }
+            var chachedKey=$"Products:Search={q}";
+            var cached = await _cache.GetStringAsync(chachedKey);
+            if (cached != null)
+            {
+                return Ok(JsonSerializer.Deserialize<List<Products>>(cached));
+            }
+
             var products=await _productrepo.ProductSearch(q,ct);
             if (products == null)
             {
                 return NotFound();
             }
+                await _cache.SetStringAsync(chachedKey, JsonSerializer.Serialize(products), new DistributedCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
+                });
 
             return Ok(products);
         }

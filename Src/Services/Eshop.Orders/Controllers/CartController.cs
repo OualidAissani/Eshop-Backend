@@ -85,7 +85,7 @@ namespace Eshop.Orders.Controllers
         }
         [HttpPost]
         public async Task<IActionResult> AddCartItem([FromBody] CartItemDto cartItem,
-            [FromHeader(Name = "x_Idempotency_Key")] string key,CancellationToken ct)
+            [FromHeader(Name = "x-Idempotency-Key")] string key,CancellationToken ct)
         {
             if (key == null)
             {
@@ -145,7 +145,7 @@ namespace Eshop.Orders.Controllers
         }
         [HttpPut]
         public async Task<IActionResult> UpdateCartItem([FromBody] UpdateCartItemDto cartItem,
-            [FromHeader(Name = "x_Idempotency_Key")] string key,CancellationToken ct)
+            [FromHeader(Name = "x-Idempotency-Key")] string key,CancellationToken ct)
         {
             if (key == null)
             {

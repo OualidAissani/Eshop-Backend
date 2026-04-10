@@ -29,6 +29,7 @@ namespace Eshop.Orders.Services
                 ?? _httpContextAccessor.HttpContext?.User.FindFirst("sub")?.Value;
         }
 
+        //Need FUll Rewrite
         public async Task<Result<CartItem>> AddCartItem(CartItemDto cartItem ,CancellationToken ct)
         {
             if (cartItem == null || cartItem.Quantity <= 0 || cartItem.FullPrice <= 0)

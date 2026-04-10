@@ -60,7 +60,8 @@ namespace Eshop.Inventory.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateInventory([FromBody] InventoryDto inventoryDto, CancellationToken ct, [FromHeader(Name = "x_Idempotency_Key")] string key)
+        public async Task<IActionResult> CreateInventory([FromBody] InventoryDto inventoryDto, CancellationToken ct,
+            [FromHeader(Name = "x-Idempotency-Key")] string key)
         {
             if (key == null)
             {

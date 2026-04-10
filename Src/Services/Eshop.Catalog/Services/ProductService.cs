@@ -109,6 +109,10 @@ namespace Eshop.Catalog.Services
         
         public async Task<Result<ProductDto>> UpdateProduct(int ProductId,ProductsUpdateDto productDto,List<IFormFile> formFile,CancellationToken ct)
         {
+            if (formFile == null || formFile.Count == 0)
+            {
+                return Result.Fail<ProductDto>("Atleast One Image Attached To The Product");
+            }
             var media = new ProductMedia()
             {
                 ProductId = ProductId,
@@ -193,6 +197,7 @@ namespace Eshop.Catalog.Services
                     return Result.Fail<bool>("There Was An Issue Deleting The Product");
                 }
                 await _publish.Publish(new DeleteCartProduct(productId));
+
                 return true;
             });
         }
@@ -363,5 +368,6 @@ namespace Eshop.Catalog.Services
             return true;
 
         }
+
     }
 }

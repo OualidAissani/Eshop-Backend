@@ -17,11 +17,11 @@ namespace Eshop.Orders.EventHandler
         public async Task Consume(ConsumeContext<OrderCompensate> context)
         {
             var message = context.Message;
-            CancellationToken ct=new CancellationToken();
-            var result=await _orderService.DeleteOrder(message.OrderId,ct);
-            if (result == false)
+            var result=await _orderService.DeleteOrder(message.OrderId,context.CancellationToken);
+            if (result.IsFailed)
             {
-
+                throw new InvalidOperationException(
+                   result.Errors.FirstOrDefault()?.Message);
             }
         }
     }

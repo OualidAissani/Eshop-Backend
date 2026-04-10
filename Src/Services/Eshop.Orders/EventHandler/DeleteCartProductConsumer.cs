@@ -18,7 +18,8 @@ namespace Eshop.Orders.EventHandler
             var result = await _cartService.DeleteCartItemByProductId(message.ProductId, context.CancellationToken);
             if (result.IsFailed)
             {
-                return;
+                throw new InvalidOperationException(
+                   result.Errors.FirstOrDefault()?.Message);
             }
 
         }

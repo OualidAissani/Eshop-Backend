@@ -89,7 +89,7 @@ namespace Eshop.Orders.Controllers
 
         [Authorize]
         [HttpPost]
-        public async Task<IActionResult> CreateOrder([FromBody] OrderDto order, [FromHeader(Name = "x_Idempotency_Key")] string key,CancellationToken ct)
+        public async Task<IActionResult> CreateOrder([FromBody] OrderDto order, [FromHeader(Name = "x-Idempotency-Key")] string key,CancellationToken ct)
         {
             if(key== null)
             {
@@ -110,12 +110,12 @@ namespace Eshop.Orders.Controllers
             try
             {
                 var createdOrder = await _orderService.CreateOrder(order,ct);
-                await _cache.SetStringAsync(cacheKey,JsonSerializer.Serialize(createdOrder),new DistributedCacheEntryOptions
+                await _cache.SetStringAsync(cacheKey,JsonSerializer.Serialize(createdOrder.Value),new DistributedCacheEntryOptions
                 {
                     AbsoluteExpirationRelativeToNow= TimeSpan.FromMinutes(5)
                 });
                 await _cache.RemoveAsync($"Orders:{userId}:All");
-                return Ok(createdOrder);
+                return Ok(createdOrder.Value);
             }
             catch (ArgumentException ex)
             {
@@ -138,11 +138,19 @@ namespace Eshop.Orders.Controllers
         public async Task<IActionResult> DeleteOrder(int id,CancellationToken ct)
         {
             var userId = _httpContextAccessor.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            var checkOrderMatchWithUser=await _orderService.MatchUserWithOrder(id,userId, ct);
+
+            if (checkOrderMatchWithUser.IsFailed)
+            {
+                return NotFound(checkOrderMatchWithUser.Errors.FirstOrDefault()?.Message);
+            }
+
             var deleteResult=await _orderService.DeleteOrder(id,ct);
 
-            if(!deleteResult)
+            if(deleteResult.IsFailed)
             {
-                return NotFound();
+                return NotFound(deleteResult.Errors.FirstOrDefault()?.Message);
             }
             await _cache.RemoveAsync($"Orders:{userId}:All");
             await _cache.RemoveAsync($"Order:{userId}:{id}");

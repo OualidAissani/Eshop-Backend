@@ -30,6 +30,9 @@ jobs:
       - name: Restore
         run: dotnet restore Src/Services/Eshop.slnx
 
+      - name: Check for vulnerable packages
+        run: dotnet list Src/Services/Eshop.slnx package --vulnerable
+
       - name: Build
         run: dotnet build Src/Services/Eshop.slnx --no-restore --configuration Release
 
@@ -39,4 +42,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: test-results
-          path: "**/*.trx"
+          path: "**/TestResults/*.trx"

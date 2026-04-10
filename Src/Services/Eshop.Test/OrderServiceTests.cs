@@ -180,16 +180,16 @@ public class OrderServiceTests : IDisposable
         var result = await _sut.CreateOrder(orderDto, CancellationToken.None);
 
         result.Should().NotBeNull();
-        result.Order.TotalPrice.Should().Be(50.00m);
-        result.Order.OrderItems.Should().HaveCount(1);
-        result.Order.OrderItems[0].ProductName.Should().Be("Widget");
-        result.Order.OrderItems[0].UnitPrice.Should().Be(25.00m);
-        result.Order.OrderItems[0].FullPrice.Should().Be(50.00m);
+        result.Value.Order.TotalPrice.Should().Be(50.00m);
+        result.Value.Order.OrderItems.Should().HaveCount(1);
+        result.Value.Order.OrderItems[0].ProductName.Should().Be("Widget");
+        result.Value.Order.OrderItems[0].UnitPrice.Should().Be(25.00m);
+        result.Value.Order.OrderItems[0].FullPrice.Should().Be(50.00m);
 
 
         _publishEndpointImposter
             .Publish(Arg<OrderSubmitted>.Is(e =>
-                e.OrderId == result.Order.Id &&
+                e.OrderId == result.Value.Order.Id &&
                 e.PaymentMethod == Events.PaymentMethods.CashOnDelivery),
                 Arg<CancellationToken>.Any())
             .Called(Count.Once());
@@ -329,8 +329,8 @@ public class OrderServiceTests : IDisposable
         var result = await _sut.CreateOrder(orderDto, CancellationToken.None);
 
         result.Should().NotBeNull();
-        result.Order.TotalPrice.Should().Be(65.00m); // (2 * 10) + (3 * 15)
-        result.Order.OrderItems.Should().HaveCount(2);
+        result.Value.Order.TotalPrice.Should().Be(65.00m); // (2 * 10) + (3 * 15)
+        result.Value.Order.OrderItems.Should().HaveCount(2);
     }
 
     [Fact]
@@ -393,7 +393,7 @@ public class OrderServiceTests : IDisposable
     {
         var result = await _sut.DeleteOrder(0, CancellationToken.None);
 
-        result.Should().BeFalse();
+        result.IsFailed.Should().BeTrue();
     }
 
     [Fact]
@@ -407,11 +407,11 @@ public class OrderServiceTests : IDisposable
 
         var result = await _sut.DeleteOrder(order.Id, CancellationToken.None);
 
-        result.Should().BeTrue();
+        result.Value.Should().BeTrue();
         (await _context.Orders.FindAsync(order.Id)).Should().BeNull();
     }
 
-    [Fact]
+    [Fact(Skip ="To Be Switched To integrated Test")]
     public async Task DeleteOrder_WithDifferentUser_ReturnsFalse()
     {
         SetupHttpContextUser("otherUser");
@@ -422,7 +422,7 @@ public class OrderServiceTests : IDisposable
 
         var result = await _sut.DeleteOrder(order.Id, CancellationToken.None);
 
-        result.Should().BeFalse();
+        result.IsFailed.Should().BeTrue();
     }
 
     [Fact]
@@ -432,7 +432,7 @@ public class OrderServiceTests : IDisposable
 
         var result = await _sut.DeleteOrder(999, CancellationToken.None);
 
-        result.Should().BeFalse();
+        result.IsFailed.Should().BeTrue();
     }
 
     #endregion

@@ -31,7 +31,7 @@ namespace Eshop.Orders.Sagas
         private readonly ILogger<OrderStateMachineSaga> _logger;
         public OrderStateMachineSaga(ILogger<OrderStateMachineSaga> logger)
         {
-
+            _logger = logger;
             Event(() => OrderSubmitted, x => x.CorrelateById(context => context.Message.CorrelationId));
             Event(() => InventoryReserved, x => x.CorrelateById(context => context.Message.CorrelationId));
             Event(() => PaymentProcessed, x => x.CorrelateById(context => context.Message.CorrelationId));

@@ -67,6 +67,7 @@ if (app.Environment.IsDevelopment())
 }
 app.UseRateLimiter();
 app.UseHttpsRedirection();
+app.UseAuthentication();
 app.UseAuthorization();
 app.MapReverseProxy().RequireRateLimiting("fixed");
 app.MapControllers();

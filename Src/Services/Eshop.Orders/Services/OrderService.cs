@@ -70,31 +70,36 @@ namespace Eshop.Orders.Services
             {
                 throw new ArgumentException($"Invalid payment method: {order.PayementMethod}");
             }
-            var newOrder = new Order
-            {
-                OrderItems = orderItems,
-                UserId = order.UserId,
-                ShippingAddress = order.ShippingAddress,
-                PayementMethod = payementMethodEnum,
-                TotalPrice = orderItems.Sum(i => i.FullPrice)
-            };
-            var inventoryParameter = order.Products.Select(s => new Events.InventoryUpdateDto
-            {
-                ProductId = s.ProductId,
-                Quantity = s.Quantity
-            }).ToList();
 
-            _context.Orders.Add(newOrder);
+            var strategy = _context.Database.CreateExecutionStrategy();
 
-            if (await _context.SaveChangesAsync(ct) == 0)
+            return await strategy.ExecuteAsync(async () =>
             {
-                throw new Exception("Error Occured While Saving Order To The Db");
-            }
-          
-                var paymentItems=new List<Events.OrderItemSagaDto>();
+                var newOrder = new Order
+                {
+                    OrderItems = orderItems,
+                    UserId = order.UserId,
+                    ShippingAddress = order.ShippingAddress,
+                    PayementMethod = payementMethodEnum,
+                    TotalPrice = orderItems.Sum(i => i.FullPrice)
+                };
+                var inventoryParameter = order.Products.Select(s => new Events.InventoryUpdateDto
+                {
+                    ProductId = s.ProductId,
+                    Quantity = s.Quantity
+                }).ToList();
+
+                _context.Orders.Add(newOrder);
+
+                if (await _context.SaveChangesAsync(ct) == 0)
+                {
+                    throw new Exception("Error Occured While Saving Order To The Db");
+                }
+
+                var paymentItems = new List<Events.OrderItemSagaDto>();
                 if (newOrder.PayementMethod != Data.Enums.PaymentMethods.CashOnDelivery)
                 {
-                     paymentItems = orderItems.Select(i => new Events.OrderItemSagaDto
+                    paymentItems = orderItems.Select(i => new Events.OrderItemSagaDto
                     {
                         name = i.ProductName,
                         quantity = i.Quantity,
@@ -107,39 +112,40 @@ namespace Eshop.Orders.Services
 
                     }).ToList();
                 }
-            var PaypalUrl = string.Empty;
+                var PaypalUrl = string.Empty;
                 var correlationId = Guid.NewGuid();
-            if (payementMethodEnum!=Data.Enums.PaymentMethods.CashOnDelivery)
-            {
-                 var PaymentUrl = await _createPaymentOrderClient.GetResponse<CreatePaymentRecordResponse>(new CreatePaymentRecordRequest
+                if (payementMethodEnum != Data.Enums.PaymentMethods.CashOnDelivery)
                 {
-                    Amount = newOrder.TotalPrice,
-                    Items = paymentItems,
-                    CorrelationId = correlationId,
-                    OrderId = newOrder.Id
-                });
-                 PaypalUrl = PaymentUrl.Message.PaymentUrl;
-            }
-                    await _publishEndpoint.Publish(
-                    new OrderSubmitted
+                    var PaymentUrl = await _createPaymentOrderClient.GetResponse<CreatePaymentRecordResponse>(new CreatePaymentRecordRequest
                     {
-                        OrderId = newOrder.Id,
+                        Amount = newOrder.TotalPrice,
+                        Items = paymentItems,
                         CorrelationId = correlationId,
-                        PaymentMethod = (Eshop.Events.PaymentMethods)newOrder.PayementMethod,
-                        Total = newOrder.TotalPrice,
-                        Email = "test@gmail.com",//placeholder
-                        Products = inventoryParameter,
-                        PaymentItems = paymentItems??new List<Events.OrderItemSagaDto>()
+                        OrderId = newOrder.Id
                     });
+                    PaypalUrl = PaymentUrl.Message.PaymentUrl;
+                }
+                await _publishEndpoint.Publish(
+                new OrderSubmitted
+                {
+                    OrderId = newOrder.Id,
+                    CorrelationId = correlationId,
+                    PaymentMethod = (Eshop.Events.PaymentMethods)newOrder.PayementMethod,
+                    Total = newOrder.TotalPrice,
+                    Email = "test@gmail.com",//placeholder
+                    Products = inventoryParameter,
+                    PaymentItems = paymentItems ?? new List<Events.OrderItemSagaDto>()
+                });
 
-            await _context.SaveChangesAsync(ct);
+                await _context.SaveChangesAsync(ct);
 
-            return new CreateOrderResponseDto
-            {
-                Order = newOrder,
-                PaymentUrl = PaypalUrl??""
-            };
+                return new CreateOrderResponseDto
+                {
+                    Order = newOrder,
+                    PaymentUrl = PaypalUrl ?? ""
+                };
 
+            });
         }
 
 

@@ -6,6 +6,7 @@ using Eshop.Events;
 using FluentResults;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using Polly;
 
 namespace Eshop.Catalog.Services
 {
@@ -113,66 +114,54 @@ namespace Eshop.Catalog.Services
             {
                 return Result.Fail<ProductDto>("Atleast One Image Attached To The Product");
             }
-            var media = new ProductMedia()
-            {
-                ProductId = ProductId,
-                Description = productDto.Description
-            };
 
-            foreach (var file in formFile)
-            {
-                using var stream = file.OpenReadStream();
-
-                await _mediaService.CreateMedia(media, stream, file.ContentType, file.FileName, ct);
-
-            }
-
-            var product = await _context.Products.Include(i=>i.Categories).AsSplitQuery().FirstOrDefaultAsync(i=>i.Id==ProductId, ct);
+            var product = await _context.Products
+                .Include(i => i.Categories)
+                .Include(m=>m.Media)
+                .AsSplitQuery()
+                .FirstOrDefaultAsync(i => i.Id == ProductId, ct);
 
             if (product == null)
             {
                 return Result.Fail<ProductDto>($"The product with Id {ProductId} Not Found");
             }
 
-            if(productDto.CategoriesId!=null && productDto.CategoriesId.Count>0)
+            var strategy =  _context.Database.CreateExecutionStrategy();
+
+            return await strategy.ExecuteAsync(async () =>
             {
-                var categories = await _context.Categories
-                    .AsNoTracking()
-                    .Where(c => productDto.CategoriesId.Contains(c.Id))
-                    .ToListAsync(ct);
 
-                product.Categories=categories;
-            }
+                var media = new ProductMedia()
+                {
+                    ProductId = ProductId,
+                    Description = productDto.Description
+                };
+                DeleteOldProductMedia(media, product, ct);
 
+                Update(productDto, formFile, media, product, ct);
 
-            product.Title = productDto.Title ?? product.Title;
-            product.Description = productDto.Description ?? product.Description;
-            product.Price = productDto.Price<=0? product.Price:productDto.Price;
-            product.Status = productDto.Status;
-            product.SpecialStatus = productDto.SpecialStatus;
-            product.DisplayOrder = productDto.DisplayOrder ?? product.DisplayOrder;
-            
+                var result = await _context.SaveChangesAsync(ct);
 
-            var result=await _context.SaveChangesAsync(ct);
+                if (result == 0)
+                {
+                    return Result.Fail<ProductDto>("Failed To Update Product");
+                }
 
-            if(result==0)
-            {
-                return Result.Fail<ProductDto>("Failed To Update Product");
-            }
-            
-            await _publish.Publish(new UpdateCartProduct(product.Id, product.Title, product.Price));
+                await _publish.Publish(new UpdateCartProduct(product.Id, product.Title, product.Price));
 
-            return new ProductDto()
-            {
-                Id = ProductId,
-                Description = product.Description,
-                Title = product.Title,
-                Price = product.Price,
-                Categories = product.Categories.Select(c => new CategoryDto { Id = c.Id, Name = c.Title, Description = c.Description }).ToList()?? new List<CategoryDto>(),
-                Media = product.Media.Select(c => new MediaDto { MediaUrl = c.Media }).ToList()??new List<MediaDto>()
-            };
+                return new ProductDto()
+                {
+                    Id = ProductId,
+                    Description = product.Description,
+                    Title = product.Title,
+                    Price = product.Price,
+                    Categories = product.Categories.Select(c => new CategoryDto { Id = c.Id, Name = c.Title, Description = c.Description }).ToList() ?? new List<CategoryDto>(),
+                    Media = product.Media.Select(c => new MediaDto { MediaUrl = c.Media }).ToList() ?? new List<MediaDto>()
+                };
+            });
         }
-        
+
+
         public async Task<Result<bool>> DeleteProduct(int productId, CancellationToken ct)
         {
             if(productId<= 0)
@@ -183,25 +172,78 @@ namespace Eshop.Catalog.Services
 
             return await strategy.ExecuteAsync(async () =>
             {
-                var product = await _context.Products.Include(i => i.Media).Where(I => I.Id == productId).FirstOrDefaultAsync(ct);
+                var product = await _context
+                .Products
+                .Include(i => i.Media)
+                .Where(I => I.Id == productId)
+                .FirstOrDefaultAsync(ct);
+
                 if (product == null)
                 {
-                    return Result.Fail($"The product with Id {productId} Not Found");
+                    return Result.Fail<bool>($"The product with Id {productId} Not Found");
                 }
+
                 var media = await Task.WhenAll(product.Media.Select(s => _mediaService.DeleteMedia(s.Media,ct)));
+
                 _context.Products.Remove(product);
 
                 var result = await _context.SaveChangesAsync(ct);
+
                 if(result == 0)
                 {
                     return Result.Fail<bool>("There Was An Issue Deleting The Product");
                 }
                 await _publish.Publish(new DeleteCartProduct(productId));
 
+                await _context.SaveChangesAsync(ct);
                 return true;
             });
         }
-        
+
+        public async Task<Result<ProductDto>> DeleteProductReturnOldProduct(int productId, CancellationToken ct)
+        {
+            if (productId <= 0)
+            {
+                throw new ArgumentException("Product Id is not valid");
+            }
+            var strategy = _context.Database.CreateExecutionStrategy();
+
+            return await strategy.ExecuteAsync(async () =>
+            {
+                var product = await _context.Products.Include(i => i.Media).Include(c=>c.Categories).AsSplitQuery().Where(I => I.Id == productId).FirstOrDefaultAsync(ct);
+                if (product == null)
+                {
+                    return Result.Fail<ProductDto>($"The product with Id {productId} Not Found");
+                }
+                var media = await Task.WhenAll(product.Media.Select(s => _mediaService.DeleteMedia(s.Media, ct)));
+                _context.Products.Remove(product);
+
+                var result = await _context.SaveChangesAsync(ct);
+                if (result == 0)
+                {
+                    return Result.Fail<ProductDto>("There Was An Issue Deleting The Product");
+                }
+                await _publish.Publish(new DeleteCartProduct(productId));
+
+                await _context.SaveChangesAsync(ct);
+
+                return new ProductDto
+                {
+                    Id = product.Id,
+                    Title = product.Title,
+                    Status = product.Status,
+                    SpecialStatus = product.SpecialStatus,
+                    Description = product.Description,
+                    DisplayOrder = product.DisplayOrder,
+                    Price = product.Price,
+                    Media = product.Media.Select(m => new MediaDto { MediaUrl = m.Media }).ToList(),
+                    Categories = product.Categories.Select(c => new CategoryDto { Id = c.Id, Description = c.Description, Name = c.Title }).ToList()
+
+                };
+                
+            });
+        }
+
         public async Task<ProductDto> GetProductById(int productId, CancellationToken ct)
         {
             return await _context.Products
@@ -367,6 +409,61 @@ namespace Eshop.Catalog.Services
             }
             return true;
 
+        }
+
+
+
+
+        private async void Update(ProductsUpdateDto productDto, List<IFormFile> formFile, ProductMedia media, Products product, CancellationToken ct)
+        {
+            if (productDto.CategoriesId != null && productDto.CategoriesId.Count > 0)
+            {
+                var categories = await _context.Categories
+                    .AsNoTracking()
+                    .Where(c => productDto.CategoriesId.Contains(c.Id))
+                    .ToListAsync(ct);
+
+                product.Categories = categories;
+            }
+            foreach (var file in formFile)
+            {
+                using var stream = file.OpenReadStream();
+
+                await _mediaService.CreateMedia(media, stream, file.ContentType, file.FileName, ct);
+
+            }
+
+            product.Title = productDto.Title ?? product.Title;
+            product.Description = productDto.Description ?? product.Description;
+            product.Price = productDto.Price <= 0 ? product.Price : productDto.Price;
+            product.Status = productDto.Status;
+            product.SpecialStatus = productDto.SpecialStatus;
+            product.DisplayOrder = productDto.DisplayOrder ?? product.DisplayOrder;
+        }
+
+        private async void DeleteOldProductMedia(ProductMedia media, Products product, CancellationToken ct)
+        {
+            var CurrentMediaCount = product.Media.Count();
+            var mediaRetryPolicy = Policy
+                .Handle<Exception>()
+                .WaitAndRetryAsync(
+                    retryCount: 3,
+                    sleepDurationProvider: attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)),
+                    onRetry: (exception, timespan, retryCount, context) =>
+                    {
+                        _logger.LogWarning($"Media deletion failed. Retry {retryCount}/3 after {timespan.TotalSeconds}s. Error: {exception.Message}");
+                    });
+
+            await mediaRetryPolicy.ExecuteAsync(async () =>
+            {
+                var DeletionResult = await Task.WhenAll(_context.Media.Where(i => i.ProductId == media.ProductId)
+                                             .Select(i => _mediaService.DeleteMedia(i.Media, ct))
+                                             .ToList());
+                if (DeletionResult.Count(c => c) != CurrentMediaCount)
+                {
+                    throw new InvalidOperationException("");
+                }
+            });
         }
 
     }

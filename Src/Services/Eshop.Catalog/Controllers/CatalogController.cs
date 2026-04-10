@@ -128,17 +128,16 @@ namespace Eshop.Catalog.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteProduct(int Id,CancellationToken ct)
         {
-            var product = await _productrepo.GetProductById(Id, ct);
-            var result = await _productrepo.DeleteProduct(Id,ct);
+            var result = await _productrepo.DeleteProductReturnOldProduct(Id,ct);
             if (result.IsFailed)
             {
                 return BadRequest(result.Errors.First().Message);
             }
             await _cache.RemoveAsync($"Products:Id={Id}");
             await _cache.RemoveAsync($"Products:List:*");
-            if (product?.Categories != null)
+            if (result.Value?.Categories != null)
             {
-                foreach (var category in product.Categories)
+                foreach (var category in result.Value.Categories)
                 {
                     await _cache.RemoveAsync($"Products:Category={category.Id}");
                 }

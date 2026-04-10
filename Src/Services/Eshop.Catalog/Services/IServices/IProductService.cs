@@ -12,7 +12,7 @@ namespace Eshop.Catalog.Services.IServices
         Task<Result<ProductDto>> UpdateProduct(int ProductId, ProductsUpdateDto productDto, List<IFormFile> formFile, CancellationToken ct);
 
         Task<Result<bool>> DeleteProduct(int productId,CancellationToken ct);
-
+        Task<Result<ProductDto>> DeleteProductReturnOldProduct(int productId, CancellationToken ct);
         Task<ProductDto> GetProductById(int productId, CancellationToken ct);
 
         Task<PaginatedResult<ProductDto>> GetProductsAsync(PaginationParams paging, CancellationToken ct);

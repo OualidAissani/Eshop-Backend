@@ -40,23 +40,23 @@ namespace Eshop.Catalog.Services
         }
 
 
-        public async Task<Result<bool>> DeleteAsync(int id, CancellationToken cancellationToken )
+        public async Task<Result<bool>> DeleteAsync(int id, CancellationToken ct )
         {
             if(id<=0)
                 {
                    throw new ArgumentOutOfRangeException(nameof(id), "Id must be greater than zero.");
             }
-            var category= await _context.Categories.FindAsync(id);
+            var category= await _context.Categories.FirstOrDefaultAsync(i=>i.Id==id,ct);
 
             if (category == null)
             {
-                return Result.Fail("Category Not Found");
+                return Result.Fail<bool>("Category Not Found");
             }
 
             _context.Categories.Remove(category);
-            if(await _context.SaveChangesAsync(cancellationToken) == 0)
+            if(await _context.SaveChangesAsync(ct) == 0)
             {
-                return Result.Fail("Error Deleting Category Try Again Later");
+                return Result.Fail<bool>("Error Deleting Category Try Again Later");
             }
             return true;
         }

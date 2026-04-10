@@ -143,48 +143,6 @@ namespace Eshop.Orders.Services
         }
 
 
-        private async Task<(Dictionary<int, ProductInventoryItem> inventoryDict, Dictionary<int, GetProductResponseDto> pricesDict)> OrderValidations(OrderDto order,CancellationToken ct)
-        {
-
-            ArgumentNullException.ThrowIfNull(order);
-
-            if (order.Products == null || !order.Products.Any())
-                throw new ArgumentException("Order must contain at least one product.");
-
-            var productIds = order.Products.Select(p => p.ProductId).ToList();
-            try
-            {
-                var inventoryResponse = await _client2.GetResponse<ProductInventoryAvailibityForOrderResponse>(
-             new ProductInventoryAvailibityForOrderRequest(productIds), ct);
-
-                var pricesResponse = await _client.GetResponse<GetProductResponse>(
-                    new GetProductRequest(productIds), ct);
-           
-            var inventoryDict = inventoryResponse.Message.Items
-                .ToDictionary(i => i.ProductId, i => i);
-
-            var pricesDict = pricesResponse.Message.Product
-                .ToDictionary(p => p.Id, p => p);
-
-            var unavailable = order.Products
-                .Where(p => !inventoryDict.ContainsKey(p.ProductId) ||
-                            inventoryDict[p.ProductId].Quantity < p.Quantity)
-                .Select(p => p.ProductId)
-                .ToList();
-
-            if (unavailable.Any())
-            {
-                throw new Exception($"Products unavailable: {string.Join(", ", unavailable)}");
-            }
-
-            return (inventoryDict, pricesDict);
-            }
-            catch (MassTransit.RequestTimeoutException ex)
-            {
-                throw new TimeoutException($"Timeout waiting for inventory/product services. RequestId: {ex.Message} : {ex.Data}", ex);
-
-            }
-        }
 
         public async Task<Result<bool>> DeleteOrder(int orderId,CancellationToken ct)
         {
@@ -249,6 +207,53 @@ namespace Eshop.Orders.Services
             }
             return order.UserId == userId;
         }
+
+
+
+
+        private async Task<(Dictionary<int, ProductInventoryItem> inventoryDict, Dictionary<int, GetProductResponseDto> pricesDict)> OrderValidations(OrderDto order, CancellationToken ct)
+        {
+
+            ArgumentNullException.ThrowIfNull(order);
+
+            if (order.Products == null || !order.Products.Any())
+                throw new ArgumentException("Order must contain at least one product.");
+
+            var productIds = order.Products.Select(p => p.ProductId).ToList();
+            try
+            {
+                var inventoryResponse = await _client2.GetResponse<ProductInventoryAvailibityForOrderResponse>(
+             new ProductInventoryAvailibityForOrderRequest(productIds), ct);
+
+                var pricesResponse = await _client.GetResponse<GetProductResponse>(
+                    new GetProductRequest(productIds), ct);
+
+                var inventoryDict = inventoryResponse.Message.Items
+                    .ToDictionary(i => i.ProductId, i => i);
+
+                var pricesDict = pricesResponse.Message.Product
+                    .ToDictionary(p => p.Id, p => p);
+
+                var unavailable = order.Products
+                    .Where(p => !inventoryDict.ContainsKey(p.ProductId) ||
+                                inventoryDict[p.ProductId].Quantity < p.Quantity)
+                    .Select(p => p.ProductId)
+                    .ToList();
+
+                if (unavailable.Any())
+                {
+                    throw new Exception($"Products unavailable: {string.Join(", ", unavailable)}");
+                }
+
+                return (inventoryDict, pricesDict);
+            }
+            catch (MassTransit.RequestTimeoutException ex)
+            {
+                throw new TimeoutException($"Timeout waiting for inventory/product services. RequestId: {ex.Message} : {ex.Data}", ex);
+
+            }
+        }
+
 
         //public async Task<Order> OrderCart(int cartId,CancellationToken ct)
         //{

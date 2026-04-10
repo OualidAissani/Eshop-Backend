@@ -28,68 +28,34 @@ namespace Eshop.Orders.Services
             return _httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
                 ?? _httpContextAccessor.HttpContext?.User.FindFirst("sub")?.Value;
         }
-
-        //Need FUll Rewrite
-        public async Task<Result<CartItem>> AddCartItem(CartItemDto cartItem ,CancellationToken ct)
+        
+        public async Task<Result<CartItem>> AddCartItem(CartItemDto cartItem,CancellationToken ct)
         {
-            if (cartItem == null || cartItem.Quantity <= 0 || cartItem.FullPrice <= 0)
+            (bool IsSuccessValidation, Result<CartItem> ResultError) = await ProductValidations(cartItem);
+            if (!IsSuccessValidation)
             {
-                return null;
-            }
-            var ProductExist= await _client.GetResponse<ProductExistenceResponse>(new VerifyProductExistence( cartItem.ProductId));
-
-            if(ProductExist.Message.Exists == false)
-            {
-                return null;
+                return ResultError;
             }
 
-            var StockAvailable = await _stockClient.GetResponse<ProductStockResponse>(new ProductStockRequest(cartItem.ProductId,cartItem.Quantity));
+            var cart = await _context.Carts.Include(i => i.CartItems).FirstOrDefaultAsync(c => c.UserId == GetUserId(), ct);
 
-            if (StockAvailable.Message.HasEnoughStock == false)
+            if (cart != null)
             {
-                return null;
-            }
-
-            var userCart =await _context.Carts.Include(i=>i.CartItems).Where(u=>u.UserId == GetUserId()).FirstOrDefaultAsync();
-
-            var cartItemEntity = new CartItem()
-            {
-                ProductId = cartItem.ProductId,
-                ProductName = cartItem.ProductName,
-                Quantity = cartItem.Quantity,
-                FullPrice = cartItem.FullPrice,
-                CartId = cartItem.CartId
-            };
-            if (userCart == null)
-            {
-                var cart = new Cart()
+                (bool IsSuccessAdd, Result<CartItem> AddErrorResult) = await AddItemToExistingUserCart(cartItem, cart, ct);
+                if (!IsSuccessAdd)
                 {
-                    CartItems = new List<CartItem>() { cartItemEntity },
-                    UserId = GetUserId()
-                };
-                _context.Carts.Add(cart);
-                if (await _context.SaveChangesAsync(ct) <= 0)
-                {
-                    return null;
+                    return AddErrorResult;
                 }
-                userCart = cart;
-                cartItemEntity.CartId= cart.Id;
 
+                return cart.CartItems.FirstOrDefault(i => i.ProductId == cartItem.ProductId);
             }
-            if (userCart.CartItems.Any(i => i.ProductId == cartItem.ProductId))
+            (bool IsSuccessCreate, Result<CartItem> CreateErrorResult) = await MakeANewCartIncludingTheItem(cartItem, ct);
+            if (!IsSuccessCreate)
             {
-                userCart.CartItems.FirstOrDefault(i => i.ProductId == cartItemEntity.ProductId).Quantity += cartItemEntity.Quantity;
-            }
-            else
-            {
-                _context.CartItems.Add(cartItemEntity);
+                return CreateErrorResult;
             }
 
-            if(await _context.SaveChangesAsync(ct) <= 0)
-            {
-                return null;
-            }
-            return userCart.CartItems.FirstOrDefault(i => i.ProductId == cartItemEntity.ProductId);
+            return await _context.CartItems.FirstOrDefaultAsync(i => i.ProductId == cartItem.ProductId);
         }
 
         public async Task<Result<bool>> ClearCart(int cartId,CancellationToken ct)
@@ -192,6 +158,75 @@ namespace Eshop.Orders.Services
             return true;
         }
 
+
+
+
+
+
+        private async Task<(bool flowControl, Result<CartItem> value)> MakeANewCartIncludingTheItem(CartItemDto cartItem, CancellationToken ct)
+        {
+            _context.Carts.Add(new Cart()
+            {
+                UserId = GetUserId(),
+                CartItems = new List<CartItem>()
+                {
+                    new CartItem()
+                    {
+                        ProductId = cartItem.ProductId,
+                        ProductName = cartItem.ProductName,
+                        Quantity = cartItem.Quantity,
+                        FullPrice = cartItem.FullPrice
+                    }
+                }
+            });
+            if (await _context.SaveChangesAsync(ct) <= 0)
+            {
+                return (flowControl: false, value: Result.Fail<CartItem>("There was an issue creating the cart and adding the item."));
+            }
+
+            return (flowControl: true, value: null);
+        }
+
+        private async Task<(bool flowControl, Result<CartItem> value)> AddItemToExistingUserCart(CartItemDto cartItem, Cart cart, CancellationToken ct)
+        {
+            cart.CartItems.Add(new CartItem()
+            {
+                ProductId = cartItem.ProductId,
+                ProductName = cartItem.ProductName,
+                Quantity = cartItem.Quantity,
+                FullPrice = cartItem.FullPrice
+            });
+
+            if (await _context.SaveChangesAsync(ct) <= 0)
+            {
+                return (flowControl: false, value: Result.Fail<CartItem>("There was an issue adding the item to the cart."));
+            }
+
+            return (flowControl: true, value: null);
+        }
+
+        private async Task<(bool flowControl, Result<CartItem> value)> ProductValidations(CartItemDto cartItem)
+        {
+            if (cartItem == null || cartItem.Quantity <= 0 || cartItem.FullPrice <= 0)
+            {
+                return (flowControl: false, value: null);
+            }
+            var ProductExist = await _client.GetResponse<ProductExistenceResponse>(new VerifyProductExistence(cartItem.ProductId));
+
+            if (ProductExist.Message.Exists == false)
+            {
+                return (flowControl: false, value: Result.Fail<CartItem>("Product does not exist."));
+            }
+
+            var StockAvailable = await _stockClient.GetResponse<ProductStockResponse>(new ProductStockRequest(cartItem.ProductId, cartItem.Quantity));
+
+            if (StockAvailable.Message.HasEnoughStock == false)
+            {
+                return (flowControl: false, value: Result.Fail<CartItem>("Not enough stock available."));
+            }
+
+            return (flowControl: true, value: null);
+        }
 
     }
 }

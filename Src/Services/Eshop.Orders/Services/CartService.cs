@@ -126,28 +126,36 @@ namespace Eshop.Orders.Services
         {
             if (cartItem == null)
             {
-                return null;
+                return Result.Fail<CartItem>("Invalid cart item.");
             }
             var CartItem = await _context.CartItems.FirstOrDefaultAsync(ci => ci.ProductId ==cartItem.ProductId);
 
             if (CartItem == null)
             {
-                return null;
+                return Result.Fail<CartItem>("Cart item not found.");
             }
             CartItem.ProductName = cartItem.ProductName ?? CartItem.ProductName;
             CartItem.Quantity = cartItem.Quantity ?? CartItem.Quantity;
             CartItem.FullPrice = cartItem.FullPrice ?? CartItem.FullPrice;
             if(await _context.SaveChangesAsync(ct) <= 0)
             {
-                return null;
+                return Result.Fail<CartItem>("There was an issue updating the cart item.");
             }
             return CartItem;
         }
 
         public async Task<Result<bool>> DeleteCartItemByProductId(int productId,CancellationToken ct)
         {
-
+            if(productId <= 0)
+            {
+                return Result.Fail<bool>("Invalid product id.");
+            }
             var cartItem=await _context.CartItems.Where(ci => ci.ProductId == productId).ToListAsync();
+
+            if(cartItem == null || cartItem.Count == 0)
+            {
+                return Result.Fail<bool>("Cart item not found.");
+            }
 
             _context.RemoveRange(cartItem);
 

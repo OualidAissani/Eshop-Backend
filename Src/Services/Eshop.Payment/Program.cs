@@ -20,17 +20,19 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddHttpClient();
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddHangfire(x => 
-    x.UsePostgreSqlStorage(options => 
-    {
-        options.UseNpgsqlConnection(builder.Configuration.GetConnectionString("PayementDb"));
-    })
-    .UseSimpleAssemblyNameTypeSerializer()
-    .UseRecommendedSerializerSettings());
+
+
+//builder.Services.AddHangfire(x => 
+//    x.UsePostgreSqlStorage(options => 
+//    {
+//        options.UseNpgsqlConnection(builder.Configuration.GetConnectionString("PaymentDb"));
+//    })
+//    .UseSimpleAssemblyNameTypeSerializer()
+//    .UseRecommendedSerializerSettings());
 
 
 
-builder.Services.AddHangfireServer();
+//builder.Services.AddHangfireServer();
 
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 
@@ -91,7 +93,7 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.UseHangfireDashboard();//auth for pd
+//app.UseHangfireDashboard();//auth for pd
 
 app.UseHttpsRedirection();
 app.UseAntiforgery();
@@ -107,4 +109,3 @@ void MigrateDatabase()
     var database = scope.ServiceProvider.GetRequiredService<PaymentDbContext>();
     database.Database.Migrate();
 }
-public partial class Program { }

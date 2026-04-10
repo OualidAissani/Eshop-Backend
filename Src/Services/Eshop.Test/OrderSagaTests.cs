@@ -21,7 +21,7 @@ public class OrderSagaTests : IAsyncLifetime
             {
                 cfg.AddSagaStateMachine<OrderStateMachineSaga, OrderState>()
                     .InMemoryRepository();
-            })
+            }).AddLogging()
             .BuildServiceProvider(true);
 
         _harness = _provider.GetRequiredService<ITestHarness>();

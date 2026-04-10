@@ -104,4 +104,3 @@ void MigrateDatabase()
     var database = scope.ServiceProvider.GetRequiredService<InventoryDb>();
     database.Database.Migrate();
 }
-public partial class Program { }

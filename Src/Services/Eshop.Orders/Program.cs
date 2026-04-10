@@ -120,4 +120,3 @@ void MigrateDatabase()
     var database = scope.ServiceProvider.GetRequiredService<OrderDbContext>();
     database.Database.Migrate();
 }
-public partial class Program { }

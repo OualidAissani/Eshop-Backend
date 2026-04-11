@@ -71,23 +71,25 @@ namespace Eshop.Orders.Services
                 throw new ArgumentException($"Invalid payment method: {order.PayementMethod}");
             }
 
+            var newOrder = new Order
+            {
+                OrderItems = orderItems,
+                UserId = order.UserId,
+                ShippingAddress = order.ShippingAddress,
+                PayementMethod = payementMethodEnum,
+                TotalPrice = orderItems.Sum(i => i.FullPrice)
+            };
+            var inventoryParameter = order.Products.Select(s => new Events.InventoryUpdateDto
+            {
+                ProductId = s.ProductId,
+                Quantity = s.Quantity
+            }).ToList();
+
             var strategy = _context.Database.CreateExecutionStrategy();
 
             return await strategy.ExecuteAsync(async () =>
             {
-                var newOrder = new Order
-                {
-                    OrderItems = orderItems,
-                    UserId = order.UserId,
-                    ShippingAddress = order.ShippingAddress,
-                    PayementMethod = payementMethodEnum,
-                    TotalPrice = orderItems.Sum(i => i.FullPrice)
-                };
-                var inventoryParameter = order.Products.Select(s => new Events.InventoryUpdateDto
-                {
-                    ProductId = s.ProductId,
-                    Quantity = s.Quantity
-                }).ToList();
+                await using var tx = await _context.Database.BeginTransactionAsync(ct);
 
                 _context.Orders.Add(newOrder);
 
@@ -138,7 +140,7 @@ namespace Eshop.Orders.Services
                 });
 
                 await _context.SaveChangesAsync(ct);
-
+                await tx.CommitAsync(ct);
                 return new CreateOrderResponseDto
                 {
                     Order = newOrder,
@@ -191,7 +193,10 @@ namespace Eshop.Orders.Services
         public async Task<Result<bool>> OrderConfirmed(int orderId, CancellationToken ct)
         {
             var order = await _context.Orders.FirstOrDefaultAsync(o => o.Id == orderId,ct);
-
+            if(order == null)
+            {
+                return Result.Fail<bool>("Order not found.");
+            }
             order.Status = Data.Enums.OrderStatus.Confirmed;
 
             if(await _context.SaveChangesAsync(ct) ==0)

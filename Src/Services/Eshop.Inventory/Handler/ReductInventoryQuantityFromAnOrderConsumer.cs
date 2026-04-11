@@ -31,6 +31,7 @@ namespace Eshop.Inventory.Handler
             }
 
             var NewProductsValues = message.Products.ToDictionary(i=>i.ProductId);
+
             foreach(var item in inventories)
             {
                 if(NewProductsValues.TryGetValue(item.ProductId,out var match))
@@ -46,13 +47,8 @@ namespace Eshop.Inventory.Handler
                     }
                 }
             }
-
-            //var inventoryDto = inventories.Select(i => new Dtos.InventoryDto
-            //{
-            //    ProductId = i.ProductId,
-            //    Quantity = i.Quantity
-            //}).ToList();
             var result = await _inventoryService.PushUpdatetOdB(inventories,context.CancellationToken);
+
             if (result.Value != productIds.Count())
             {
                 await _publishEndpoint.Publish(new OrderFailed { CorrelationId = message.CorrelationId });

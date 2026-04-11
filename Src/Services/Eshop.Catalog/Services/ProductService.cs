@@ -131,6 +131,7 @@ namespace Eshop.Catalog.Services
             return await strategy.ExecuteAsync(async () =>
             {
 
+                await using var tx = await _context.Database.BeginTransactionAsync(ct);
                 
                 await DeleteOldProductMedia(ProductId, product, ct);
 
@@ -144,6 +145,10 @@ namespace Eshop.Catalog.Services
                 }
 
                 await _publish.Publish(new UpdateCartProduct(product.Id, product.Title, product.Price));
+
+                await _context.SaveChangesAsync(ct);
+
+                await tx.CommitAsync(ct);
 
                 return new ProductDto()
                 {
@@ -164,20 +169,21 @@ namespace Eshop.Catalog.Services
             {
                 throw new ArgumentException("Product Id is not valid");
             }
-            var strategy = _context.Database.CreateExecutionStrategy();
-
-            return await strategy.ExecuteAsync(async () =>
-            {
-                var product = await _context
+            var product = await _context
                 .Products
                 .Include(i => i.Media)
                 .Where(I => I.Id == productId)
                 .FirstOrDefaultAsync(ct);
 
-                if (product == null)
-                {
-                    return Result.Fail<bool>($"The product with Id {productId} Not Found");
-                }
+            if (product == null)
+            {
+                return Result.Fail<bool>($"The product with Id {productId} Not Found");
+            }
+            var strategy = _context.Database.CreateExecutionStrategy();
+
+            return await strategy.ExecuteAsync(async () =>
+            {
+                await using var tx = await _context.Database.BeginTransactionAsync(ct);
 
                 var media = await Task.WhenAll(product.Media.Select(s => _mediaService.DeleteMedia(s.Media,ct)));
 
@@ -192,6 +198,9 @@ namespace Eshop.Catalog.Services
                 await _publish.Publish(new DeleteCartProduct(productId));
 
                 await _context.SaveChangesAsync(ct);
+
+                await tx.CommitAsync(ct);
+
                 return true;
             });
         }
@@ -202,15 +211,17 @@ namespace Eshop.Catalog.Services
             {
                 throw new ArgumentException("Product Id is not valid");
             }
+            var product = await _context.Products.Include(i => i.Media).Include(c => c.Categories).AsSplitQuery().Where(I => I.Id == productId).FirstOrDefaultAsync(ct);
+            if (product == null)
+            {
+                return Result.Fail<ProductDto>($"The product with Id {productId} Not Found");
+            }
             var strategy = _context.Database.CreateExecutionStrategy();
 
             return await strategy.ExecuteAsync(async () =>
             {
-                var product = await _context.Products.Include(i => i.Media).Include(c=>c.Categories).AsSplitQuery().Where(I => I.Id == productId).FirstOrDefaultAsync(ct);
-                if (product == null)
-                {
-                    return Result.Fail<ProductDto>($"The product with Id {productId} Not Found");
-                }
+                await using var tx = await _context.Database.BeginTransactionAsync(ct);
+
                 var media = await Task.WhenAll(product.Media.Select(s => _mediaService.DeleteMedia(s.Media, ct)));
                 _context.Products.Remove(product);
 
@@ -222,7 +233,7 @@ namespace Eshop.Catalog.Services
                 await _publish.Publish(new DeleteCartProduct(productId));
 
                 await _context.SaveChangesAsync(ct);
-
+                await tx.CommitAsync(ct);
                 return new ProductDto
                 {
                     Id = product.Id,
@@ -232,7 +243,6 @@ namespace Eshop.Catalog.Services
                     Description = product.Description,
                     DisplayOrder = product.DisplayOrder,
                     Price = product.Price,
-                    Media = product.Media.Select(m => new MediaDto { MediaUrl = m.Media }).ToList(),
                     Categories = product.Categories.Select(c => new CategoryDto { Id = c.Id, Description = c.Description, Name = c.Title }).ToList()
 
                 };
@@ -452,7 +462,8 @@ namespace Eshop.Catalog.Services
             }
             
             var mediaRetryPolicy = Policy
-                .Handle<Exception>()
+                .Handle<InvalidOperationException>()
+                .Or<HttpRequestException>()
                 .WaitAndRetryAsync(
                     retryCount: 3,
                     sleepDurationProvider: attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)),
@@ -463,12 +474,14 @@ namespace Eshop.Catalog.Services
 
             await mediaRetryPolicy.ExecuteAsync(async () =>
             {
-                var DeletionResult = await Task.WhenAll(product.Media
+
+                var DeletionResult = await Task.WhenAll(_context.Media.Where(m=>m.ProductId == ProductId)
                                              .Select(i => _mediaService.DeleteMedia(i.Media, ct))
                                              .ToList());
-                if (DeletionResult.Count(c => c) != CurrentMediaCount)
+
+                if (DeletionResult.Count() != CurrentMediaCount)
                 {
-                    throw new InvalidOperationException("");
+                    throw new InvalidOperationException("The Media Deletion Process Failed");
                 }
             });
         }

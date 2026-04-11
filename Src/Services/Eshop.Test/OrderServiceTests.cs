@@ -10,6 +10,7 @@ using Imposter.Abstractions;
 using MassTransit;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging;
 using System.Security.Claims;
 using Xunit;
@@ -47,6 +48,7 @@ public class OrderServiceTests : IDisposable
     {
         var options = new DbContextOptionsBuilder<OrderDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
             .Options;
 
         _context = new OrderDbContext(options);

@@ -22,7 +22,8 @@ namespace Eshop.Inventory.Handler
 
             if(productInventory==null ||productInventory.Count == 0)
             {
-                await context.RespondAsync(new ProductInventoryAvailibityForOrderResponse(null));
+                await context.RespondAsync(new ProductInventoryAvailibityForOrderResponse([]));
+                return;
             }
             var items = productInventory.Select(p => new ProductInventoryItem(p.ProductId, p.Id, p.Quantity));
 

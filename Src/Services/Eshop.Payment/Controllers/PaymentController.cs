@@ -32,7 +32,6 @@ namespace Eshop.Payment.Controllers
 
 
         [HttpGet("Return")]
-        [AllowAnonymous]
         public async Task<IActionResult> Capture([FromQuery] string Token, [FromQuery] int orderId, [FromQuery] string correlationId)
         {
             var UserId= _httpContextAccessor.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier)??string.Empty;//to change

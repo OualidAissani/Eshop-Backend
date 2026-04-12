@@ -98,7 +98,7 @@ namespace Eshop.Catalog.Services
                 {
                     using var stream = file.OpenReadStream();
 
-                    await _mediaService.CreateMedia(media, stream, file.ContentType, file.FileName, ct);
+                    await _mediaService.CreateMedia(media, stream, file.ContentType?? file.ContentType ?? "application/octet-stream", file.FileName, ct);
 
                 }
 
@@ -440,7 +440,7 @@ namespace Eshop.Catalog.Services
                 };
                 using var stream = file.OpenReadStream();
 
-                await _mediaService.CreateMedia(media, stream, file.ContentType, file.FileName, ct);
+                await _mediaService.CreateMedia(media, stream, file.ContentType?? file.ContentType ?? "application/octet-stream", file.FileName, ct);
 
             }
 
@@ -454,13 +454,7 @@ namespace Eshop.Catalog.Services
 
         private async Task DeleteOldProductMedia(int ProductId, Products product, CancellationToken ct)
         {
-            var CurrentMediaCount = product.Media.Count();
-            
-            if (CurrentMediaCount == 0)
-            {
-                return; 
-            }
-            
+                        
             var mediaRetryPolicy = Policy
                 .Handle<InvalidOperationException>()
                 .Or<HttpRequestException>()
@@ -479,7 +473,7 @@ namespace Eshop.Catalog.Services
                                              .Select(i => _mediaService.DeleteMedia(i.Media, ct))
                                              .ToList());
 
-                if (DeletionResult.Count() != CurrentMediaCount)
+                if (!DeletionResult.All(r => r))
                 {
                     throw new InvalidOperationException("The Media Deletion Process Failed");
                 }

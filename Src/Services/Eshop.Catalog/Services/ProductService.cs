@@ -8,8 +8,8 @@ using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Polly;
 
-namespace Eshop.Catalog.Services
-{
+namespace Eshop.Catalog.Services;
+
     public class ProductService: IProductService
     {
         private readonly CatalogDbContext _context;
@@ -98,7 +98,7 @@ namespace Eshop.Catalog.Services
                 {
                     using var stream = file.OpenReadStream();
 
-                    await _mediaService.CreateMedia(media, stream, file.ContentType?? file.ContentType ?? "application/octet-stream", file.FileName, ct);
+                    await _mediaService.CreateMedia(media, stream, file.ContentType ?? "application/octet-stream", file.FileName, ct);
 
                 }
 
@@ -440,7 +440,7 @@ namespace Eshop.Catalog.Services
                 };
                 using var stream = file.OpenReadStream();
 
-                await _mediaService.CreateMedia(media, stream, file.ContentType?? file.ContentType ?? "application/octet-stream", file.FileName, ct);
+                await _mediaService.CreateMedia(media, stream, file.ContentType ?? "application/octet-stream", file.FileName, ct);
 
             }
 
@@ -481,4 +481,4 @@ namespace Eshop.Catalog.Services
         }
 
     }
-}
+

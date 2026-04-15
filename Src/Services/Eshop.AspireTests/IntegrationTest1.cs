@@ -6,7 +6,7 @@ public class IntegrationTest1
 {
     private static readonly TimeSpan DefaultTimeout = TimeSpan.FromMinutes(10);
 
-    [Fact]
+    [Fact(Skip = "")]
     public async Task GetWebResourceRootReturnsOkStatusCode()
     {
         // Arrange

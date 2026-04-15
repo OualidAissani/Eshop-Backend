@@ -87,7 +87,7 @@ public class MediaService : IMediaService
 
         var response = await httpClient.SendAsync(request);
 
-        var responseContent = await response.Content.ReadAsStringAsync();
+        var responseContent = await response.Content.ReadAsStringAsync(ct);
 
         if (!response.IsSuccessStatusCode)
         {

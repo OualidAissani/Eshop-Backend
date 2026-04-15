@@ -14,7 +14,7 @@ namespace Eshop.Orders.Controllers
     [Authorize]
     public class CartController : ControllerBase
     {
-        private readonly IHttpContextAccessor _contextAccessor; 
+        private readonly IHttpContextAccessor _contextAccessor;
         private readonly ICartService _cartService;
         private readonly IDistributedCache _cache;
         public CartController(ICartService cartService, IHttpContextAccessor contextAccessor, IDistributedCache cache)
@@ -163,9 +163,9 @@ namespace Eshop.Orders.Controllers
 
             var updatedItem = await _cartService.UpdateCartItem(cartItem,ct);
 
-            if (updatedItem == null)
+            if (updatedItem.IsFailed)
             {
-                return BadRequest("Failed to update cart item.");
+                return BadRequest(updatedItem.Errors.First().Message);
             }
 
             await _cache.SetStringAsync(cachedKey, JsonSerializer.Serialize(updatedItem), new DistributedCacheEntryOptions

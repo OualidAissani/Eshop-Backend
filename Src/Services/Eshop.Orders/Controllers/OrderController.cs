@@ -131,7 +131,7 @@ namespace Eshop.Orders.Controllers
         //[HttpPut]
         //public async Task<IActionResult> UpdateOrder(int id, [FromBody] OrderDto order, [FromHeader(Name = "x_Idempotency_Key")] string key,CancellationToken ct)
         //{
-            
+
         //    return NoContent();
         //}
         [HttpDelete]
@@ -141,7 +141,7 @@ namespace Eshop.Orders.Controllers
 
             var checkOrderMatchWithUser=await _orderService.MatchUserWithOrder(id,userId, ct);
 
-            if (checkOrderMatchWithUser.IsFailed)
+            if (checkOrderMatchWithUser.IsFailed || checkOrderMatchWithUser.Value==false)
             {
                 return NotFound(checkOrderMatchWithUser.Errors.FirstOrDefault()?.Message);
             }

@@ -18,7 +18,8 @@ var keycloakPassword = builder.AddParameter("KeycloakPassword", secret: true, va
 
 int? keycloakPort = builder.ExecutionContext.IsRunMode ? 8180 : null;
 var keycloak = builder.AddKeycloak("keycloak", adminPassword: keycloakPassword, port: keycloakPort)
-                      .WithDataVolume()
+                    .WithDataVolume()
+
                       .WithRealmImport("./realms");
 
 
@@ -26,11 +27,11 @@ var keycloakAuthority = ReferenceExpression.Create(
     $"{keycloak.GetEndpoint("http").Property(EndpointProperty.Url)}/realms/Eshop"
 );
 
-                                                        
+
 var InventoryDb = Postgres.AddDatabase("InventoryDb");
 var OrderDb = Postgres.AddDatabase("OrderDb");
 var CatalogDb = Postgres.AddDatabase("CatalogDb");
-var PayementDb = Postgres.AddDatabase("PaymentDb");
+var PaymentDb = Postgres.AddDatabase("PaymentDb");
 
 var Catalog =builder.AddProject<Eshop_Catalog>("catalogApi")
    .WithHttpHealthCheck("/health")
@@ -64,11 +65,11 @@ var Order=builder.AddProject<Eshop_Orders>("orderApi")
     .WithEnvironment("InventoryBaseUrl", $"{Inventory.GetEndpoint("https").Property(EndpointProperty.Url)}/api/inventory")
     .WaitFor(keycloak);
 
-var Payement=builder.AddProject<Eshop_Payment>("paymentApi")
+var Payment=builder.AddProject<Eshop_Payment>("paymentApi")
    .WithHttpHealthCheck("/health")
     .WithReference(Rabbitmq)
     .WaitFor(Rabbitmq)
-    .WithReference(PayementDb)
+    .WithReference(PaymentDb)
     .WithEnvironment("Keycloak__Authority", keycloakAuthority)
     .WithEnvironment("Keycloak__Audience", "eshop-api")
     .WaitFor(keycloak);

@@ -368,3 +368,6 @@ docker-compose.yml
 TODO.md
 Eshop.Payment/appsettings.Development.json
 Eshop.Payment/appsettings.json
+.idea/
+qodana.yaml
+Eshop.AspireTests/

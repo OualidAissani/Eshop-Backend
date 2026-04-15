@@ -14,3 +14,8 @@
 **/Eshop.Web/obj/
 .vs
 /Src/Services/Eshop.Web/Eshop.Web.csproj
+/Src/Services/.idea/
+/Src/Services/qodana.yaml
+/Src/Services/Eshop.AspireTests
+/Src/Services/Eshop.AspireTests/Eshop.AspireTests.csproj
+/Src/Services/Eshop.AspireTests/IntegrationTest1.cs

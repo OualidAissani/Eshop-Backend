@@ -10,6 +10,6 @@ namespace Eshop.Catalog.Dtos
         public ProductStatus Status { get; set; }
         public ProductSpecialStatus SpecialStatus { get; set; }
         public int? DisplayOrder { get; set; }
-        public List<int> CategoriesId { get; set; }
+        public List<int>? CategoriesId { get; set; }
     }
 }

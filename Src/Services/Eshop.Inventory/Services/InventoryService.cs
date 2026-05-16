@@ -50,7 +50,7 @@ namespace Eshop.Inventory.Services
             {
                 throw new ArgumentNullException();
             }
-            
+
             var inventory = await _db.Inventories.Where(i=>i.ProductId==inventoryDto.ProductId).FirstOrDefaultAsync(ct);
 
 
@@ -95,6 +95,8 @@ namespace Eshop.Inventory.Services
         {
             if (inventories == null || inventories.Count == 0)
                 throw new ArgumentNullException();
+
+
             _db.Inventories.UpdateRange(inventories);
             int totalUpdated = await _db.SaveChangesAsync(ct);
             if (totalUpdated == 0)

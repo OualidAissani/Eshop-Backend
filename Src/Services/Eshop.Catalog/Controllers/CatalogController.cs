@@ -35,7 +35,8 @@ public class CatalogController : ControllerBase
     [HttpPost]
     [Authorize(Roles = "Admin")]
     //Need Change
-    public async Task<IActionResult> CreateProduct([FromForm] ProductCreateDto product, List<IFormFile> formFile,
+    public async Task<IActionResult> CreateProduct([FromForm] ProductCreateDto product,
+        [FromForm(Name = "formFile")] List<IFormFile> formFile,
         [FromHeader(Name = "x-Idempotency-Key")] string key,CancellationToken ct)
     {
         if(product == null)
@@ -82,7 +83,7 @@ public class CatalogController : ControllerBase
     
     [HttpPut("{id}")]
     [Authorize(Roles = "Admin")]
-    public async Task<IActionResult> UpdateProduct(int id,[FromForm] ProductsUpdateDto product, List<IFormFile> formFile ,
+    public async Task<IActionResult> UpdateProduct(int id,[FromForm] ProductsUpdateDto product, List<IFormFile>? formFile ,
         [FromHeader(Name = "x-Idempotency-Key")] string key,CancellationToken ct)
     {
         if (key == null)
@@ -169,13 +170,13 @@ public class CatalogController : ControllerBase
     }
     
     [HttpGet("{id}")]
-    public async Task<ActionResult<Products>> GetProductById(int id, CancellationToken ct)
+    public async Task<ActionResult<ProductDto>> GetProductById(int id, CancellationToken ct)
     {
         var cacheKey = $"Products:Id={id}";
         var cached = await _cache.GetStringAsync(cacheKey);
         if (cached != null)
         {
-            var cachedProduct = JsonSerializer.Deserialize<Products>(cached);
+            var cachedProduct = JsonSerializer.Deserialize<ProductDto>(cached);
             return Ok(cachedProduct);
         }
         var product = await _productrepo.GetProductById(id, ct);

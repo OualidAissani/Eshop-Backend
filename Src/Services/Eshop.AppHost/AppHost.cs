@@ -19,8 +19,8 @@ var keycloakPassword = builder.AddParameter("KeycloakPassword", secret: true, va
 int? keycloakPort = builder.ExecutionContext.IsRunMode ? 8180 : null;
 var keycloak = builder.AddKeycloak("keycloak", adminPassword: keycloakPassword, port: keycloakPort)
                     .WithDataVolume()
-
-                      .WithRealmImport("./realms");
+                      .WithRealmImport("./realms")
+                      .WithBindMount("./realms/keycloak-theme.jar", "/opt/keycloak/providers/keycloak-theme.jar");
 
 
 var keycloakAuthority = ReferenceExpression.Create(
@@ -82,5 +82,10 @@ var Gateway=builder.AddProject<Eshop_Gateway>("Gateway")
     .WithEnvironment("Keycloak__Authority", keycloakAuthority)
     .WithEnvironment("Keycloak__Audience", "eshop-api")
     .WaitFor(keycloak);
+
+var webFrontend = builder.AddViteApp("webFrontend", "../Eshop.Frontend")
+    .WithReference(Gateway)
+    .WaitFor(Gateway);
+
 
 builder.Build().Run();

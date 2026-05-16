@@ -19,3 +19,7 @@
 /Src/Services/Eshop.AspireTests
 /Src/Services/Eshop.AspireTests/Eshop.AspireTests.csproj
 /Src/Services/Eshop.AspireTests/IntegrationTest1.cs
+/Src/Services/Eshop.Web/
+/Src/Services/Eshop.Frontend/src/store/ZustandTestStore.tsx
+/Src/Services/Eshop.Frontend/src/components/ProductComponent.tsx
+/Src/Services/Eshop.Frontend/src/context/useTestContext.tsx

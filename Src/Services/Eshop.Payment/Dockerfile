@@ -12,19 +12,19 @@ EXPOSE 8081
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
-COPY ["Eshop.Payement/Eshop.Payement.csproj", "Eshop.Payement/"]
-RUN dotnet restore "./Eshop.Payement/Eshop.Payement.csproj"
+COPY ["Eshop.Payment/Eshop.Payment.csproj", "Eshop.Payment/"]
+RUN dotnet restore "./Eshop.Payment/Eshop.Payment.csproj"
 COPY . .
-WORKDIR "/src/Eshop.Payement"
-RUN dotnet build "./Eshop.Payement.csproj" -c $BUILD_CONFIGURATION -o /app/build
+WORKDIR "/src/Eshop.Payment"
+RUN dotnet build "./Eshop.Payment.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 # This stage is used to publish the service project to be copied to the final stage
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "./Eshop.Payement.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "./Eshop.Payment.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
 
 # This stage is used in production or when running from VS in regular mode (Default when not using the Debug configuration)
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "Eshop.Payement.dll"]
+ENTRYPOINT ["dotnet", "Eshop.Payment.dll"]

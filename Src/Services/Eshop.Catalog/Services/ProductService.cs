@@ -107,7 +107,7 @@ namespace Eshop.Catalog.Services;
                 return currentProduct;
             });
         }
-        
+
         public async Task<Result<ProductDto>> UpdateProduct(int ProductId,ProductsUpdateDto productDto,List<IFormFile> formFile,CancellationToken ct)
         {
             if (formFile == null || formFile.Count == 0)
@@ -132,7 +132,7 @@ namespace Eshop.Catalog.Services;
             {
 
                 await using var tx = await _context.Database.BeginTransactionAsync(ct);
-                
+
                 await DeleteOldProductMedia(ProductId, product, ct);
 
                 await Update(ProductId, productDto, formFile, product, ct);
@@ -246,7 +246,7 @@ namespace Eshop.Catalog.Services;
                     Categories = product.Categories.Select(c => new CategoryDto { Id = c.Id, Description = c.Description, Name = c.Title }).ToList()
 
                 };
-                
+
             });
         }
 
@@ -268,7 +268,7 @@ namespace Eshop.Catalog.Services;
                 })
                 .FirstOrDefaultAsync(p => p.Id == productId,ct);
         }
-        
+
         public async Task<List<ProductDto>> GetAllProducts(CancellationToken ct)
         {
             return await _context.Products
@@ -288,7 +288,7 @@ namespace Eshop.Catalog.Services;
                 .OrderBy(d => d.DisplayOrder == null ? d.Id : d.DisplayOrder)
                 .ToListAsync(ct);
         }
-        
+
         public async Task<List<ProductDto>> GetProductsByCategory(int categoryId, CancellationToken ct)
         {
             return await _context.Products
@@ -305,11 +305,11 @@ namespace Eshop.Catalog.Services;
                 Media = i.Media.Select(m => new MediaDto { MediaUrl = m.Media }).ToList(),
                 Categories = i.Categories.Select(c => new CategoryDto { Id = c.Id, Description = c.Description, Name = c.Title }).ToList()
 
-            })                
+            })
                 .OrderBy(d => d.DisplayOrder == null ? d.Id : d.DisplayOrder)
                 .ToListAsync(ct);
         }
-        
+
         public async Task<List<ProductDto>> ProductSearch(string tag,CancellationToken ct)
         {
            return await _context.Products
@@ -454,7 +454,7 @@ namespace Eshop.Catalog.Services;
 
         private async Task DeleteOldProductMedia(int ProductId, Products product, CancellationToken ct)
         {
-                        
+
             var mediaRetryPolicy = Policy
                 .Handle<InvalidOperationException>()
                 .Or<HttpRequestException>()

@@ -16,12 +16,14 @@ namespace Eshop.Orders.Controllers
         private readonly IOrderService _orderService;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IDistributedCache _cache;
+        private readonly ILogger<OrderController> _logger;
 
-        public OrderController(IOrderService orderService, IHttpContextAccessor httpContextAccessor, IDistributedCache cache)
+        public OrderController(IOrderService orderService, IHttpContextAccessor httpContextAccessor, IDistributedCache cache, ILogger<OrderController> logger)
         {
             _orderService = orderService;
             _httpContextAccessor = httpContextAccessor;
             _cache = cache;
+            _logger = logger;
         }
         [Authorize(Roles = "Admin")]
         [HttpGet("GetAllOrders")]
@@ -89,7 +91,8 @@ namespace Eshop.Orders.Controllers
 
         [Authorize]
         [HttpPost]
-        public async Task<IActionResult> CreateOrder([FromBody] OrderDto order, [FromHeader(Name = "x-Idempotency-Key")] string key,CancellationToken ct)
+        public async Task<IActionResult> CreateOrder([FromBody] OrderDto order,
+            [FromHeader(Name = "x-Idempotency-Key")] string key,CancellationToken ct)
         {
             if(key== null)
             {
@@ -119,11 +122,11 @@ namespace Eshop.Orders.Controllers
             }
             catch (ArgumentException ex)
             {
-                return BadRequest(ex.Message);
+                return BadRequest("");
             }
             catch (Exception ex)
             {
-                return BadRequest(ex.Message);
+                return BadRequest("");
             }
         }
 

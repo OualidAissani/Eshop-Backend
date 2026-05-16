@@ -50,8 +50,8 @@ public class MediaService : IMediaService
 
         using var doc = await JsonDocument.ParseAsync(responseStream, cancellationToken: ct);
         var uuid = doc.RootElement.GetProperty("file").GetString();
-
-        media.Media = _configuration["UploadCare:UploadCareBaseUrl"] + uuid;
+        
+        media.Media = _configuration["UploadCare:UploadCareBaseUrl"] + uuid+$"/{fileName}";
 
         _context.Media.Add(media);
 

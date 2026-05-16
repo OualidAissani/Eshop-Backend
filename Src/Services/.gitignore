@@ -371,3 +371,5 @@ Eshop.Payment/appsettings.json
 .idea/
 qodana.yaml
 Eshop.AspireTests/
+/Eshop.Web/
+

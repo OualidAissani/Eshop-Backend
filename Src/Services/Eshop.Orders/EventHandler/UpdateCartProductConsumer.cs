@@ -24,12 +24,12 @@ namespace Eshop.Orders.EventHandler
                 ProductName = message.ProductName
             };
             var result = await _cartService.UpdateCartItem(updateCartItemDto, context.CancellationToken);
-            if (result.IsFailed)
+            if (!result.Errors[0].Message.Equals("Cart item not found."))
             {
-
                 throw new InvalidOperationException(
                                    result.Errors.FirstOrDefault()?.Message);
             }
+           
         }
     }
 }

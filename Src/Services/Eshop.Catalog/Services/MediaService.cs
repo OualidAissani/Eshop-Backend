@@ -23,7 +23,7 @@ public class MediaService : IMediaService
         _configuration = configuration;
         _httpClientFactory = httpClietnt;
     }
-    public async Task<ProductMedia> CreateMedia(ProductMedia media, Stream fileStream, string contentType, string fileName, CancellationToken ct)
+    public async Task<ProductMedia> CreateMedia(ProductMedia media, Stream fileStream, string contentType, string fileName,bool ImageAppend, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(media);
         ArgumentNullException.ThrowIfNull(fileStream);
@@ -50,8 +50,11 @@ public class MediaService : IMediaService
 
         using var doc = await JsonDocument.ParseAsync(responseStream, cancellationToken: ct);
         var uuid = doc.RootElement.GetProperty("file").GetString();
-        
-        media.Media = _configuration["UploadCare:UploadCareBaseUrl"] + uuid+$"/{fileName}";
+        if (!ImageAppend)
+        {
+            media.Media = _configuration["UploadCare:UploadCareBaseUrl"] + uuid + $"/{fileName}";
+        }
+        media.Media += _configuration["UploadCare:UploadCareBaseUrl"] + uuid + $"/{fileName}";
 
         _context.Media.Add(media);
 

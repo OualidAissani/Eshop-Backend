@@ -83,7 +83,7 @@ public class CatalogController : ControllerBase
     
     [HttpPut("{id}")]
     [Authorize(Roles = "Admin")]
-    public async Task<IActionResult> UpdateProduct(int id,[FromForm] ProductsUpdateDto product, List<IFormFile>? formFile ,
+    public async Task<IActionResult> UpdateProduct(int id,[FromForm] ProductsUpdateDto product, List<IFormFile>? formFile,bool AppendImage ,
         [FromHeader(Name = "x-Idempotency-Key")] string key,CancellationToken ct)
     {
         if (key == null)
@@ -98,7 +98,7 @@ public class CatalogController : ControllerBase
         }
        
 
-        var result = await _productrepo.UpdateProduct(id,product, formFile, ct);
+        var result = await _productrepo.UpdateProduct(id,product, formFile,AppendImage, ct);
 
 
         if(result.IsFailed)
@@ -106,7 +106,7 @@ public class CatalogController : ControllerBase
             return BadRequest(result.Errors.First().Message);
         }
 
-        await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(result), new DistributedCacheEntryOptions
+        await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(result.Value), new DistributedCacheEntryOptions
         {
             AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
         });
@@ -135,7 +135,6 @@ public class CatalogController : ControllerBase
             return BadRequest(result.Errors.First().Message);
         }
         await _cache.RemoveAsync($"Products:Id={Id}");
-        await _cache.RemoveAsync($"Products:List:*");
         if (result.Value?.Categories != null)
         {
             foreach (var category in result.Value.Categories)
@@ -149,23 +148,23 @@ public class CatalogController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<PaginatedResult<Products>>> GetProducts([FromQuery] int? lastId, CancellationToken ct, [FromQuery] int pageSize = 10)
     {
-        var cacheKey= $"Products:List:PageSize={pageSize}:LastId={lastId}";
-        var cached = await _cache.GetStringAsync(cacheKey);
-        if (cached != null)
-        {
-            var cachedResult = JsonSerializer.Deserialize<PaginatedResult<ProductDto>>(cached);
-            return Ok(cachedResult);
-        }
+        //var cacheKey= $"Products:List:PageSize={pageSize}:LastId={lastId}"; //TO FIND BETTER SOLUTIONS LATER
+        //var cached = await _cache.GetStringAsync(cacheKey);
+        //if (cached != null)
+        //{
+        //    var cachedResult = JsonSerializer.Deserialize<PaginatedResult<ProductDto>>(cached);
+        //    return Ok(cachedResult);
+        //}
 
         var result = await _productrepo.GetProductsAsync(new PaginationParams
         {
             PageSize = pageSize,
             LastId=lastId
         },ct);
-        await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(result), new DistributedCacheEntryOptions
-        {
-            AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30)
-        });
+        //await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(result), new DistributedCacheEntryOptions
+        //{
+        //    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30)
+        //});
         return Ok(result);
     }
     

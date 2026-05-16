@@ -9,7 +9,7 @@ namespace Eshop.Catalog.Services.IServices
         Task<List<ProductPriceDto>> GetProductPrice(List<int> ProductId, CancellationToken ct);
 
         Task<Result<ProductDto>> CreateProduct(ProductCreateDto product, List<IFormFile>? formFile, CancellationToken ct);
-        Task<Result<ProductDto>> UpdateProduct(int ProductId, ProductsUpdateDto productDto, List<IFormFile> formFile, CancellationToken ct);
+        Task<Result<ProductDto>> UpdateProduct(int ProductId, ProductsUpdateDto productDto, List<IFormFile>? formFile, bool ImageAppend, CancellationToken ct);
 
         Task<Result<bool>> DeleteProduct(int productId,CancellationToken ct);
         Task<Result<ProductDto>> DeleteProductReturnOldProduct(int productId, CancellationToken ct);

@@ -98,7 +98,7 @@ namespace Eshop.Catalog.Services;
                 {
                     using var stream = file.OpenReadStream();
 
-                    await _mediaService.CreateMedia(media, stream, file.ContentType ?? "application/octet-stream", file.FileName, ct);
+                    await _mediaService.CreateMedia(media, stream, file.ContentType ?? "application/octet-stream", file.FileName,ImageAppend:false, ct);
 
                 }
 
@@ -108,12 +108,8 @@ namespace Eshop.Catalog.Services;
             });
         }
 
-        public async Task<Result<ProductDto>> UpdateProduct(int ProductId,ProductsUpdateDto productDto,List<IFormFile> formFile,CancellationToken ct)
+        public async Task<Result<ProductDto>> UpdateProduct(int ProductId,ProductsUpdateDto productDto,List<IFormFile>? formFile,bool ImageAppend,CancellationToken ct)
         {
-            if (formFile == null || formFile.Count == 0)
-            {
-                return Result.Fail<ProductDto>("Atleast One Image Attached To The Product");
-            }
 
             var product = await _context.Products
                 .Include(i => i.Categories)
@@ -132,10 +128,17 @@ namespace Eshop.Catalog.Services;
             {
 
                 await using var tx = await _context.Database.BeginTransactionAsync(ct);
+                if (!ImageAppend)
+                {
+                    if(formFile.Count()==0 || formFile == null)
+                    {
 
-                await DeleteOldProductMedia(ProductId, product, ct);
+                    await DeleteOldProductMedia(ProductId, product, ct);
+                    }
 
-                await Update(ProductId, productDto, formFile, product, ct);
+                    await Update(ProductId, productDto, formFile, product,false, ct);
+                }
+                await Update(ProductId, productDto, formFile, product,true, ct);
 
                 var result = await _context.SaveChangesAsync(ct);
 
@@ -420,17 +423,18 @@ namespace Eshop.Catalog.Services;
 
 
 
-        private async Task Update(int ProductId,ProductsUpdateDto productDto, List<IFormFile> formFile, Products product, CancellationToken ct)
+        private async Task Update(int ProductId,ProductsUpdateDto productDto, List<IFormFile>? formFile, Products product,bool ImageAppend, CancellationToken ct)
         {
             if (productDto.CategoriesId != null && productDto.CategoriesId.Count > 0)
             {
                 var categories = await _context.Categories
-                    .AsNoTracking()
                     .Where(c => productDto.CategoriesId.Contains(c.Id))
                     .ToListAsync(ct);
 
                 product.Categories = categories;
             }
+        if (formFile != null && formFile.Count()>0)
+        {
             foreach (var file in formFile)
             {
                 var media = new ProductMedia()
@@ -440,9 +444,10 @@ namespace Eshop.Catalog.Services;
                 };
                 using var stream = file.OpenReadStream();
 
-                await _mediaService.CreateMedia(media, stream, file.ContentType ?? "application/octet-stream", file.FileName, ct);
+                await _mediaService.CreateMedia(media, stream, file.ContentType ?? "application/octet-stream", file.FileName, ImageAppend, ct);
 
             }
+        }
 
             product.Title = productDto.Title ?? product.Title;
             product.Description = productDto.Description ?? product.Description;

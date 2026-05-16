@@ -10,9 +10,9 @@
 
   <ItemGroup>
     <PackageReference Include="FluentResults" Version="4.0.0" />
-    <PackageReference Include="MassTransit" Version="9.1.0" />
-    <PackageReference Include="MassTransit.Abstractions" Version="9.1.0" />
-    <PackageReference Include="MassTransit.RabbitMQ" Version="9.1.0" />
+    <PackageReference Include="MassTransit" Version="8.3.6" />
+    <PackageReference Include="MassTransit.Abstractions" Version="8.3.6" />
+    <PackageReference Include="MassTransit.RabbitMQ" Version="8.3.6" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.6" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.6" />
     <PackageReference Include="Microsoft.Extensions.ServiceDiscovery.Yarp" Version="10.5.0" />

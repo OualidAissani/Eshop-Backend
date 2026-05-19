@@ -13,6 +13,8 @@ namespace Eshop.Catalog.Data
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+            modelBuilder.HasPostgresExtension("pg_trgm");
+
             modelBuilder.Entity<Models.Products>()
                 .HasMany(p => p.Categories)
                 .WithMany(c => c.Products)

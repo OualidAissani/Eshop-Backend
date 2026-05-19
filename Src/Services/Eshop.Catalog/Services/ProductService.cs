@@ -98,7 +98,7 @@ namespace Eshop.Catalog.Services;
                 {
                     using var stream = file.OpenReadStream();
 
-                    await _mediaService.CreateMedia(media, stream, file.ContentType ?? "application/octet-stream", file.FileName,ImageAppend:false, ct);
+                    await _mediaService.CreateMedia(media, stream, file.ContentType ?? "application/octet-stream", file.FileName, ct);
 
                 }
 
@@ -108,7 +108,7 @@ namespace Eshop.Catalog.Services;
             });
         }
 
-        public async Task<Result<ProductDto>> UpdateProduct(int ProductId,ProductsUpdateDto productDto,List<IFormFile>? formFile,bool ImageAppend,CancellationToken ct)
+        public async Task<Result<ProductDto>> UpdateProduct(int ProductId,ProductsUpdateDto productDto,List<IFormFile>? formFile,CancellationToken ct,bool ImageAppend=false)
         {
 
             var product = await _context.Products
@@ -130,15 +130,17 @@ namespace Eshop.Catalog.Services;
                 await using var tx = await _context.Database.BeginTransactionAsync(ct);
                 if (!ImageAppend)
                 {
-                    if(formFile.Count()==0 || formFile == null)
+                    if (formFile != null && formFile.Count > 0)
                     {
-
-                    await DeleteOldProductMedia(ProductId, product, ct);
+                        await DeleteOldProductMedia(ProductId, product, ct);
                     }
 
-                    await Update(ProductId, productDto, formFile, product,false, ct);
+                    await Update(ProductId, productDto, formFile, product, false, ct);
                 }
-                await Update(ProductId, productDto, formFile, product,true, ct);
+                else
+                {
+                    await Update(ProductId, productDto, formFile, product, true, ct);
+                }
 
                 var result = await _context.SaveChangesAsync(ct);
 
@@ -444,7 +446,7 @@ namespace Eshop.Catalog.Services;
                 };
                 using var stream = file.OpenReadStream();
 
-                await _mediaService.CreateMedia(media, stream, file.ContentType ?? "application/octet-stream", file.FileName, ImageAppend, ct);
+                await _mediaService.CreateMedia(media, stream, file.ContentType ?? "application/octet-stream", file.FileName, ct);
 
             }
         }

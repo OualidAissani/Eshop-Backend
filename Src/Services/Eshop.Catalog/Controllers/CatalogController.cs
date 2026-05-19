@@ -32,12 +32,13 @@ public class CatalogController : ControllerBase
         _cache = cache;
     }
 
+    [RequestSizeLimit(50_000_000)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 50_000_000)]
     [HttpPost]
     [Authorize(Roles = "Admin")]
-    //Need Change
     public async Task<IActionResult> CreateProduct([FromForm] ProductCreateDto product,
-        [FromForm(Name = "formFile")] List<IFormFile> formFile,
-        [FromHeader(Name = "x-Idempotency-Key")] string key,CancellationToken ct)
+    [FromForm(Name = "formFile")] List<IFormFile> formFile,
+    [FromHeader(Name = "x-Idempotency-Key")] string key, CancellationToken ct)
     {
         if(product == null)
         {
@@ -83,7 +84,11 @@ public class CatalogController : ControllerBase
     
     [HttpPut("{id}")]
     [Authorize(Roles = "Admin")]
-    public async Task<IActionResult> UpdateProduct(int id,[FromForm] ProductsUpdateDto product, List<IFormFile>? formFile,bool AppendImage ,
+    public async Task<IActionResult> UpdateProduct(
+        int id,
+        [FromForm] ProductsUpdateDto product,
+        [FromForm(Name = "formFile")] List<IFormFile>? formFile,
+        [FromForm] bool AppendImage,
         [FromHeader(Name = "x-Idempotency-Key")] string key,CancellationToken ct)
     {
         if (key == null)
@@ -98,7 +103,7 @@ public class CatalogController : ControllerBase
         }
        
 
-        var result = await _productrepo.UpdateProduct(id,product, formFile,AppendImage, ct);
+        var result = await _productrepo.UpdateProduct(id,product, formFile, ct, AppendImage);
 
 
         if(result.IsFailed)

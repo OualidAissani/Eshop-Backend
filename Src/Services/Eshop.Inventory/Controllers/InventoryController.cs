@@ -22,7 +22,9 @@ namespace Eshop.Inventory.Controllers
             _inventoryService = inventoryService;
             _cache = cache;
         }
+        [AllowAnonymous]
         [HttpGet]
+       
         public async Task<IActionResult> GetAllInventories( CancellationToken ct)
         {
             var cacheKey="Inventories:All";
@@ -88,7 +90,7 @@ namespace Eshop.Inventory.Controllers
 
             await _cache.RemoveAsync("Inventories:All");
 
-            return CreatedAtAction(nameof(GetInventoryById), new { id = inventory?.Value.Id }, inventory.Value);
+            return await GetAllInventories(ct);
         }
 
         [Authorize]

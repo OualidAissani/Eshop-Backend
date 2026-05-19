@@ -32,12 +32,23 @@ namespace Eshop.Inventory.Services
             {
                 return Result.Fail<Models.Inventory>("The Product Doesnt Exist");
             }
-            var inventory=new Models.Inventory
+            
+            var inventory = await _db.Inventories.FirstOrDefaultAsync(i => i.ProductId == Inventory.ProductId);
+            if (inventory != null)
             {
-               ProductId=Inventory.ProductId,
-                Quantity=Inventory.Quantity
-            };
-            _db.Inventories.Add(inventory);
+                inventory.Quantity += Inventory.Quantity;
+            }
+            else
+            {
+
+                 inventory = new Models.Inventory
+                {
+                    ProductId = Inventory.ProductId,
+                    Quantity = Inventory.Quantity
+                };
+                _db.Inventories.Add(inventory);
+            }
+
             if(await _db.SaveChangesAsync(ct)==0)
             {
                 return Result.Fail("Error Creating Inventory Try Again Later");

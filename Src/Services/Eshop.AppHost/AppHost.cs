@@ -85,6 +85,10 @@ var Gateway=builder.AddProject<Eshop_Gateway>("Gateway")
 
 var webFrontend = builder.AddViteApp("webFrontend", "../Eshop.Frontend")
     .WithReference(Gateway)
+    .WithEnvironment("VITE_KEYCLOAK_URL",
+        keycloak.GetEndpoint("http").Property(EndpointProperty.Url))
+    .WithEnvironment("VITE_KEYCLOAK_REALM", "Eshop")
+    .WithEnvironment("VITE_KEYCLOAK_CLIENT", "eshop-frontend")
     .WaitFor(Gateway);
 
 

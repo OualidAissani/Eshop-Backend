@@ -30,23 +30,27 @@ namespace Eshop.Orders.Services
         }
         public async Task<List<Order>> GetAllOrders( CancellationToken ct)
         {
-            return await _context.Orders.AsNoTracking().ToListAsync(ct);
+            return await _context.Orders.Include(o => o.OrderItems).AsSplitQuery().AsNoTracking().ToListAsync(ct);
         }
         public async Task<List<Order>> GetAllUserOrderAsync(string userId, CancellationToken ct)
         {
             return await _context
                 .Orders
+                .Include(o => o.OrderItems)
                 .Where(i => i.UserId == userId)
+                .AsSplitQuery()
                 .AsNoTracking()
                 .ToListAsync(ct);
 
         }
         public async Task<Order?> GetOrderById(int orderId,string userId, CancellationToken ct)
         {
-            return await _context
-                .Orders
+            var order= await _context.Orders
+                .Include(i=>i.OrderItems)
+                .AsSplitQuery()
                 .AsNoTracking()
-                .FirstOrDefaultAsync(o => o.Id == orderId && o.UserId==userId,ct);
+                .FirstOrDefaultAsync(o => o.Id == orderId && o.UserId == userId, ct);
+            return order;
         }
 
         //refactory is a must
@@ -77,6 +81,7 @@ namespace Eshop.Orders.Services
                 UserId = order.UserId,
                 ShippingAddress = order.ShippingAddress,
                 PayementMethod = payementMethodEnum,
+                Email=order.Email,
                 TotalPrice = orderItems.Sum(i => i.FullPrice)
             };
             var inventoryParameter = order.Products.Select(s => new Events.InventoryUpdateDto
@@ -134,7 +139,7 @@ namespace Eshop.Orders.Services
                     CorrelationId = correlationId,
                     PaymentMethod = (Eshop.Events.PaymentMethods)newOrder.PayementMethod,
                     Total = newOrder.TotalPrice,
-                    Email = "test@gmail.com",//placeholder
+                    Email = newOrder.Email,
                     Products = inventoryParameter,
                     PaymentItems = paymentItems ?? new List<Events.OrderItemSagaDto>()
                 });
@@ -206,6 +211,34 @@ namespace Eshop.Orders.Services
 
             return true;
 
+        }
+
+        public async Task<Result<Order>> UpdateOrderStatus(int orderId, Data.Enums.OrderStatus status, CancellationToken ct)
+        {
+            var order = await _context.Orders.FirstOrDefaultAsync(o => o.Id == orderId, ct);
+            if (order == null)
+            {
+                return Result.Fail<Order>("Order not found.");
+            }
+
+            order.Status = status;
+
+            if (status == Data.Enums.OrderStatus.Shipped)
+            {
+                order.ShippedAt = DateTime.UtcNow;
+            }
+
+            if (status == Data.Enums.OrderStatus.Delivered)
+            {
+                order.DeliveredAt = DateTime.UtcNow;
+            }
+
+            if (await _context.SaveChangesAsync(ct) == 0)
+            {
+                return Result.Fail<Order>("Failed to update order status.");
+            }
+
+            return order;
         }
 
         public async Task<Result<bool>> MatchUserWithOrder(int orderId,string userId, CancellationToken ct)

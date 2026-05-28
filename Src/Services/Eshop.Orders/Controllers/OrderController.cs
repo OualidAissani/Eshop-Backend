@@ -89,6 +89,26 @@ namespace Eshop.Orders.Controllers
             return Ok(order);
         }
 
+        [Authorize(Roles = "Admin")]
+        [HttpPatch("{id}/status")]
+        public async Task<IActionResult> UpdateOrderStatus(int id, [FromBody] OrderStatusUpdateRequest request, CancellationToken ct)
+        {
+            if (!Enum.TryParse<Data.Enums.OrderStatus>(request.Status, true, out var status))
+            {
+                return BadRequest("Invalid order status.");
+            }
+
+            var result = await _orderService.UpdateOrderStatus(id, status, ct);
+            if (result.IsFailed)
+            {
+                return NotFound(result.Errors.FirstOrDefault()?.Message);
+            }
+
+            await _cache.RemoveAsync($"Orders:Admin:All");
+
+            return Ok(result.Value);
+        }
+
         [Authorize]
         [HttpPost]
         public async Task<IActionResult> CreateOrder([FromBody] OrderDto order,

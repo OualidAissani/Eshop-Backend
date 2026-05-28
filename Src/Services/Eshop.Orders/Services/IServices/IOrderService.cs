@@ -21,6 +21,8 @@ namespace Eshop.Orders.Services.IServices
 
         Task<Result<bool>> OrderConfirmed(int orderId, CancellationToken ct);
 
+        Task<Result<Order>> UpdateOrderStatus(int orderId, Data.Enums.OrderStatus status, CancellationToken ct);
+
          Task<Result<bool>> MatchUserWithOrder(int orderId,string userId, CancellationToken ct);
 
     }

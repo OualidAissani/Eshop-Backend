@@ -10,6 +10,7 @@ namespace Eshop.Orders.Models
         public string OrderNumber { get; set; } = "Ord-" + Guid.NewGuid().ToString()+" -"+ DateTime.UtcNow.Hour;
 
         public decimal TotalPrice { get; set; }
+        public string Email { get; set; }
 
         public OrderStatus Status { get; set; }
 

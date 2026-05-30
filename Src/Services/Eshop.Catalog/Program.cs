@@ -7,9 +7,7 @@ using Eshop.Events;
 using MassTransit;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -26,6 +24,9 @@ builder.Services.AddControllers()
 builder.Services.AddHttpClient();
 
 builder.AddNpgsqlDbContext<CatalogDbContext>("CatalogDb");
+builder.AddMongoDBClient("CatalogMongoDb");
+builder.Services.Configure<MongoSettings>(builder.Configuration.GetRequiredSection("Mongo"));
+builder.Services.AddSingleton<MongoCatalogContext>();
 
 builder.Services.AddOpenApi();
 builder.Services.AddScoped<IMediaService, MediaService>();
@@ -86,7 +87,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 builder.Services.AddAuthorizationBuilder();
-
 
 var app = builder.Build();
 

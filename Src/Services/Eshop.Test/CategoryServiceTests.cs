@@ -1,10 +1,11 @@
 ﻿using Eshop.Catalog.Data;
 using Eshop.Catalog.Dtos;
+using Eshop.Catalog.Models;
 using Eshop.Catalog.Services;
 using FluentAssertions;
 using Imposter.Abstractions;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using MongoDB.Driver;
 
 using Xunit;
 
@@ -15,18 +16,22 @@ namespace Eshop.Test
     public class CategoryServiceTests : IDisposable
     {
         private readonly CategoryService _sut;
-        private readonly CatalogDbContext _context;
+        private readonly MongoCatalogContext _context;
         private readonly ILogger<CategoryService> _logger;
 
         private readonly ILoggerImposter<CategoryService> _loggerImposter;
 
         public CategoryServiceTests()
         {
-            var options = new DbContextOptionsBuilder<CatalogDbContext>()
-                .UseInMemoryDatabase(Guid.NewGuid().ToString())
-                .Options;
-
-            _context = new CatalogDbContext(options);
+            var mongoClient = new MongoDB.Driver.MongoClient("mongodb://localhost:27017");
+            var mongoSettings = Microsoft.Extensions.Options.Options.Create(new MongoSettings
+            {
+                Database = $"test-{Guid.NewGuid()}",
+                ProductsCollection = "products",
+                CategoriesCollection = "categories",
+                CountersCollection = "counters"
+            });
+            _context = new MongoCatalogContext(mongoClient, mongoSettings);
 
             _loggerImposter = ILogger<CategoryService>.Imposter();
             _logger = _loggerImposter.Instance();
@@ -34,7 +39,10 @@ namespace Eshop.Test
             _sut = new CategoryService(_context, _logger);
         }
 
-        public void Dispose() => _context.Dispose();
+        public void Dispose()
+        {
+            _context.Dispose();
+        }
 
         [Fact]
         public async Task CreateAsync_ValidDto_SaveChangesAndReturnsIt()
@@ -65,19 +73,19 @@ namespace Eshop.Test
         [Fact]
         public async Task UpdateAsync_ValidCategory_SaveChangesAndReturnsIt()
         {
-            var category = new Eshop.Catalog.Models.Categories
+            var category = new CategoryDocument
             {
+                CategoryId = 1,
                 Title = "Title",
                 Description = "Description",
             };
-            _context.Categories.Add(category);
-            await _context.SaveChangesAsync();
+            await _context.Categories.InsertOneAsync(category);
             var dto = new CategoryUpdateDto
             {
                 Title = "Updated Title",
                 Description = "Updated Description",
             };
-            var result = await _sut.UpdateAsync(category.Id, dto, CancellationToken.None);
+            var result = await _sut.UpdateAsync(category.CategoryId, dto, CancellationToken.None);
             var returned = await _sut.GetByIdAsync(result.Value.Id, CancellationToken.None);
             returned.Should().NotBeNull();
             result.Errors.Any().Should().BeFalse();
@@ -99,15 +107,15 @@ namespace Eshop.Test
         [Fact]
         public async Task DeleteAsync_ValidCategory_SaveChangesAndReturnsTrue()
         {
-            var category = new Eshop.Catalog.Models.Categories
+            var category = new CategoryDocument
             {
+                CategoryId = 1,
                 Title = "Title",
                 Description = "Description",
             };
-            _context.Categories.Add(category);
-            await _context.SaveChangesAsync();
-            var result = await _sut.DeleteAsync(category.Id, CancellationToken.None);
-            var returned = await _sut.GetByIdAsync(category.Id, CancellationToken.None);
+            await _context.Categories.InsertOneAsync(category);
+            var result = await _sut.DeleteAsync(category.CategoryId, CancellationToken.None);
+            var returned = await _sut.GetByIdAsync(category.CategoryId, CancellationToken.None);
             returned.Should().BeNull();
             result.Errors.Any().Should().BeFalse();
             result.Value.Should().BeTrue();
@@ -125,16 +133,16 @@ namespace Eshop.Test
         [Fact]
         public async Task GetByIdAsync_ValidCategory_ReturnsIt()
         {
-            var category = new Eshop.Catalog.Models.Categories
+            var category = new CategoryDocument
             {
+                CategoryId = 1,
                 Title = "Title",
                 Description = "Description",
             };
-            _context.Categories.Add(category);
-            await _context.SaveChangesAsync();
-            var result = await _sut.GetByIdAsync(category.Id, CancellationToken.None);
+            await _context.Categories.InsertOneAsync(category);
+            var result = await _sut.GetByIdAsync(category.CategoryId, CancellationToken.None);
             result.Should().NotBeNull();
-            result.Id.Should().Be(category.Id);
+            result.Id.Should().Be(category.CategoryId);
         }
 
         [Fact]
@@ -147,18 +155,19 @@ namespace Eshop.Test
         [Fact]
         public async Task GetAllAsync_ReturnsAllCategories()
         {
-            var category1 = new Eshop.Catalog.Models.Categories
+            var category1 = new CategoryDocument
             {
+                CategoryId = 1,
                 Title = "Title1",
                 Description = "Description1",
             };
-            var category2 = new Eshop.Catalog.Models.Categories
+            var category2 = new CategoryDocument
             {
+                CategoryId = 2,
                 Title = "Title2",
                 Description = "Description2",
             };
-            _context.Categories.AddRange(category1, category2);
-            await _context.SaveChangesAsync();
+            await _context.Categories.InsertManyAsync(new List<CategoryDocument> { category1, category2 });
             var result = await _sut.GetAllAsync(CancellationToken.None);
             result.Should().NotBeNull();
             result.Count.Should().Be(2);

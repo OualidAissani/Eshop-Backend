@@ -13,6 +13,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using MongoDB.Driver.Linq;
+using MongoDB.Driver;
 using System.Net;
 using System.Reflection.Metadata;
 using System.Text;
@@ -28,6 +30,7 @@ namespace Eshop.Test
     {
         private readonly ProductService _sut;
         private readonly CatalogDbContext _context;
+        private readonly MongoCatalogContext _mongoContext;
         private readonly ILogger<ProductService> _logger;
         private readonly IConfiguration _configurations;
         private readonly IHttpClientFactory _httpClientFactory;
@@ -76,19 +79,24 @@ namespace Eshop.Test
                 })
                 .Build();
 
-            _mediaService = new MediaService(_context, _httpClientFactory, _configurations);
+            _mediaService = new MediaService(_httpClientFactory, _configurations);
 
             _loggerImposter = ILogger<ProductService>.Imposter();
             _logger = _loggerImposter.Instance();
-          
 
             _publishEndpointImposter = IPublishEndpoint.Imposter();
             _publish = _publishEndpointImposter.Instance();
 
-
-
-
-            _sut = new ProductService(_context, _mediaService, _logger, _configurations, _httpClientFactory, _publish);
+            var mongoClient = new MongoClient("mongodb://localhost:27017");
+            var mongoSettings = Microsoft.Extensions.Options.Options.Create(new MongoSettings
+            {
+                Database = $"test-{Guid.NewGuid()}",
+                ProductsCollection = "products",
+                CategoriesCollection = "categories",
+                CountersCollection = "counters"
+            });
+            _mongoContext = new MongoCatalogContext(mongoClient, mongoSettings);
+            _sut = new ProductService(_mongoContext, _mediaService, _logger, _configurations, _httpClientFactory, _publish);
         }
 
         public void Dispose()
@@ -105,7 +113,7 @@ namespace Eshop.Test
 
             var productCreateResult = await _sut.CreateProduct(productCreateDto, files, CancellationToken.None);
 
-            var fetchedProduct = _context.Products.Include(p => p.Media).FirstOrDefault(p => p.Id == productCreateResult.Value.Id);
+            var fetchedProduct = _mongoContext.Products.AsQueryable().FirstOrDefault(p => p.ProductId == productCreateResult.Value.Id);
 
             productCreateResult.IsSuccess.Should().BeTrue();
             fetchedProduct.Should().NotBeNull();
@@ -148,11 +156,11 @@ namespace Eshop.Test
                 Status = ProductStatus.Available,
                 Price = 911,
             };
-            
-               var productCreateResult = await _sut.CreateProduct(productCreateDto, null, CancellationToken.None);
 
-                productCreateResult.IsFailed.Should().BeTrue();
-                productCreateResult.Errors.First().Message.Should().Be("Atleast One Image Attached To The Product");
+            var productCreateResult = await _sut.CreateProduct(productCreateDto, null, CancellationToken.None);
+
+            productCreateResult.IsFailed.Should().BeTrue();
+            productCreateResult.Errors.First().Message.Should().Be("Atleast One Image Attached To The Product");
 
         }
 
@@ -166,7 +174,7 @@ namespace Eshop.Test
 
             var productCreateResult = await _sut.CreateProduct(productCreateDto, files, CancellationToken.None);
 
-            var updatedto = new ProductsUpdateDto
+            var updatedDto = new ProductsUpdateDto
             {
                 Title = "Updated Test",
                 Description = "Updated Description",
@@ -175,18 +183,18 @@ namespace Eshop.Test
                 Price = 1500,
             };
 
-            var updateResult=await _sut.UpdateProduct(productCreateResult.Value.Id,updatedto,files,CancellationToken.None);
+            var updateResult = await _sut.UpdateProduct(productCreateResult.Value.Id, updatedDto, files, CancellationToken.None);
 
-            var fetchedResult= _context.Products.Include(p => p.Media).FirstOrDefault(p => p.Id == productCreateResult.Value.Id);
+            var fetchedResult = _mongoContext.Products.AsQueryable().FirstOrDefault(p => p.ProductId == productCreateResult.Value.Id);
 
             updateResult.IsSuccess.Should().BeTrue();
             updateResult.Errors.Should().BeEmpty();
 
             _publishEndpointImposter
-                .Publish(Arg<UpdateCartProduct>.Is(s =>            
+                .Publish(Arg<UpdateCartProduct>.Is(s =>
                 s.ProductId == productCreateResult.Value.Id &&
-                s.ProductName == updatedto.Title&&
-                s.FullPrice == updatedto.Price),
+                s.ProductName == updatedDto.Title &&
+                s.FullPrice == updatedDto.Price),
             Arg<CancellationToken>.Any())
             .Called(Count.Once());
 
@@ -199,7 +207,7 @@ namespace Eshop.Test
             ProductCreateDto productCreateDto;
             List<IFormFile> files;
             ProductCreateDtoSetup(out productCreateDto, out files);
-            var updatedto = new ProductsUpdateDto
+            var updatedDto = new ProductsUpdateDto
             {
                 Title = "Updated Test",
                 Description = "Updated Description",
@@ -207,7 +215,7 @@ namespace Eshop.Test
                 Status = ProductStatus.Available,
                 Price = 1500,
             };
-            var updateResult = await _sut.UpdateProduct(12, updatedto, files, CancellationToken.None);
+            var updateResult = await _sut.UpdateProduct(12, updatedDto, files, CancellationToken.None);
             updateResult.IsFailed.Should().BeTrue();
             updateResult.Errors.First().Message.Should().Be("The product with Id 12 Not Found");
         }
@@ -221,7 +229,7 @@ namespace Eshop.Test
             var productCreateResult = await _sut.CreateProduct(productCreateDto, files, CancellationToken.None);
             var deleteResult = await _sut.DeleteProduct(productCreateResult.Value.Id, CancellationToken.None);
 
-            var fetchedResult=await _context.Products.FirstOrDefaultAsync(i=>i.Id==productCreateResult.Value.Id);
+            var fetchedResult = _mongoContext.Products.AsQueryable().FirstOrDefault(i => i.ProductId == productCreateResult.Value.Id);
 
             fetchedResult.Should().BeNull();
             deleteResult.IsSuccess.Should().BeTrue();
@@ -242,27 +250,28 @@ namespace Eshop.Test
             deleteResult.Errors.First().Message.Should().Be("The product with Id 12 Not Found");
         }
 
-        [Fact(Skip ="trigrams wont work for in-memory database")]
+        [Fact(Skip = "trigrams wont work for in-memory database")]
         public async Task ProductSearch_CloseSimiliarity_ReturnedExpectedProduct()
         {
-            var product1 = new Products
+            var product1 = new ProductDocument
             {
+                ProductId = 1,
                 Title = "Apple iPhone 13",
                 Description = "Latest model of iPhone with A15 Bionic chip",
                 Price = 999,
                 Status = ProductStatus.Available,
                 SpecialStatus = ProductSpecialStatus.New
             };
-            var product2 = new Products
+            var product2 = new ProductDocument
             {
+                ProductId = 2,
                 Title = "Samsung Galaxy S21",
                 Description = "Flagship Samsung phone with Exynos 2100",
                 Price = 799,
                 Status = ProductStatus.Available,
                 SpecialStatus = ProductSpecialStatus.New
             };
-            _context.Products.AddRange(product1, product2);
-            await _context.SaveChangesAsync();
+            await _mongoContext.Products.InsertManyAsync(new[] { product1, product2 });
             var searchResult = await _sut.ProductSearch("iPhone", CancellationToken.None);
 
             searchResult.Should().HaveCount(1);

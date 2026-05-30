@@ -11,6 +11,7 @@ namespace Eshop.Catalog.Dtos
         public ProductSpecialStatus SpecialStatus { get; set; }
         public int? DisplayOrder { get; set; } = 0;
         public List<int>? Categories { get; set; }
+    public Dictionary<string, string>? Attributes { get; set; }
 
     }
 }

@@ -13,5 +13,6 @@ namespace Eshop.Catalog.Dtos
         public int? DisplayOrder { get; set; }
         public List<MediaDto> Media { get; set; }
         public List<CategoryDto> Categories { get; set; }
+        public Dictionary<string, string> Attributes { get; set; }
     }
 }

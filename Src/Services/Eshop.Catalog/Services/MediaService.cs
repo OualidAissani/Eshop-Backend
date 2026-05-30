@@ -1,5 +1,4 @@
-﻿using Eshop.Catalog.Data;
-using Eshop.Catalog.Models;
+﻿using Eshop.Catalog.Models;
 using Eshop.Catalog.Services.IServices;
 using Microsoft.AspNetCore.Mvc;
 using System.IO;
@@ -12,14 +11,12 @@ namespace Eshop.Catalog.Services;
 
 public class MediaService : IMediaService
 {
-    private readonly CatalogDbContext _context;
     private readonly IHttpClientFactory _httpClientFactory;
     private const string MediaBaseUrl = "https://upload.uploadcare.com/base/";
     private const string Deleteurl = $"https://api.uploadcare.com/files/storage/";
     private readonly IConfiguration _configuration;
-    public MediaService(CatalogDbContext context, IHttpClientFactory httpClietnt,IConfiguration configuration)
+    public MediaService(IHttpClientFactory httpClietnt,IConfiguration configuration)
     {
-        _context = context;
         _configuration = configuration;
         _httpClientFactory = httpClietnt;
     }
@@ -53,10 +50,6 @@ public class MediaService : IMediaService
 
         media.Media = _configuration["UploadCare:UploadCareBaseUrl"] + uuid + $"/{fileName}";
         
-
-        _context.Media.Add(media);
-
-        await  _context.SaveChangesAsync(ct);
 
         return media;
     }

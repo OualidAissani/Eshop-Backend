@@ -1,4 +1,5 @@
 ﻿using Projects;
+using Aspire.Hosting.MongoDB;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
@@ -11,6 +12,9 @@ var Rabbitmq = builder.AddRabbitMQ("Rabbitmq")
      .WithManagementPlugin();
 
 var Redis = builder.AddRedis("redis")
+    .WithDataVolume();
+
+var Mongo = builder.AddMongoDB("mongo")
     .WithDataVolume();
 
 
@@ -31,6 +35,7 @@ var keycloakAuthority = ReferenceExpression.Create(
 var InventoryDb = Postgres.AddDatabase("InventoryDb");
 var OrderDb = Postgres.AddDatabase("OrderDb");
 var CatalogDb = Postgres.AddDatabase("CatalogDb");
+var CatalogMongoDb = Mongo.AddDatabase("CatalogMongoDb");
 var PaymentDb = Postgres.AddDatabase("PaymentDb");
 
 var Catalog =builder.AddProject<Eshop_Catalog>("catalogApi")
@@ -38,6 +43,7 @@ var Catalog =builder.AddProject<Eshop_Catalog>("catalogApi")
     .WithReference(Rabbitmq)
     .WaitFor(Rabbitmq)
     .WithReference(CatalogDb)
+    .WithReference(CatalogMongoDb)
     .WithReference(Redis)
     // Provide Keycloak settings the app expects
     .WithEnvironment("Keycloak__Authority", keycloakAuthority)

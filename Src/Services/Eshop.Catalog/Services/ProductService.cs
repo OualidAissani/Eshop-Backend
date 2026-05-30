@@ -5,20 +5,21 @@ using Eshop.Catalog.Services.IServices;
 using Eshop.Events;
 using FluentResults;
 using MassTransit;
-using Microsoft.EntityFrameworkCore;
+using MongoDB.Bson;
+using MongoDB.Driver;
 using Polly;
 
 namespace Eshop.Catalog.Services;
 
     public class ProductService: IProductService
     {
-        private readonly CatalogDbContext _context;
+        private readonly MongoCatalogContext _mongoContext;
         private readonly IMediaService _mediaService;
         private readonly ILogger<ProductService> _logger;
         private readonly IPublishEndpoint _publish;
 
         public ProductService(
-            CatalogDbContext context,
+            MongoCatalogContext mongoContext,
             IMediaService mediaService,
             ILogger<ProductService> logger,
             IConfiguration configurations,
@@ -26,23 +27,21 @@ namespace Eshop.Catalog.Services;
             IPublishEndpoint publish
             )
         {
-            _context = context;
+            _mongoContext = mongoContext;
             _mediaService = mediaService;
             _logger = logger;
             _publish = publish;
         }
         public async Task<List<ProductPriceDto>> GetProductPrice(List<int> ProductId, CancellationToken ct)
         {
-            return await _context
-                .Products
-                .Where(i => ProductId.Contains(i.Id))
-                .AsNoTracking()
-                .Select(i => new ProductPriceDto{
-                    Id = i.Id,
-                    Price = i.Price,
-                    Name=i.Title
-                })
-                .ToListAsync(ct);
+            var productFilter = Builders<ProductDocument>.Filter.In(p => p.ProductId, ProductId);
+            var products = await _mongoContext.Products.Find(productFilter).ToListAsync(ct);
+            return products.Select(i => new ProductPriceDto
+            {
+                Id = i.ProductId,
+                Price = i.Price,
+                Name = i.Title
+            }).ToList();
         }
 
         public async Task<Result<ProductDto>> CreateProduct(ProductCreateDto product, List<IFormFile> formFile, CancellationToken ct)
@@ -54,117 +53,79 @@ namespace Eshop.Catalog.Services;
                 return Result.Fail<ProductDto>("Atleast One Image Attached To The Product");
             }
 
-            var strategy = _context.Database.CreateExecutionStrategy();
+            var productId = await GetNextProductId(ct);
+            var categories = await GetCategoriesByIds(product.Categories, ct);
 
-            return await strategy.ExecuteAsync(async () =>
+            var productDocument = new ProductDocument
             {
-                var productobj = new Products()
+                ProductId = productId,
+                Title = product.Title,
+                Description = product.Description,
+                Price = product.Price,
+                Status = product.Status,
+                SpecialStatus = product.SpecialStatus,
+                DisplayOrder = product.DisplayOrder,
+                Categories = categories,
+                Attributes = product.Attributes ?? new Dictionary<string, string>()
+            };
+
+            var mediaItems = new List<ProductMediaItem>();
+            foreach (var file in formFile)
+            {
+                using var stream = file.OpenReadStream();
+                var media = new ProductMedia
                 {
-                    Title= product.Title,
-                    Description= product.Description,
-                    Price= product.Price,
-                    Status= product.Status,
-                    SpecialStatus= product.SpecialStatus,
-                    DisplayOrder= product.DisplayOrder,
+                    Description = product.Description
                 };
 
-                if(product.Categories!=null && product.Categories.Count>0)
+                var createdMedia = await _mediaService.CreateMedia(media, stream, file.ContentType ?? "application/octet-stream", file.FileName, ct);
+                mediaItems.Add(new ProductMediaItem
                 {
-                    var categories = await _context.Categories.Where(c => product.Categories.Contains(c.Id)).ToListAsync(ct);
-                    productobj.Categories = categories;
-                }
+                    Media = createdMedia.Media,
+                    Description = createdMedia.Description
+                });
+            }
 
-                _context.Products.Add(productobj);
+            productDocument.Media = mediaItems;
 
-                var result = await _context.SaveChangesAsync(ct);
-                if (result == 0)
-                {
-                    return Result.Fail<ProductDto>("Failed To Create Product");
-                }
+            await _mongoContext.Products.InsertOneAsync(productDocument, cancellationToken: ct);
 
-                var response = new ProductCreateResponseDto()
-                {
-                    Id = productobj.Id,
-                    Description = productobj.Description
-                };
-
-                var media = new ProductMedia()
-                {
-                    ProductId = productobj.Id,
-                    Description = productobj.Description
-                };
-
-                foreach (var file in formFile)
-                {
-                    using var stream = file.OpenReadStream();
-
-                    await _mediaService.CreateMedia(media, stream, file.ContentType ?? "application/octet-stream", file.FileName, ct);
-
-                }
-
-                var currentProduct = await GetProductById(productobj.Id,ct);
-
-                return currentProduct;
-            });
+            return ToProductDto(productDocument);
         }
 
-        public async Task<Result<ProductDto>> UpdateProduct(int ProductId,ProductsUpdateDto productDto,List<IFormFile>? formFile,CancellationToken ct,bool ImageAppend=false)
+        public async Task<Result<ProductDto>> UpdateProduct(int ProductId, ProductsUpdateDto productDto, List<IFormFile>? formFile, CancellationToken ct, bool ImageAppend = false)
         {
 
-            var product = await _context.Products
-                .Include(i => i.Categories)
-                .Include(m=>m.Media)
-                .AsSplitQuery()
-                .FirstOrDefaultAsync(i => i.Id == ProductId, ct);
+            var product = await _mongoContext.Products
+                .Find(i => i.ProductId == ProductId)
+                .FirstOrDefaultAsync(ct);
 
             if (product == null)
             {
                 return Result.Fail<ProductDto>($"The product with Id {ProductId} Not Found");
             }
 
-            var strategy =  _context.Database.CreateExecutionStrategy();
-
-            return await strategy.ExecuteAsync(async () =>
+            if (!ImageAppend && formFile != null && formFile.Count > 0)
             {
+                await DeleteOldProductMedia(product, ct);
+            }
 
-                await using var tx = await _context.Database.BeginTransactionAsync(ct);
-                if (!ImageAppend)
-                {
-                    if (formFile != null && formFile.Count > 0)
-                    {
-                        await DeleteOldProductMedia(ProductId, product, ct);
-                    }
+            await UpdateProductDocument(ProductId, productDto, formFile, product, ImageAppend, ct);
 
-                    await Update(ProductId, productDto, formFile, product, false, ct);
-                }
-                else
-                {
-                    await Update(ProductId, productDto, formFile, product, true, ct);
-                }
+            var updateResult = await _mongoContext.Products.ReplaceOneAsync(
+                p => p.ProductId == ProductId,
+                product,
+                new ReplaceOptions { IsUpsert = false },
+                ct);
 
-                var result = await _context.SaveChangesAsync(ct);
+            if (updateResult.ModifiedCount == 0 && updateResult.MatchedCount == 0)
+            {
+                return Result.Fail<ProductDto>("Failed To Update Product");
+            }
 
-                if (result == 0)
-                {
-                    return Result.Fail<ProductDto>("Failed To Update Product");
-                }
+            await _publish.Publish(new UpdateCartProduct(product.ProductId, product.Title, product.Price));
 
-                await _publish.Publish(new UpdateCartProduct(product.Id, product.Title, product.Price));
-
-                await _context.SaveChangesAsync(ct);
-
-                await tx.CommitAsync(ct);
-
-                return new ProductDto()
-                {
-                    Id = ProductId,
-                    Description = product.Description,
-                    Title = product.Title,
-                    Price = product.Price,
-                    Categories = product.Categories.Select(c => new CategoryDto { Id = c.Id, Name = c.Title, Description = c.Description }).ToList() ?? new List<CategoryDto>(),
-                    Media = product.Media.Select(c => new MediaDto { MediaUrl = c.Media }).ToList() ?? new List<MediaDto>()
-                };
-            });
+            return ToProductDto(product);
         }
 
 
@@ -174,40 +135,29 @@ namespace Eshop.Catalog.Services;
             {
                 throw new ArgumentException("Product Id is not valid");
             }
-            var product = await _context
-                .Products
-                .Include(i => i.Media)
-                .Where(I => I.Id == productId)
+            var product = await _mongoContext.Products
+                .Find(i => i.ProductId == productId)
                 .FirstOrDefaultAsync(ct);
 
             if (product == null)
             {
                 return Result.Fail<bool>($"The product with Id {productId} Not Found");
             }
-            var strategy = _context.Database.CreateExecutionStrategy();
-
-            return await strategy.ExecuteAsync(async () =>
+            var media = await Task.WhenAll(product.Media.Select(s => _mediaService.DeleteMedia(s.Media, ct)));
+            if (media.Any(r => !r))
             {
-                await using var tx = await _context.Database.BeginTransactionAsync(ct);
+                return Result.Fail<bool>("There Was An Issue Deleting The Product");
+            }
 
-                var media = await Task.WhenAll(product.Media.Select(s => _mediaService.DeleteMedia(s.Media,ct)));
+            var deleteResult = await _mongoContext.Products.DeleteOneAsync(i => i.ProductId == productId, ct);
+            if (deleteResult.DeletedCount == 0)
+            {
+                return Result.Fail<bool>("There Was An Issue Deleting The Product");
+            }
 
-                _context.Products.Remove(product);
+            await _publish.Publish(new DeleteCartProduct(productId));
 
-                var result = await _context.SaveChangesAsync(ct);
-
-                if(result == 0)
-                {
-                    return Result.Fail<bool>("There Was An Issue Deleting The Product");
-                }
-                await _publish.Publish(new DeleteCartProduct(productId));
-
-                await _context.SaveChangesAsync(ct);
-
-                await tx.CommitAsync(ct);
-
-                return true;
-            });
+            return true;
         }
 
         public async Task<Result<ProductDto>> DeleteProductReturnOldProduct(int productId, CancellationToken ct)
@@ -216,174 +166,104 @@ namespace Eshop.Catalog.Services;
             {
                 throw new ArgumentException("Product Id is not valid");
             }
-            var product = await _context.Products.Include(i => i.Media).Include(c => c.Categories).AsSplitQuery().Where(I => I.Id == productId).FirstOrDefaultAsync(ct);
+            var product = await _mongoContext.Products
+                .Find(i => i.ProductId == productId)
+                .FirstOrDefaultAsync(ct);
             if (product == null)
             {
                 return Result.Fail<ProductDto>($"The product with Id {productId} Not Found");
             }
-            var strategy = _context.Database.CreateExecutionStrategy();
-
-            return await strategy.ExecuteAsync(async () =>
+            var media = await Task.WhenAll(product.Media.Select(s => _mediaService.DeleteMedia(s.Media, ct)));
+            if (media.Any(r => !r))
             {
-                await using var tx = await _context.Database.BeginTransactionAsync(ct);
+                return Result.Fail<ProductDto>("There Was An Issue Deleting The Product");
+            }
 
-                var media = await Task.WhenAll(product.Media.Select(s => _mediaService.DeleteMedia(s.Media, ct)));
-                _context.Products.Remove(product);
+            var deleteResult = await _mongoContext.Products.DeleteOneAsync(i => i.ProductId == productId, ct);
+            if (deleteResult.DeletedCount == 0)
+            {
+                return Result.Fail<ProductDto>("There Was An Issue Deleting The Product");
+            }
 
-                var result = await _context.SaveChangesAsync(ct);
-                if (result == 0)
-                {
-                    return Result.Fail<ProductDto>("There Was An Issue Deleting The Product");
-                }
-                await _publish.Publish(new DeleteCartProduct(productId));
+            await _publish.Publish(new DeleteCartProduct(productId));
 
-                await _context.SaveChangesAsync(ct);
-                await tx.CommitAsync(ct);
-                return new ProductDto
-                {
-                    Id = product.Id,
-                    Title = product.Title,
-                    Status = product.Status,
-                    SpecialStatus = product.SpecialStatus,
-                    Description = product.Description,
-                    DisplayOrder = product.DisplayOrder,
-                    Price = product.Price,
-                    Categories = product.Categories.Select(c => new CategoryDto { Id = c.Id, Description = c.Description, Name = c.Title }).ToList()
-
-                };
-
-            });
+            return ToProductDto(product);
         }
 
         public async Task<ProductDto> GetProductById(int productId, CancellationToken ct)
         {
-            return await _context.Products
-                .Select(i => new ProductDto
-                {
-                    Id = i.Id,
-                    Title = i.Title,
-                    Status = i.Status,
-                    SpecialStatus = i.SpecialStatus,
-                    Description = i.Description,
-                    DisplayOrder = i.DisplayOrder,
-                    Price = i.Price,
-                    Media = i.Media.Select(m => new MediaDto { MediaUrl = m.Media }).ToList(),
-                    Categories = i.Categories.Select(c => new CategoryDto { Id = c.Id, Description = c.Description, Name = c.Title }).ToList()
+            var product = await _mongoContext.Products
+                .Find(p => p.ProductId == productId)
+                .FirstOrDefaultAsync(ct);
 
-                })
-                .FirstOrDefaultAsync(p => p.Id == productId,ct);
+            return product == null ? null : ToProductDto(product);
         }
 
         public async Task<List<ProductDto>> GetAllProducts(CancellationToken ct)
         {
-            return await _context.Products
-                .Select(i => new ProductDto
-                {
-                    Id = i.Id,
-                    Title = i.Title,
-                    Status = i.Status,
-                    SpecialStatus = i.SpecialStatus,
-                    Description = i.Description,
-                    DisplayOrder = i.DisplayOrder,
-                    Price = i.Price,
-                    Media = i.Media.Select(m => new MediaDto { MediaUrl = m.Media }).ToList(),
-                    Categories = i.Categories.Select(c => new CategoryDto { Id = c.Id, Description = c.Description, Name = c.Title }).ToList()
-
-                })
-                .OrderBy(d => d.DisplayOrder == null ? d.Id : d.DisplayOrder)
+            var products = await _mongoContext.Products
+                .Find(FilterDefinition<ProductDocument>.Empty)
+                .SortBy(d => d.DisplayOrder == null ? d.ProductId : d.DisplayOrder)
                 .ToListAsync(ct);
+            return products.Select(ToProductDto).ToList();
         }
 
         public async Task<List<ProductDto>> GetProductsByCategory(int categoryId, CancellationToken ct)
         {
-            return await _context.Products
-                .Where(c => c.Categories.Any(cat => cat.Id == categoryId))
-                .Select(i => new ProductDto
-            {
-                Id = i.Id,
-                Title = i.Title,
-                Status = i.Status,
-                SpecialStatus = i.SpecialStatus,
-                Description = i.Description,
-                DisplayOrder = i.DisplayOrder,
-                Price = i.Price,
-                Media = i.Media.Select(m => new MediaDto { MediaUrl = m.Media }).ToList(),
-                Categories = i.Categories.Select(c => new CategoryDto { Id = c.Id, Description = c.Description, Name = c.Title }).ToList()
-
-            })
-                .OrderBy(d => d.DisplayOrder == null ? d.Id : d.DisplayOrder)
+            var filter = Builders<ProductDocument>.Filter.ElemMatch(p => p.Categories, c => c.Id == categoryId);
+            var products = await _mongoContext.Products
+                .Find(filter)
+                .SortBy(d => d.DisplayOrder == null ? d.ProductId : d.DisplayOrder)
                 .ToListAsync(ct);
+            return products.Select(ToProductDto).ToList();
         }
 
         public async Task<List<ProductDto>> ProductSearch(string tag,CancellationToken ct)
         {
-           return await _context.Products
-                .Include(i=>i.Categories)
-                .AsNoTracking()
-                .AsSplitQuery()
-                .Where(p=>
-                    (EF.Functions.TrigramsSimilarity(p.Description,tag)>0.3)
-                ||  (EF.Functions.TrigramsSimilarity(p.Title,tag)>0.3)
-                ||  (p.Categories.Any(i=>EF.Functions.TrigramsSimilarity(i.Title,tag)>0.3))
-                ||  (p.Categories.Any(i => EF.Functions.TrigramsSimilarity(i.Description, tag)>0.3)))
-                .Select(i=> new ProductDto
-                {
-                    Id = i.Id,
-                    Title = i.Title,
-                    Status = i.Status,
-                    SpecialStatus = i.SpecialStatus,
-                    Description = i.Description,
-                    DisplayOrder = i.DisplayOrder,
-                    Price = i.Price,
-                    Media = i.Media.Select(m => new MediaDto { MediaUrl = m.Media }).ToList(),
-                    Categories = i.Categories.Select(c => new CategoryDto { Id = c.Id, Description = c.Description, Name = c.Title }).ToList()
-                })
-                .ToListAsync(ct);
+           var regex = new BsonRegularExpression(tag, "i");
+           var filterBuilder = Builders<ProductDocument>.Filter;
+           var filter = filterBuilder.Or(
+               filterBuilder.Regex(p => p.Title, regex),
+               filterBuilder.Regex(p => p.Description, regex),
+               filterBuilder.ElemMatch(
+                   p => p.Categories,
+                   c => c.Title != null && c.Title.ToLower().Contains(tag.ToLower())),
+               filterBuilder.ElemMatch(
+                   p => p.Categories,
+                   c => c.Description != null && c.Description.ToLower().Contains(tag.ToLower())));
+
+           var results = await _mongoContext.Products.Find(filter).ToListAsync(ct);
+           return results.Select(ToProductDto).ToList();
         }
 
         public async Task<PaginatedResult<ProductDto>> GetProductsAsync(PaginationParams paging, CancellationToken ct)
         {
             paging.Validate();
 
-            var query = _context.Products.AsQueryable();
+            var filter = paging.LastId.HasValue
+                ? Builders<ProductDocument>.Filter.Gt(p => p.ProductId, paging.LastId.Value)
+                : FilterDefinition<ProductDocument>.Empty;
 
-            int total = await query.CountAsync();
-
-            if (paging.LastId.HasValue)
-            {
-                query = query.Where(p => p.Id > paging.LastId.Value);
-            }
-
-            var items = await query.Select(i => new ProductDto
-            {
-               Id=i.Id,
-               Title= i.Title,
-               Status= i.Status,
-               SpecialStatus= i.SpecialStatus,
-               Description= i.Description,
-               DisplayOrder= i.DisplayOrder,
-               Price= i.Price,
-               Media= i.Media.Select(m => new MediaDto {MediaUrl=m.Media}).ToList(),
-               Categories=i.Categories.Select(c=> new CategoryDto {Id=c.Id,Description=c.Description,Name=c.Title }).ToList()
-
-            })
-            .OrderBy(p=>p.Id)
-            .Take(paging.PageSize+1)
-            .ToListAsync(ct);
+            var total = await _mongoContext.Products.CountDocumentsAsync(FilterDefinition<ProductDocument>.Empty, cancellationToken: ct);
+            var items = await _mongoContext.Products
+                .Find(filter)
+                .SortBy(p => p.ProductId)
+                .Limit(paging.PageSize + 1)
+                .ToListAsync(ct);
 
             int? nextCursor = null;
             if (items.Count > paging.PageSize)
             {
                 items.RemoveAt(items.Count - 1);
-                nextCursor = items[^1].Id;
+                nextCursor = items[^1].ProductId;
             }
 
             return new PaginatedResult<ProductDto>
             {
-                Items = items,
+                Items = items.Select(ToProductDto).ToList(),
                 PageSize = paging.PageSize,
                 NextCursor= nextCursor,
-                Total = total
+                Total = (int)total
             };
         }
 
@@ -394,7 +274,9 @@ namespace Eshop.Catalog.Services;
                throw new ArgumentException("Product or Category isnt valid");
             }
 
-            var product=await _context.Products.Include(p => p.Categories).FirstOrDefaultAsync(p => p.Id == productId,ct);
+            var product = await _mongoContext.Products
+                .Find(p => p.ProductId == productId)
+                .FirstOrDefaultAsync(ct);
 
             if (product == null)
             {
@@ -406,15 +288,26 @@ namespace Eshop.Catalog.Services;
                 return true;
             }
 
-            var category = await _context.Categories.FindAsync(new object[] { categoryId }, ct);
+            var category = await _mongoContext.Categories.Find(i => i.CategoryId == categoryId).FirstOrDefaultAsync(ct);
             if (category == null)
             {
                 return Result.Fail($"Category with id {categoryId} not found");
             }
 
-            product.Categories.Add(category);
+            product.Categories.Add(new CategoryItem
+            {
+                Id = category.CategoryId,
+                Title = category.Title,
+                Description = category.Description
+            });
 
-            if (await _context.SaveChangesAsync(ct) == 0)
+            var updateResult = await _mongoContext.Products.ReplaceOneAsync(
+                p => p.ProductId == productId,
+                product,
+                new ReplaceOptions { IsUpsert = false },
+                ct);
+
+            if (updateResult.ModifiedCount == 0 && updateResult.MatchedCount == 0)
             {
                 return Result.Fail("Failed to assign product to category");
             }
@@ -425,31 +318,44 @@ namespace Eshop.Catalog.Services;
 
 
 
-        private async Task Update(int ProductId,ProductsUpdateDto productDto, List<IFormFile>? formFile, Products product,bool ImageAppend, CancellationToken ct)
+        private async Task UpdateProductDocument(int ProductId, ProductsUpdateDto productDto, List<IFormFile>? formFile, ProductDocument product, bool imageAppend, CancellationToken ct)
         {
             if (productDto.CategoriesId != null && productDto.CategoriesId.Count > 0)
             {
-                var categories = await _context.Categories
-                    .Where(c => productDto.CategoriesId.Contains(c.Id))
+                var categories = await _mongoContext.Categories
+                    .Find(c => productDto.CategoriesId.Contains(c.CategoryId))
                     .ToListAsync(ct);
 
-                product.Categories = categories;
-            }
-        if (formFile != null && formFile.Count()>0)
-        {
-            foreach (var file in formFile)
-            {
-                var media = new ProductMedia()
+                product.Categories = categories.Select(c => new CategoryItem
                 {
-                    ProductId = ProductId,
-                    Description = productDto.Description
-                };
-                using var stream = file.OpenReadStream();
-
-                await _mediaService.CreateMedia(media, stream, file.ContentType ?? "application/octet-stream", file.FileName, ct);
-
+                    Id = c.CategoryId,
+                    Title = c.Title,
+                    Description = c.Description
+                }).ToList();
             }
-        }
+
+            if (formFile != null && formFile.Count > 0)
+            {
+                if (!imageAppend)
+                {
+                    product.Media.Clear();
+                }
+                foreach (var file in formFile)
+                {
+                    var media = new ProductMedia
+                    {
+                        Description = productDto.Description ?? product.Description
+                    };
+                    using var stream = file.OpenReadStream();
+
+                    var createdMedia = await _mediaService.CreateMedia(media, stream, file.ContentType ?? "application/octet-stream", file.FileName, ct);
+                    product.Media.Add(new ProductMediaItem
+                    {
+                        Media = createdMedia.Media,
+                        Description = createdMedia.Description
+                    });
+                }
+            }
 
             product.Title = productDto.Title ?? product.Title;
             product.Description = productDto.Description ?? product.Description;
@@ -457,11 +363,14 @@ namespace Eshop.Catalog.Services;
             product.Status = productDto.Status;
             product.SpecialStatus = productDto.SpecialStatus;
             product.DisplayOrder = productDto.DisplayOrder ?? product.DisplayOrder;
+            if (productDto.Attributes != null)
+            {
+                product.Attributes = productDto.Attributes;
+            }
         }
 
-        private async Task DeleteOldProductMedia(int ProductId, Products product, CancellationToken ct)
+        private async Task DeleteOldProductMedia(ProductDocument product, CancellationToken ct)
         {
-
             var mediaRetryPolicy = Policy
                 .Handle<InvalidOperationException>()
                 .Or<HttpRequestException>()
@@ -475,16 +384,74 @@ namespace Eshop.Catalog.Services;
 
             await mediaRetryPolicy.ExecuteAsync(async () =>
             {
+                var deletionResult = await Task.WhenAll(product.Media.Select(m => _mediaService.DeleteMedia(m.Media, ct)));
 
-                var DeletionResult = await Task.WhenAll(_context.Media.Where(m=>m.ProductId == ProductId)
-                                             .Select(i => _mediaService.DeleteMedia(i.Media, ct))
-                                             .ToList());
-
-                if (!DeletionResult.All(r => r))
+                if (!deletionResult.All(r => r))
                 {
                     throw new InvalidOperationException("The Media Deletion Process Failed");
                 }
             });
+        }
+
+        private async Task<List<CategoryItem>> GetCategoriesByIds(List<int>? categoryIds, CancellationToken ct)
+        {
+            if (categoryIds == null || categoryIds.Count == 0)
+            {
+                return new List<CategoryItem>();
+            }
+
+            var categories = await _mongoContext.Categories
+                .Find(c => categoryIds.Contains(c.CategoryId))
+                .ToListAsync(ct);
+
+            return categories.Select(c => new CategoryItem
+            {
+                Id = c.CategoryId,
+                Title = c.Title,
+                Description = c.Description
+            }).ToList();
+        }
+
+        private ProductDto ToProductDto(ProductDocument product)
+        {
+            return new ProductDto
+            {
+                Id = product.ProductId,
+                Title = product.Title,
+                Status = product.Status,
+                SpecialStatus = product.SpecialStatus,
+                Description = product.Description,
+                DisplayOrder = product.DisplayOrder,
+                Price = product.Price,
+                Media = product.Media.Select(m => new MediaDto { MediaUrl = m.Media }).ToList(),
+                Categories = product.Categories.Select(c => new CategoryDto
+                {
+                    Id = c.Id,
+                    Description = c.Description,
+                    Name = c.Title
+                }).ToList(),
+                Attributes = product.Attributes ?? new Dictionary<string, string>()
+            };
+        }
+
+        private async Task<int> GetNextProductId(CancellationToken ct)
+        {
+            var update = Builders<CounterDocument>.Update.Inc(c => c.Value, 1);
+            var options = new FindOneAndUpdateOptions<CounterDocument, CounterDocument>
+            {
+                IsUpsert = true,
+                ReturnDocument = ReturnDocument.After
+            };
+
+            // No-op patch placeholder before explicit type annotation for FindOneAndUpdateAsync.
+            CounterDocument counter = await _mongoContext.Counters
+                .FindOneAndUpdateAsync<CounterDocument, CounterDocument>(
+                    c => c.Name == "products",
+                    update,
+                    options,
+                    ct);
+
+            return counter.Value;
         }
 
     }

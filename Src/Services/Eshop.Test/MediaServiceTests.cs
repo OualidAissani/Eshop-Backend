@@ -38,7 +38,7 @@ public class MediaServiceTests : IDisposable
             })
             .Build();
 
-        _sut = new MediaService(_context, factoryImposter.Instance(), config);
+        _sut = new MediaService(factoryImposter.Instance(), config);
     }
 
     public void Dispose() => _context.Dispose();

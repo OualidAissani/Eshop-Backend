@@ -12,9 +12,9 @@ EXPOSE 8081
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
-COPY ["Eshop.Orders/Eshop.Orders.csproj", "Eshop.Orders/"]
+COPY ["Src/Services/Eshop.Orders/Eshop.Orders.csproj", "Eshop.Orders/"]
 RUN dotnet restore "./Eshop.Orders/Eshop.Orders.csproj"
-COPY . .
+COPY ["Src/Services/", "."]
 WORKDIR "/src/Eshop.Orders"
 RUN dotnet build "./Eshop.Orders.csproj" -c $BUILD_CONFIGURATION -o /app/build
 

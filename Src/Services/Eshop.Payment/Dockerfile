@@ -1,4 +1,4 @@
-# See https://aka.ms/customizecontainer to learn how to customize your debug container and how Visual Studio uses this Dockerfile to build your images for faster debugging.
+﻿# See https://aka.ms/customizecontainer to learn how to customize your debug container and how Visual Studio uses this Dockerfile to build your images for faster debugging.
 
 # This stage is used when running from VS in fast mode (Default for Debug configuration)
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
@@ -12,9 +12,9 @@ EXPOSE 8081
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
-COPY ["Eshop.Payment/Eshop.Payment.csproj", "Eshop.Payment/"]
+COPY ["Src/Services/Eshop.Payment/Eshop.Payment.csproj", "Eshop.Payment/"]
 RUN dotnet restore "./Eshop.Payment/Eshop.Payment.csproj"
-COPY . .
+COPY ["Src/Services/", "."]
 WORKDIR "/src/Eshop.Payment"
 RUN dotnet build "./Eshop.Payment.csproj" -c $BUILD_CONFIGURATION -o /app/build
 

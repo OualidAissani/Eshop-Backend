@@ -7,16 +7,17 @@ WORKDIR /app
 EXPOSE 8080
 EXPOSE 8081
 
-
 # This stage is used to build the service project
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
-COPY ["Eshop.Catalog/Eshop.Catalog.csproj", "Eshop.Catalog/"]
-COPY ["Eshop.Events/Eshop.Events.csproj", "Eshop.Events/"]
+
+COPY ["Src/Services/Eshop.Catalog/Eshop.Catalog.csproj", "Eshop.Catalog/"]
+COPY ["Src/Services/Eshop.Events/Eshop.Events.csproj", "Eshop.Events/"]
 RUN dotnet restore "./Eshop.Catalog/Eshop.Catalog.csproj"
-COPY . .
-WORKDIR "/Src/Services/Eshop.Catalog"
+
+COPY ["Src/Services/", "."]
+WORKDIR "/src/Eshop.Catalog"
 RUN dotnet build "./Eshop.Catalog.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 # This stage is used to publish the service project to be copied to the final stage

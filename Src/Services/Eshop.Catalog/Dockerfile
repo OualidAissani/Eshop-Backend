@@ -1,4 +1,4 @@
-# See https://aka.ms/customizecontainer to learn how to customize your debug container and how Visual Studio uses this Dockerfile to build your images for faster debugging.
+﻿# See https://aka.ms/customizecontainer to learn how to customize your debug container and how Visual Studio uses this Dockerfile to build your images for faster debugging.
 
 # This stage is used when running from VS in fast mode (Default for Debug configuration)
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
@@ -14,10 +14,9 @@ ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 COPY ["Eshop.Catalog/Eshop.Catalog.csproj", "Eshop.Catalog/"]
 COPY ["Eshop.Events/Eshop.Events.csproj", "Eshop.Events/"]
-COPY ["Eshop.ServiceDefaults/Eshop.ServiceDefaults.csproj", "Eshop.ServiceDefaults/"]
 RUN dotnet restore "./Eshop.Catalog/Eshop.Catalog.csproj"
 COPY . .
-WORKDIR "/src/Eshop.Catalog"
+WORKDIR "/Src/Services/Eshop.Catalog"
 RUN dotnet build "./Eshop.Catalog.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 # This stage is used to publish the service project to be copied to the final stage

@@ -7,7 +7,6 @@
   <Folder Name="/Src/" />
   <Folder Name="/Src/Services/">
     <Project Path="Eshop.AppHost/Eshop.AppHost.csproj" Id="36452f43-a9a8-4aa5-9a61-d94467a156f5" />
-    <Project Path="Eshop.AspireTests/Eshop.AspireTests.csproj" Id="0fe978a0-7fc5-4592-9997-50e535e91f19" />
     <Project Path="Eshop.Catalog/Eshop.Catalog.csproj" />
     <Project Path="Eshop.Events/Eshop.Events.csproj" />
     <Project Path="Eshop.Frontend/" Type="Website" DisplayName="Eshop.Frontend">

@@ -1,9 +1,7 @@
-﻿using Eshop.Catalog.Data;
-using Eshop.Catalog.Models;
+﻿using Eshop.Catalog.Models;
 using Eshop.Catalog.Services;
 using FluentAssertions;
 using Imposter.Abstractions;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using System.Net;
 using Xunit;
@@ -12,17 +10,11 @@ namespace Eshop.Test;
 
 public class MediaServiceTests : IDisposable
 {
-    private readonly CatalogDbContext _context;
     private readonly FakeHttpMessageHandler _handler;
     private readonly MediaService _sut;
 
     public MediaServiceTests()
     {
-        var options = new DbContextOptionsBuilder<CatalogDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options;
-        _context = new CatalogDbContext(options);
-
         _handler = new FakeHttpMessageHandler();
 
         var factoryImposter = IHttpClientFactory.Imposter();
@@ -41,12 +33,12 @@ public class MediaServiceTests : IDisposable
         _sut = new MediaService(factoryImposter.Instance(), config);
     }
 
-    public void Dispose() => _context.Dispose();
+    public void Dispose() { }
 
     #region CreateMedia
 
     [Fact]
-    public async Task CreateMedia_UploadsFileAndPersistsToDatabase()
+    public async Task CreateMedia_UploadsFileAndReturnsMedia()
     {
         _handler.When(HttpMethod.Post, "upload.uploadcare.com", () =>
             new HttpResponseMessage(HttpStatusCode.OK)
@@ -54,18 +46,16 @@ public class MediaServiceTests : IDisposable
                 Content = new StringContent("""{"file":"abc-123-uuid"}""")
             });
 
-        var media = new ProductMedia { ProductId = 1, Description = "Test image" };
+        var media = new ProductMediaItem { Description = "Test image" };
         using var stream = new MemoryStream([0x89, 0x50, 0x4E, 0x47]);
 
         var result = await _sut.CreateMedia(media, stream, "image/png", "test.png", CancellationToken.None);
 
         result.Media.Should().Be("https://ucarecdn.com/abc-123-uuid");
 
-        var saved = await _context.Media.FirstOrDefaultAsync();
-        saved.Should().NotBeNull();
-        saved!.Media.Should().Be("https://ucarecdn.com/abc-123-uuid");
-        saved.ProductId.Should().Be(1);
-        saved.Description.Should().Be("Test image");
+        result.Should().NotBeNull();
+        result.Media.Should().Be("https://ucarecdn.com/abc-123-uuid");
+        result.Description.Should().Be("Test image");
     }
 
     [Fact]
@@ -77,7 +67,7 @@ public class MediaServiceTests : IDisposable
                 Content = new StringContent("""{"file":"xyz-uuid"}""")
             });
 
-        var media = new ProductMedia { ProductId = 2, Description = "Product shot" };
+        var media = new ProductMediaItem { Description = "Product shot" };
         using var stream = new MemoryStream([0x01]);
 
         var result = await _sut.CreateMedia(media, stream, "image/jpeg", "photo.jpg", CancellationToken.None);
@@ -92,7 +82,7 @@ public class MediaServiceTests : IDisposable
         _handler.When(HttpMethod.Post, "upload.uploadcare.com", () =>
             new HttpResponseMessage(HttpStatusCode.BadRequest));
 
-        var media = new ProductMedia { ProductId = 1, Description = "Test image" };
+        var media = new ProductMediaItem { Description = "Test image" };
         using var stream = new MemoryStream([0x01]);
 
         var act = async () => await _sut.CreateMedia(media, stream, "image/png", "fail.png", CancellationToken.None);
@@ -101,18 +91,17 @@ public class MediaServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task CreateMedia_WhenUploadFails_DoesNotPersistToDatabase()
+    public async Task CreateMedia_WhenUploadFails_DoesNotReturnMedia()
     {
         _handler.When(HttpMethod.Post, "upload.uploadcare.com", () =>
             new HttpResponseMessage(HttpStatusCode.InternalServerError));
 
-        var media = new ProductMedia { ProductId = 1, Description = "Test" };
+        var media = new ProductMediaItem { Description = "Test" };
         using var stream = new MemoryStream([0x01]);
 
         try { await _sut.CreateMedia(media, stream, "image/png", "fail.png", CancellationToken.None); } catch { }
 
-        var count = await _context.Media.CountAsync();
-        count.Should().Be(0);
+        media.Media.Should().BeNull();
     }
 
     #endregion

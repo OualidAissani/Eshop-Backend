@@ -90,7 +90,6 @@ builder.Services.AddAuthorizationBuilder();
 
 var app = builder.Build();
 
-MigrateDatabase();
 
 app.MapDefaultEndpoints();
 
@@ -116,9 +115,10 @@ app.MapControllers();
 
 app.Run();
 
-void MigrateDatabase()
+void EnsureOutboxDatabase()
 {
     using var scope = app.Services.CreateScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
-    dbContext.Database.Migrate();
+    dbContext.Database.EnsureCreated();
 }
+

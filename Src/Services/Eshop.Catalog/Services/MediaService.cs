@@ -20,7 +20,7 @@ public class MediaService : IMediaService
         _configuration = configuration;
         _httpClientFactory = httpClietnt;
     }
-    public async Task<ProductMedia> CreateMedia(ProductMedia media, Stream fileStream, string contentType, string fileName, CancellationToken ct)
+    public async Task<ProductMediaItem> CreateMedia(ProductMediaItem media, Stream fileStream, string contentType, string fileName, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(media);
         ArgumentNullException.ThrowIfNull(fileStream);

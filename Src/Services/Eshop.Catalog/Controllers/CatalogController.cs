@@ -58,7 +58,8 @@ public class CatalogController : ControllerBase
 
         if (cached != null)
         {
-            return CreatedAtAction(nameof(GetProductById), new { id = JsonSerializer.Deserialize<Products>(cached)?.Id },JsonSerializer.Deserialize<Products>(cached) ?? null);
+            var cachedProduct = JsonSerializer.Deserialize<ProductDto>(cached);
+            return CreatedAtAction(nameof(GetProductById), new { id = cachedProduct?.Id }, cachedProduct);
         }
 
         var result = await _productrepo.CreateProduct(product,formFile,ct); 
@@ -99,7 +100,7 @@ public class CatalogController : ControllerBase
         var cached = await _cache.GetAsync(cacheKey);
         if (cached != null)
         {
-            return Ok(JsonSerializer.Deserialize<Products>(cached) ?? null);
+            return Ok(JsonSerializer.Deserialize<ProductDto>(cached) ?? null);
         }
        
 
@@ -151,7 +152,7 @@ public class CatalogController : ControllerBase
     }
     
     [HttpGet]
-    public async Task<ActionResult<PaginatedResult<Products>>> GetProducts([FromQuery] int? lastId, CancellationToken ct, [FromQuery] int pageSize = 10)
+    public async Task<ActionResult<PaginatedResult<ProductDto>>> GetProducts([FromQuery] int? lastId, CancellationToken ct, [FromQuery] int pageSize = 10)
     {
         //var cacheKey= $"Products:List:PageSize={pageSize}:LastId={lastId}"; //TO FIND BETTER SOLUTIONS LATER
         //var cached = await _cache.GetStringAsync(cacheKey);
@@ -197,13 +198,13 @@ public class CatalogController : ControllerBase
     }
     
     [HttpGet("category/{categoryId}")]
-    public async Task<ActionResult<List<Products>>> GetProductsByCategory(int categoryId, CancellationToken ct)
+    public async Task<ActionResult<List<ProductDto>>> GetProductsByCategory(int categoryId, CancellationToken ct)
     {
         var cachedKey=$"Products:Category={categoryId}";
         var cached = await _cache.GetStringAsync(cachedKey);
         if (cached != null)
         {
-            return Ok(JsonSerializer.Deserialize<List<Products>>(cached));
+            return Ok(JsonSerializer.Deserialize<List<ProductDto>>(cached));
         }
 
         var products = await _productrepo.GetProductsByCategory(categoryId,ct);
@@ -227,7 +228,7 @@ public class CatalogController : ControllerBase
         var cached = await _cache.GetStringAsync(chachedKey);
         if (cached != null)
         {
-            return Ok(JsonSerializer.Deserialize<List<Products>>(cached));
+            return Ok(JsonSerializer.Deserialize<List<ProductDto>>(cached));
         }
 
         var products=await _productrepo.ProductSearch(q,ct);

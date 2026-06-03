@@ -10,9 +10,9 @@ namespace Eshop.Catalog.Services.IServices
 {
     public interface ICategoryService
     {
-        Task<Result<Categories>> CreateAsync(CategoryCreateDto dto, CancellationToken cancellationToken);
+        Task<Result<CategoryDto>> CreateAsync(CategoryCreateDto dto, CancellationToken cancellationToken);
 
-        Task<Result<Categories>> UpdateAsync(int id, CategoryUpdateDto dto, CancellationToken cancellationToken);
+        Task<Result<CategoryDto>> UpdateAsync(int id, CategoryUpdateDto dto, CancellationToken cancellationToken);
 
         Task<Result<bool>> DeleteAsync(int id, CancellationToken cancellationToken);
 

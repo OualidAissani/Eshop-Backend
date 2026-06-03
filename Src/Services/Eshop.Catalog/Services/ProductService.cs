@@ -73,7 +73,7 @@ namespace Eshop.Catalog.Services;
             foreach (var file in formFile)
             {
                 using var stream = file.OpenReadStream();
-                var media = new ProductMedia
+                var media = new ProductMediaItem
                 {
                     Description = product.Description
                 };
@@ -342,7 +342,7 @@ namespace Eshop.Catalog.Services;
                 }
                 foreach (var file in formFile)
                 {
-                    var media = new ProductMedia
+                    var media = new ProductMediaItem
                     {
                         Description = productDto.Description ?? product.Description
                     };

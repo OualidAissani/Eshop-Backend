@@ -1,5 +1,4 @@
-﻿using Eshop.Catalog.Models;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using MassTransit;
 namespace Eshop.Catalog.Data
 {
@@ -13,33 +12,10 @@ namespace Eshop.Catalog.Data
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
-            modelBuilder.HasPostgresExtension("pg_trgm");
-
-            modelBuilder.Entity<Models.Products>()
-                .HasMany(p => p.Categories)
-                .WithMany(c => c.Products)
-                .UsingEntity(j => j.ToTable("ProductCategories"));
-            modelBuilder.Entity<Models.ProductMedia>()
-                .HasOne(p => p.Product)
-                .WithMany(i => i.Media)
-                .HasForeignKey(p => p.ProductId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            modelBuilder.Entity<Models.Products>()
-                .HasIndex(p => p.Title)
-                .IsUnique();
-
-            modelBuilder.Entity<Models.Categories>()
-                .HasIndex(c => c.Title)
-                .IsUnique();
-
             modelBuilder.AddInboxStateEntity();
             modelBuilder.AddOutboxMessageEntity();
             modelBuilder.AddOutboxStateEntity();
 
         }
-        public DbSet<Products> Products { get; set; }
-        public DbSet<Categories> Categories { get; set; }
-        public DbSet<ProductMedia> Media { get; set; }
     }
 }

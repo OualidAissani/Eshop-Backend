@@ -17,11 +17,11 @@ namespace Eshop.Catalog.Services
             _logger = logger;
         }
 
-        public async Task<Result<Categories>> CreateAsync(CategoryCreateDto dto, CancellationToken cancellationToken )
+        public async Task<Result<CategoryDto>> CreateAsync(CategoryCreateDto dto, CancellationToken cancellationToken )
         {
             if (dto is null)
             {
-                return Result.Fail<Categories>("Invalid category payload");
+                return Result.Fail<CategoryDto>("Invalid category payload");
             }
 
             var categoryId = await GetNextCategoryId(cancellationToken);
@@ -34,10 +34,10 @@ namespace Eshop.Catalog.Services
 
             await _context.Categories.InsertOneAsync(category, cancellationToken: cancellationToken);
 
-            return new Categories
+            return new CategoryDto
             {
                 Id = category.CategoryId,
-                Title = category.Title,
+                Name = category.Title,
                 Description = category.Description
             };
         }
@@ -94,7 +94,7 @@ namespace Eshop.Catalog.Services
                 };
         }
 
-        public async Task<Result<Categories>> UpdateAsync(int id, CategoryUpdateDto dto, CancellationToken cancellationToken)
+        public async Task<Result<CategoryDto>> UpdateAsync(int id, CategoryUpdateDto dto, CancellationToken cancellationToken)
         {
 
             ArgumentNullException.ThrowIfNull(dto);
@@ -118,10 +118,10 @@ namespace Eshop.Catalog.Services
                 return Result.Fail("Error Updating Category Try Again Later");
             }
 
-            return new Categories
+            return new CategoryDto
             {
                 Id = category.CategoryId,
-                Title = category.Title,
+                Name = category.Title,
                 Description = category.Description
             };
         }

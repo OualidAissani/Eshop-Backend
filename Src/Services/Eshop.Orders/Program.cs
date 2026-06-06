@@ -10,8 +10,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.AddServiceDefaults();
-
+if (builder.Environment.IsDevelopment())
+{
+    builder.AddServiceDefaults();
+}
 builder.AddNpgsqlDbContext<OrderDbContext>("OrderDb");
 builder.Services.AddControllers().AddJsonOptions(options =>
 {

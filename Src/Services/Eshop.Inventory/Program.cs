@@ -10,8 +10,10 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.AddServiceDefaults();
-
+if (builder.Environment.IsDevelopment())
+{
+    builder.AddServiceDefaults();
+}
 builder.AddNpgsqlDbContext<InventoryDb>("InventoryDb");
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();

@@ -10,9 +10,11 @@ builder.AddServiceDefaults();
 
 builder.Services.AddControllers();
 
-builder.Services.AddReverseProxy()
-    .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
-    .AddServiceDiscoveryDestinationResolver();
+var proxy = builder.Services.AddReverseProxy()
+    .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
+
+if (builder.Environment.IsDevelopment())
+    proxy.AddServiceDiscoveryDestinationResolver();
 
 builder.Services.AddRateLimiter(options =>
 {

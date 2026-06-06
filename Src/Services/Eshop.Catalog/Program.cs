@@ -11,7 +11,10 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.AddServiceDefaults();
+if(builder.Environment.IsDevelopment())
+{
+    builder.AddServiceDefaults();
+}
 
 builder.Configuration.AddEnvironmentVariables();
 // Add services to the container.

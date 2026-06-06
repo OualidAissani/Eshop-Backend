@@ -38,6 +38,13 @@ builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddHttpLogging(logging => { });
 builder.AddRedisDistributedCache("redis");
 
+
+Console.WriteLine(
+    builder.Configuration.GetConnectionString("CatalogMongoDb"));
+
+Console.WriteLine(
+    builder.Configuration.GetConnectionString("redis"));
+
 builder.Services.AddMassTransit(o =>
 {
     o.AddConsumer<RetrieveProductPriceConsumer>();

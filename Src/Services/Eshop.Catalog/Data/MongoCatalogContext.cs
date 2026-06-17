@@ -8,6 +8,9 @@ namespace Eshop.Catalog.Data
     {
         public MongoCatalogContext(IMongoClient client, IOptions<MongoSettings> settings)
         {
+            Console.WriteLine($"Database = '{settings.Value.Database}'");
+            Console.WriteLine($"ProductsCollection = '{settings.Value.ProductsCollection}'");
+
             var database = client.GetDatabase(settings.Value.Database);
             Products = database.GetCollection<ProductDocument>(settings.Value.ProductsCollection);
             Categories = database.GetCollection<CategoryDocument>(settings.Value.CategoriesCollection);

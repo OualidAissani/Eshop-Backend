@@ -203,7 +203,8 @@ namespace Eshop.Catalog.Services;
         {
             var products = await _mongoContext.Products
                 .Find(FilterDefinition<ProductDocument>.Empty)
-                .SortBy(d => d.DisplayOrder == null ? d.ProductId : d.DisplayOrder)
+                .SortBy(d => d.DisplayOrder)
+                .ThenBy(d => d.ProductId)
                 .ToListAsync(ct);
             return products.Select(ToProductDto).ToList();
         }
@@ -211,11 +212,12 @@ namespace Eshop.Catalog.Services;
         public async Task<List<ProductDto>> GetProductsByCategory(int categoryId, CancellationToken ct)
         {
             var filter = Builders<ProductDocument>.Filter.ElemMatch(p => p.Categories, c => c.Id == categoryId);
-            var products = await _mongoContext.Products
-                .Find(filter)
-                .SortBy(d => d.DisplayOrder == null ? d.ProductId : d.DisplayOrder)
-                .ToListAsync(ct);
-            return products.Select(ToProductDto).ToList();
+        var products = await _mongoContext.Products
+            .Find(filter)
+            .SortBy(d => d.DisplayOrder)
+            .ThenBy(d => d.ProductId)
+            .ToListAsync(ct);
+        return products.Select(ToProductDto).ToList();
         }
 
         public async Task<List<ProductDto>> ProductSearch(string tag,CancellationToken ct)
@@ -247,7 +249,8 @@ namespace Eshop.Catalog.Services;
             var total = await _mongoContext.Products.CountDocumentsAsync(FilterDefinition<ProductDocument>.Empty, cancellationToken: ct);
             var items = await _mongoContext.Products
                 .Find(filter)
-                .SortBy(p => p.ProductId)
+                .SortBy(d => d.DisplayOrder)
+            .ThenBy(d => d.ProductId)
                 .Limit(paging.PageSize + 1)
                 .ToListAsync(ct);
 

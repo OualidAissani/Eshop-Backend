@@ -29,6 +29,15 @@ builder.Services.AddRateLimiter(options =>
 
 
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.WithOrigins("https://eshop-backend-ten-alpha.vercel.app/")
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
 
 
 
@@ -69,6 +78,7 @@ if (app.Environment.IsDevelopment())
 }
 app.UseRateLimiter();
 app.UseHttpsRedirection();
+app.UseCors("AllowFrontend");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapReverseProxy().RequireRateLimiting("fixed");

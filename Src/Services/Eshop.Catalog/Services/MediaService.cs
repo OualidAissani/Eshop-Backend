@@ -49,15 +49,14 @@ public class MediaService : IMediaService
         var uuid = doc.RootElement.GetProperty("file").GetString();
 
         media.Media = _configuration["UploadCare:UploadCareBaseUrl"] + uuid + $"/{fileName}";
-        
 
         return media;
     }
 
 
-    public async Task<bool> DeleteMedia(string uuid,CancellationToken ct)
+    public async Task<bool> DeleteMedia(string mediaUrl,CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(uuid))
+        if (string.IsNullOrWhiteSpace(mediaUrl))
         {
             return false;
         }
@@ -70,8 +69,8 @@ public class MediaService : IMediaService
         httpClient.DefaultRequestHeaders.Accept.Clear();
         httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.uploadcare-v0.7+json"));
 
-
-        var jsonContent = new StringContent(JsonSerializer.Serialize(new[] { uuid }),System.Text.Encoding.UTF8,"application/json");
+        var uuid = mediaUrl.Split('/');
+        var jsonContent = new StringContent(JsonSerializer.Serialize(new[] { uuid[^2] }),System.Text.Encoding.UTF8,"application/json");
 
 
         var request = new HttpRequestMessage(HttpMethod.Delete, Deleteurl)

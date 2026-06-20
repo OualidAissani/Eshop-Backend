@@ -366,7 +366,11 @@ namespace Eshop.Catalog.Services;
             product.Status = productDto.Status;
             product.SpecialStatus = productDto.SpecialStatus;
             product.DisplayOrder = productDto.DisplayOrder ?? product.DisplayOrder;
-            if (productDto.Attributes != null)
+        if (product.HeroImageUrl != null && !product.Media.Any(m => m.Media == product.HeroImageUrl))
+        {
+            product.HeroImageUrl = null; // falls back to media[0] on the frontend
+        }
+        if (productDto.Attributes != null)
             {
                 product.Attributes = productDto.Attributes;
             }
@@ -427,6 +431,9 @@ namespace Eshop.Catalog.Services;
                 DisplayOrder = product.DisplayOrder,
                 Price = product.Price,
                 Media = product.Media.Select(m => new MediaDto { MediaUrl = m.Media }).ToList(),
+                IsHeroFeatured = product.IsHeroFeatured,
+                HeroOrder = product.HeroOrder,
+                HeroImageUrl = product.HeroImageUrl,
                 Categories = product.Categories.Select(c => new CategoryDto
                 {
                     Id = c.Id,
@@ -456,6 +463,65 @@ namespace Eshop.Catalog.Services;
 
             return counter.Value;
         }
+    public async Task<Result<ProductDto>> UpdateHeroSelection(int productId, ProductHeroUpdateDto dto, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(dto);
 
+        var product = await _mongoContext.Products
+            .Find(p => p.ProductId == productId)
+            .FirstOrDefaultAsync(ct);
+
+        if (product == null)
+        {
+            return Result.Fail<ProductDto>($"The product with Id {productId} Not Found");
+        }
+
+        if (dto.IsHeroFeatured)
+        {
+            if (dto.HeroOrder is < 1 or > 3)
+            {
+                return Result.Fail<ProductDto>("Hero position must be 1, 2, or 3.");
+            }
+
+            if (dto.HeroImageUrl != null && !product.Media.Any(m => m.Media == dto.HeroImageUrl))
+            {
+                return Result.Fail<ProductDto>("Selected cover image is not one of this product's uploaded images.");
+            }
+
+            product.IsHeroFeatured = true;
+            product.HeroOrder = dto.HeroOrder;
+            product.HeroImageUrl = dto.HeroImageUrl;
+        }
+        else
+        {
+            product.IsHeroFeatured = false;
+            product.HeroOrder = null;
+        }
+
+        var updateResult = await _mongoContext.Products.ReplaceOneAsync(
+            p => p.ProductId == productId,
+            product,
+            new ReplaceOptions { IsUpsert = false },
+            ct);
+
+        if (updateResult.ModifiedCount == 0 && updateResult.MatchedCount == 0)
+        {
+            return Result.Fail<ProductDto>("Failed to update hero selection");
+        }
+
+        return ToProductDto(product);
     }
+
+    public async Task<List<ProductDto>> GetHeroProducts(CancellationToken ct)
+    {
+        var products = await _mongoContext.Products
+            .Find(p => p.IsHeroFeatured)
+            .SortBy(p => p.HeroOrder)
+            .Limit(3)
+            .ToListAsync(ct);
+
+        return products.Select(ToProductDto).ToList();
+    }
+
+}
 

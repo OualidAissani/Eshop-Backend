@@ -25,6 +25,9 @@ namespace Eshop.Catalog.Services.IServices
 
         Task<List<ProductDto>> ProductSearch(string tag, CancellationToken ct);
 
+        Task<Result<ProductDto>> UpdateHeroSelection(int productId, ProductHeroUpdateDto dto, CancellationToken ct);
+        Task<List<ProductDto>> GetHeroProducts(CancellationToken ct);
+
 
     }
 }

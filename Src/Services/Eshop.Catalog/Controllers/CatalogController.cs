@@ -243,6 +243,42 @@ public class CatalogController : ControllerBase
 
         return Ok(products);
     }
-    
+    [HttpGet("hero")]
+    public async Task<IActionResult> GetHeroProducts(CancellationToken ct)
+    {
+        var cacheKey = "Products:Hero";
+        var cached = await _cache.GetStringAsync(cacheKey);
+        if (cached != null)
+        {
+            return Ok(JsonSerializer.Deserialize<List<ProductDto>>(cached));
+        }
+
+        var products = await _productrepo.GetHeroProducts(ct);
+
+        await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(products), new DistributedCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5)
+        });
+
+        return Ok(products);
+    }
+
+    [HttpPut("{id}/hero")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> UpdateHeroSelection(int id, [FromBody] ProductHeroUpdateDto dto, CancellationToken ct)
+    {
+        var result = await _productrepo.UpdateHeroSelection(id, dto, ct);
+
+        if (result.IsFailed)
+        {
+            return BadRequest(result.Errors.First().Message);
+        }
+
+        await _cache.RemoveAsync($"Products:Id={id}");
+        await _cache.RemoveAsync("Products:Hero");
+
+        return Ok(result.Value);
+    }
+
 
 }

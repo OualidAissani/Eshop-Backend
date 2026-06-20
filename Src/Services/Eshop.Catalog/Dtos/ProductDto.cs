@@ -13,6 +13,9 @@ namespace Eshop.Catalog.Dtos
         public int? DisplayOrder { get; set; }
         public List<MediaDto> Media { get; set; }
         public List<CategoryDto> Categories { get; set; }
+        public bool IsHeroFeatured { get; set; }
+        public int? HeroOrder { get; set; }
+        public string? HeroImageUrl { get; set; }
         public Dictionary<string, string> Attributes { get; set; }
     }
 }

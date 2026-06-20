@@ -17,6 +17,11 @@ namespace Eshop.Catalog.Models
         public int? DisplayOrder { get; set; }
         public List<ProductMediaItem> Media { get; set; } = new();
         public List<CategoryItem> Categories { get; set; } = new();
+
+        public bool IsHeroFeatured { get; set; }
+        public int? HeroOrder { get; set; }
+        public string? HeroImageUrl { get; set; }
+
         public Dictionary<string, string> Attributes { get; set; } = new();
     }
 

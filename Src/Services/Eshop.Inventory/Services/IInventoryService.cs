@@ -12,6 +12,7 @@ namespace Eshop.Inventory.Services
         Task<Result<int>> UpdateQuantity(List<Dtos.InventoryDto> invDto, CancellationToken ct);
         Task<Result<bool?>> DeleteInventory(int InventoryId, CancellationToken ct);
         Task<List<Models.Inventory>> GetInvetoriesByProductsIds(List<int> productIds, CancellationToken ct);
+        Task<Result<bool?>> DeleteInventoryByProductId(int productId, CancellationToken ct);
 
     }
 }

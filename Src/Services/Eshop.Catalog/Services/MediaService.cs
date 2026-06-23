@@ -20,36 +20,39 @@ public class MediaService : IMediaService
         _configuration = configuration;
         _httpClientFactory = httpClietnt;
     }
-    public async Task<ProductMediaItem> CreateMedia(ProductMediaItem media, Stream fileStream, string contentType, string fileName, CancellationToken ct)
+    public async Task<ProductMediaItem> CreateMedia(ProductMediaItem media, Stream fileStream,
+    string contentType, string fileName, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(media);
         ArgumentNullException.ThrowIfNull(fileStream);
 
+        // Buffer entirely — makes Polly retries replayable
+        using var ms = new MemoryStream();
+        await fileStream.CopyToAsync(ms, ct);
+        var fileBytes = ms.ToArray();
+
         var httpClient = _httpClientFactory.CreateClient();
 
         using var content = new MultipartFormDataContent();
-
         content.Add(new StringContent(_configuration["UploadCare:PublicKey"]), "UPLOADCARE_PUB_KEY");
-
         content.Add(new StringContent(_configuration["UploadCare:Store"]), "UPLOADCARE_STORE");
 
-        var fileContent = new StreamContent(fileStream);
+        if (string.IsNullOrWhiteSpace(_configuration["UploadCare:PublicKey"]))
+            throw new InvalidOperationException("UploadCare:PublicKey is not configured.");
 
+
+        var fileContent = new ByteArrayContent(fileBytes);
         fileContent.Headers.ContentType = new MediaTypeHeaderValue(contentType);
-
         content.Add(fileContent, "file", fileName);
 
-        var response = await httpClient.PostAsync(MediaBaseUrl, content);
-
+        var response = await httpClient.PostAsync(MediaBaseUrl, content, ct);
         response.EnsureSuccessStatusCode();
 
         await using var responseStream = await response.Content.ReadAsStreamAsync(ct);
-
         using var doc = await JsonDocument.ParseAsync(responseStream, cancellationToken: ct);
         var uuid = doc.RootElement.GetProperty("file").GetString();
 
         media.Media = _configuration["UploadCare:UploadCareBaseUrl"] + uuid + $"/{fileName}";
-
         return media;
     }
 

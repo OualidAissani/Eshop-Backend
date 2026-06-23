@@ -155,6 +155,8 @@ namespace Eshop.Catalog.Services;
                 return Result.Fail<bool>("There Was An Issue Deleting The Product");
             }
 
+            await _publish.Publish(new DeleteInventory(productId));
+
             await _publish.Publish(new DeleteCartProduct(productId));
 
             return true;
@@ -184,8 +186,10 @@ namespace Eshop.Catalog.Services;
             {
                 return Result.Fail<ProductDto>("There Was An Issue Deleting The Product");
             }
+        await _publish.Publish(new DeleteInventory(productId));
 
-            await _publish.Publish(new DeleteCartProduct(productId));
+
+        await _publish.Publish(new DeleteCartProduct(productId));
 
             return ToProductDto(product);
         }

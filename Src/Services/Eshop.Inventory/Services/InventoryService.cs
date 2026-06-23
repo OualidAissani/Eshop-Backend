@@ -145,6 +145,35 @@ namespace Eshop.Inventory.Services
             }
         }
 
+        public async Task<Result<bool?>> DeleteInventoryByProductId(int productId, CancellationToken ct)
+        {
+            if (productId <= 0)
+            {
+                throw new ArgumentNullException("Product Id is not valid");
+            }
+            var inventory = await _db.Inventories.FirstOrDefaultAsync(i => i.ProductId == productId, ct);
+            if (inventory == null)
+            {
+                return true;
+            }
+
+            try
+            {
+                _db.Inventories.Remove(inventory);
+
+                if (await _db.SaveChangesAsync(ct) == 0)
+                {
+                    return Result.Fail("There was an issue Deleting The Inventory");
+                }
+                return true;
+            }
+            catch (DbUpdateConcurrencyException e)
+            {
+                Console.WriteLine(e.Message);
+                return false;
+            }
+        }
+
         public async Task<List<Models.Inventory>> GetInvetoriesByProductsIds(List<int> productIds, CancellationToken ct)
         {
             return await _db

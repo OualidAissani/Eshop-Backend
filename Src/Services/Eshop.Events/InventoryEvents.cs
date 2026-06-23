@@ -99,4 +99,5 @@ public class InventoryUpdateDto
     public int Quantity { get; set; }
 }
 
+public record DeleteInventory(int productId);
 

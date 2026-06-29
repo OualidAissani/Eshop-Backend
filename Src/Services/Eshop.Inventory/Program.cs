@@ -53,20 +53,13 @@ builder.Services.AddMassTransit(x =>
     x.AddConsumer<ProductStockConsumer>();
     x.AddConsumer<ReductInventoryQuantityFromAnOrderConsumer>();
     x.AddConsumer<DeleteProductInventory>();
-    x.AddRequestClient<VerifyProductExistence>(new Uri("queue:check-product-existence"));
+    x.AddRequestClient<VerifyProductExistence>(new Uri("queue:verify-product-existence"));
     x.UsingRabbitMq((context, cfg) =>
     {
         cfg.Host(builder.Configuration.GetConnectionString("Rabbitmq"));
 
         cfg.ConfigureEndpoints(context);
-        cfg.ReceiveEndpoint("product-inventory-availability", e =>
-        {
-            e.ConfigureConsumer<ProductInventoryQuanityConsumer>(context);
-        });
-        cfg.ReceiveEndpoint("product-stock-request", e =>
-        {
-            e.ConfigureConsumer<ProductStockConsumer>(context);
-        });
+      
     });
 });
 var app = builder.Build();

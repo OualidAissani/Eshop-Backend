@@ -13,10 +13,9 @@ namespace Eshop.Inventory.Handler
             _inventoryService = inventoryService;
         }
 
-        public Task Consume(ConsumeContext<DeleteInventory> context)
+        public async Task Consume(ConsumeContext<DeleteInventory> context)
         {
-            _inventoryService.DeleteInventoryByProductId(context.Message.productId, CancellationToken.None );
-            return Task.CompletedTask;
+           await _inventoryService.DeleteInventoryByProductId(context.Message.productId, CancellationToken.None );
         }
     }
 }

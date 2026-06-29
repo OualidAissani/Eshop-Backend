@@ -57,18 +57,18 @@ builder.Services.AddMassTransit(o =>
     });
     o.UsingRabbitMq((context, cfg) =>
     {
-        cfg.ConfigureEndpoints(context);
         cfg.Host(builder.Configuration.GetConnectionString("Rabbitmq"));
 
-        cfg.ReceiveEndpoint("get-product-request", e =>
-        {
-            e.ConfigureConsumer<RetrieveProductPriceConsumer>(context);
-        });
-        cfg.ReceiveEndpoint("check-product-existence", e =>
+        cfg.ConfigureEndpoints(context);
+
+        cfg.ReceiveEndpoint("verify-product-existence", e =>
         {
             e.ConfigureConsumer<VerifyProductExistenceConsumer>(context);
         });
+
+
     });
+
 });
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

@@ -47,10 +47,10 @@ builder.Services.AddMassTransit(o =>
     o.AddConsumer<OrderConfirmedConsumer>();
     o.AddConsumer<UpdateCartProductConsumer>();
     o.AddConsumer<OrderCompensateConsumer>();
-    o.AddRequestClient<GetProductRequest>(new Uri("queue:get-product-request"));
-    o.AddRequestClient<ProductInventoryAvailibityForOrderRequest>(new Uri("queue:product-inventory-availability"));
-    o.AddRequestClient<ProductStockRequest>(new Uri("queue:product-stock-request"));
-    o.AddRequestClient<CreatePaymentRecordRequest>(new Uri("queue:CreatePayment"));
+    o.AddRequestClient<GetProductRequest>(new Uri("queue:retrieve-product-price"));
+    o.AddRequestClient<ProductInventoryAvailibityForOrderRequest>(new Uri("queue:product-inventory-quanity"));
+    o.AddRequestClient<ProductStockRequest>(new Uri("queue:product-stock"));
+    o.AddRequestClient<CreatePaymentRecordRequest>(new Uri("queue:create-payment"));
     o.UsingRabbitMq((context, cfg) =>
     {
         cfg.Host(builder.Configuration.GetConnectionString("Rabbitmq"));

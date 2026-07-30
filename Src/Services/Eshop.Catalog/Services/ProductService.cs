@@ -15,24 +15,27 @@ namespace Eshop.Catalog.Services;
     {
         private readonly MongoCatalogContext _mongoContext;
         private readonly IMediaService _mediaService;
+    private readonly ICategoryService _categoryService;
         private readonly ILogger<ProductService> _logger;
         private readonly IPublishEndpoint _publish;
 
-        public ProductService(
-            MongoCatalogContext mongoContext,
-            IMediaService mediaService,
-            ILogger<ProductService> logger,
-            IConfiguration configurations,
-            IHttpClientFactory httpClientFactory,
-            IPublishEndpoint publish
-            )
-        {
-            _mongoContext = mongoContext;
-            _mediaService = mediaService;
-            _logger = logger;
-            _publish = publish;
-        }
-        public async Task<List<ProductPriceDto>> GetProductPrice(List<int> ProductId, CancellationToken ct)
+    public ProductService(
+        MongoCatalogContext mongoContext,
+        IMediaService mediaService,
+        ILogger<ProductService> logger,
+        IConfiguration configurations,
+        IHttpClientFactory httpClientFactory,
+        IPublishEndpoint publish
+,
+        ICategoryService categoryService)
+    {
+        _mongoContext = mongoContext;
+        _mediaService = mediaService;
+        _logger = logger;
+        _publish = publish;
+        _categoryService = categoryService;
+    }
+    public async Task<List<ProductPriceDto>> GetProductPrice(List<int> ProductId, CancellationToken ct)
         {
             var productFilter = Builders<ProductDocument>.Filter.In(p => p.ProductId, ProductId);
             var products = await _mongoContext.Products.Find(productFilter).ToListAsync(ct);
@@ -45,55 +48,42 @@ namespace Eshop.Catalog.Services;
         }
 
         public async Task<Result<ProductDto>> CreateProduct(ProductCreateDto product, List<IFormFile> formFile, CancellationToken ct)
+    {
+
+        ArgumentNullException.ThrowIfNull(product);
+        if (formFile == null || formFile.Count == 0)
         {
-
-            ArgumentNullException.ThrowIfNull(product);
-            if(formFile == null || formFile.Count == 0)
-            {
-                return Result.Fail<ProductDto>("Atleast One Image Attached To The Product");
-            }
-
-            var productId = await GetNextProductId(ct);
-            var categories = await GetCategoriesByIds(product.Categories, ct);
-
-            var productDocument = new ProductDocument
-            {
-                ProductId = productId,
-                Title = product.Title,
-                Description = product.Description,
-                Price = product.Price,
-                Status = product.Status,
-                SpecialStatus = product.SpecialStatus,
-                DisplayOrder = product.DisplayOrder,
-                Categories = categories,
-                Attributes = product.Attributes ?? new Dictionary<string, string>()
-            };
-
-            var mediaItems = new List<ProductMediaItem>();
-            foreach (var file in formFile)
-            {
-                using var stream = file.OpenReadStream();
-                var media = new ProductMediaItem
-                {
-                    Description = product.Description
-                };
-
-                var createdMedia = await _mediaService.CreateMedia(media, stream, file.ContentType ?? "application/octet-stream", file.FileName, ct);
-                mediaItems.Add(new ProductMediaItem
-                {
-                    Media = createdMedia.Media,
-                    Description = createdMedia.Description
-                });
-            }
-
-            productDocument.Media = mediaItems;
-
-            await _mongoContext.Products.InsertOneAsync(productDocument, cancellationToken: ct);
-
-            return ToProductDto(productDocument);
+            return Result.Fail<ProductDto>("Atleast One Image Attached To The Product");
         }
 
-        public async Task<Result<ProductDto>> UpdateProduct(int ProductId, ProductsUpdateDto productDto, List<IFormFile>? formFile, CancellationToken ct, bool ImageAppend = false)
+        var productId = await GetNextProductId(ct);
+        var categories = await GetCategoriesByIds(product.Categories, ct);
+
+        var productDocument = new ProductDocument
+        {
+            ProductId = productId,
+            Title = product.Title,
+            Description = product.Description,
+            Price = product.Price,
+            Status = product.Status,
+            SpecialStatus = product.SpecialStatus,
+            DisplayOrder = product.DisplayOrder,
+            Categories = categories,
+            Attributes = product.Attributes ?? new Dictionary<string, string>()
+        };
+
+        List<ProductMediaItem> mediaItems = await _mediaService.ProductMedias(product, formFile, ct);
+
+        productDocument.Media = mediaItems;
+
+        await _mongoContext.Products.InsertOneAsync(productDocument, cancellationToken: ct);
+
+        return ToProductDto(productDocument);
+    }
+
+
+
+    public async Task<Result<ProductDto>> UpdateProduct(int ProductId, ProductsUpdateDto productDto, List<IFormFile>? formFile, CancellationToken ct, bool ImageAppend = false)
         {
 
             var product = await _mongoContext.Products
@@ -107,7 +97,7 @@ namespace Eshop.Catalog.Services;
 
             if (!ImageAppend && formFile != null && formFile.Count > 0)
             {
-                await DeleteOldProductMedia(product, ct);
+                await _mediaService.DeleteOldProductMedia(product, ct);
             }
 
             await UpdateProductDocument(ProductId, productDto, formFile, product, ImageAppend, ct);
@@ -295,7 +285,7 @@ namespace Eshop.Catalog.Services;
                 return true;
             }
 
-            var category = await _mongoContext.Categories.Find(i => i.CategoryId == categoryId).FirstOrDefaultAsync(ct);
+            var category = await _categoryService.GetByIdAsync(categoryId,ct);
             if (category == null)
             {
                 return Result.Fail($"Category with id {categoryId} not found");
@@ -303,8 +293,8 @@ namespace Eshop.Catalog.Services;
 
             product.Categories.Add(new CategoryItem
             {
-                Id = category.CategoryId,
-                Title = category.Title,
+                Id = category.Id,
+                Title = category.Name,
                 Description = category.Description
             });
 
@@ -380,29 +370,7 @@ namespace Eshop.Catalog.Services;
             }
         }
 
-        private async Task DeleteOldProductMedia(ProductDocument product, CancellationToken ct)
-        {
-            var mediaRetryPolicy = Policy
-                .Handle<InvalidOperationException>()
-                .Or<HttpRequestException>()
-                .WaitAndRetryAsync(
-                    retryCount: 3,
-                    sleepDurationProvider: attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)),
-                    onRetry: (exception, timespan, retryCount, context) =>
-                    {
-                        _logger.LogWarning($"Media deletion failed. Retry {retryCount}/3 after {timespan.TotalSeconds}s. Error: {exception.Message}");
-                    });
 
-            await mediaRetryPolicy.ExecuteAsync(async () =>
-            {
-                var deletionResult = await Task.WhenAll(product.Media.Select(m => _mediaService.DeleteMedia(m.Media, ct)));
-
-                if (!deletionResult.All(r => r))
-                {
-                    throw new InvalidOperationException("The Media Deletion Process Failed");
-                }
-            });
-        }
 
         private async Task<List<CategoryItem>> GetCategoriesByIds(List<int>? categoryIds, CancellationToken ct)
         {

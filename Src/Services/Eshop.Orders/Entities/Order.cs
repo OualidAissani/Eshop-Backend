@@ -14,7 +14,13 @@ namespace Eshop.Orders.Models
 
         public OrderStatus Status { get; set; }
 
-        public string ShippingAddress{ get; set; }
+        public string ShippingAddress { get; set; }
+
+        public string Phone { get; set; }
+
+        public string Wilaya { get; set; }
+
+        public string Commune { get; set; }
 
         public PaymentMethods PayementMethod { get; set; }
 

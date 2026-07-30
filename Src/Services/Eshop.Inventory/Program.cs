@@ -57,7 +57,10 @@ builder.Services.AddMassTransit(x =>
     x.UsingRabbitMq((context, cfg) =>
     {
         cfg.Host(builder.Configuration.GetConnectionString("Rabbitmq"));
-
+        cfg.ReceiveEndpoint("product-inventory-quanity", e =>
+        {
+            e.ConfigureConsumer<ProductInventoryQuanityConsumer>(context);
+        });
         cfg.ConfigureEndpoints(context);
       
     });

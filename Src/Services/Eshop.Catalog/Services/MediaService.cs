@@ -1,6 +1,8 @@
-﻿using Eshop.Catalog.Models;
+﻿using Eshop.Catalog.Dtos;
+using Eshop.Catalog.Models;
 using Eshop.Catalog.Services.IServices;
 using Microsoft.AspNetCore.Mvc;
+using Polly;
 using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -15,10 +17,12 @@ public class MediaService : IMediaService
     private const string MediaBaseUrl = "https://upload.uploadcare.com/base/";
     private const string Deleteurl = $"https://api.uploadcare.com/files/storage/";
     private readonly IConfiguration _configuration;
-    public MediaService(IHttpClientFactory httpClietnt,IConfiguration configuration)
+    private readonly ILogger<MediaService> _logger;
+    public MediaService(IHttpClientFactory httpClietnt, IConfiguration configuration, ILogger<MediaService> logger)
     {
         _configuration = configuration;
         _httpClientFactory = httpClietnt;
+        _logger = logger;
     }
     public async Task<ProductMediaItem> CreateMedia(ProductMediaItem media, Stream fileStream,
     string contentType, string fileName, CancellationToken ct)
@@ -91,5 +95,51 @@ public class MediaService : IMediaService
         }
 
         return true;
+    }
+
+    public async Task<List<ProductMediaItem>> ProductMedias(ProductCreateDto product, List<IFormFile> formFile, CancellationToken ct)
+    {
+        var mediaItems = new List<ProductMediaItem>();
+        foreach (var file in formFile)
+        {
+            using var stream = file.OpenReadStream();
+            var media = new ProductMediaItem
+            {
+                Description = product.Description
+            };
+
+            var createdMedia = await CreateMedia(media, stream, file.ContentType ?? "application/octet-stream", file.FileName, ct);
+            mediaItems.Add(new ProductMediaItem
+            {
+                Media = createdMedia.Media,
+                Description = createdMedia.Description
+            });
+        }
+
+        return mediaItems;
+    }
+
+    public async Task DeleteOldProductMedia(ProductDocument product, CancellationToken ct)
+    {
+        var mediaRetryPolicy = Policy
+            .Handle<InvalidOperationException>()
+            .Or<HttpRequestException>()
+            .WaitAndRetryAsync(
+                retryCount: 3,
+                sleepDurationProvider: attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)),
+                onRetry: (exception, timespan, retryCount, context) =>
+                {
+                    _logger.LogWarning($"Media deletion failed. Retry {retryCount}/3 after {timespan.TotalSeconds}s. Error: {exception.Message}");
+                });
+
+        await mediaRetryPolicy.ExecuteAsync(async () =>
+        {
+            var deletionResult = await Task.WhenAll(product.Media.Select(m => DeleteMedia(m.Media, ct)));
+
+            if (!deletionResult.All(r => r))
+            {
+                throw new InvalidOperationException("The Media Deletion Process Failed");
+            }
+        });
     }
 }

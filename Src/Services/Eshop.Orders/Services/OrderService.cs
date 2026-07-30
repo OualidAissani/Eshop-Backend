@@ -80,8 +80,11 @@ namespace Eshop.Orders.Services
                 OrderItems = orderItems,
                 UserId = order.UserId,
                 ShippingAddress = order.ShippingAddress,
+                Phone = order.Phone,
+                Wilaya = order.Wilaya,
+                Commune = order.Commune,
                 PayementMethod = payementMethodEnum,
-                Email=order.Email,
+                Email = order.Email,
                 TotalPrice = orderItems.Sum(i => i.FullPrice)
             };
             var inventoryParameter = order.Products.Select(s => new Events.InventoryUpdateDto

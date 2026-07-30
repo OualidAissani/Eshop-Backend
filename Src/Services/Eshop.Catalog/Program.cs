@@ -60,7 +60,10 @@ builder.Services.AddMassTransit(o =>
         cfg.Host(builder.Configuration.GetConnectionString("Rabbitmq"));
 
         cfg.ConfigureEndpoints(context);
-
+        cfg.ReceiveEndpoint("retrieve-product-price", e =>
+        {
+            e.ConfigureConsumer<RetrieveProductPriceConsumer>(context);
+        });
         cfg.ReceiveEndpoint("verify-product-existence", e =>
         {
             e.ConfigureConsumer<VerifyProductExistenceConsumer>(context);

@@ -109,7 +109,7 @@ namespace Eshop.Orders.Controllers
             return Ok(result.Value);
         }
 
-        [Authorize]
+        [AllowAnonymous]
         [HttpPost]
         public async Task<IActionResult> CreateOrder([FromBody] OrderDto order,
             [FromHeader(Name = "x-Idempotency-Key")] string key,CancellationToken ct)
@@ -129,7 +129,7 @@ namespace Eshop.Orders.Controllers
             }
 
             var userId= _httpContextAccessor.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
-            order.UserId = userId;
+            order.UserId = userId ?? "";
             try
             {
                 var createdOrder = await _orderService.CreateOrder(order,ct);

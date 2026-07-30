@@ -4,6 +4,8 @@ using Eshop.Inventory.Handler;
 using Eshop.Inventory.Services;
 using MassTransit;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
@@ -81,13 +83,25 @@ if (app.Environment.IsDevelopment())
 }
 app.UseStatusCodePages();
 app.UseExceptionHandler(errorApp =>
-  {
-      errorApp.Run(async context =>
-      {
-          context.Response.StatusCode = 500;
-          await context.Response.WriteAsync("An error occurred.");
-      });
-  });
+{
+    errorApp.Run(async context =>
+    {
+        var exception = context.Features.Get<IExceptionHandlerFeature>();
+
+        var problem = new ProblemDetails
+        {
+            Status = StatusCodes.Status500InternalServerError,
+            Title = "An unexpected error occurred.",
+            Detail = exception?.Error.Message, // Remove in production if you don't want to expose details
+            Instance = context.Request.Path
+        };
+
+        context.Response.StatusCode = problem.Status.Value;
+        context.Response.ContentType = "application/problem+json";
+
+        await context.Response.WriteAsJsonAsync(problem);
+    });
+});
 
 app.UseHttpsRedirection();
 app.UseAuthentication();

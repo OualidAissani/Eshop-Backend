@@ -133,6 +133,10 @@ namespace Eshop.Orders.Controllers
             try
             {
                 var createdOrder = await _orderService.CreateOrder(order,ct);
+                if (createdOrder.IsFailed)
+                {
+                    return BadRequest(createdOrder.Errors[0].Message);
+                }
                 await _cache.SetStringAsync(cacheKey,JsonSerializer.Serialize(createdOrder.Value),new DistributedCacheEntryOptions
                 {
                     AbsoluteExpirationRelativeToNow= TimeSpan.FromMinutes(5)
@@ -142,11 +146,11 @@ namespace Eshop.Orders.Controllers
             }
             catch (ArgumentException ex)
             {
-                return BadRequest("");
+                throw;
             }
             catch (Exception ex)
             {
-                return BadRequest("");
+                throw;
             }
         }
 

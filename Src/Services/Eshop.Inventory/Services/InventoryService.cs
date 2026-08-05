@@ -102,20 +102,6 @@ namespace Eshop.Inventory.Services
             }
             return totalUpdated;
         }
-        public async Task<Result<int>> PushUpdatetOdB(List<Models.Inventory> inventories, CancellationToken ct)
-        {
-            if (inventories == null || inventories.Count == 0)
-                throw new ArgumentNullException();
-
-
-            _db.Inventories.UpdateRange(inventories);
-            int totalUpdated = await _db.SaveChangesAsync(ct);
-            if (totalUpdated == 0)
-            {
-                return Result.Fail("Error Updating Inventory Try Again Later");
-            }
-            return totalUpdated;
-        }
         public async Task<Result<bool?>> DeleteInventory(int InventoryId, CancellationToken ct)
         {
             if (InventoryId <= 0)
@@ -180,6 +166,36 @@ namespace Eshop.Inventory.Services
                 .Inventories
                 .Where(i => productIds.Contains(i.ProductId))
                 .ToListAsync(ct);
+        }
+
+        public async Task<List<int>> ReserveInventory(List<Dtos.InventoryDto> items, CancellationToken ct)
+        {
+            var insufficientProductIds = new List<int>();
+            var strategy = _db.Database.CreateExecutionStrategy();
+
+            await strategy.ExecuteAsync(async () =>
+            {
+                insufficientProductIds.Clear(); // reset in case the strategy retries this whole block
+                await using var tx = await _db.Database.BeginTransactionAsync(ct);
+
+                foreach (var item in items)
+                {
+                    var rowsAffected = await _db.Inventories
+                        .Where(i => i.ProductId == item.ProductId && i.Quantity >= item.Quantity)
+                        .ExecuteUpdateAsync(setters => setters
+                            .SetProperty(i => i.Quantity, i => i.Quantity - item.Quantity), ct);
+
+                    if (rowsAffected == 0)
+                        insufficientProductIds.Add(item.ProductId);
+                }
+
+                if (insufficientProductIds.Count > 0)
+                    await tx.RollbackAsync(ct);
+                else
+                    await tx.CommitAsync(ct);
+            });
+
+            return insufficientProductIds;
         }
     }
 }

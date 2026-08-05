@@ -78,7 +78,7 @@ namespace Eshop.Orders.Services
             var newOrder = new Order
             {
                 OrderItems = orderItems,
-                UserId = order.UserId,
+                UserId = order.UserId ?? Guid.NewGuid().ToString(),
                 ShippingAddress = order.ShippingAddress,
                 Phone = order.Phone,
                 Wilaya = order.Wilaya,
@@ -289,7 +289,7 @@ namespace Eshop.Orders.Services
 
                 if (unavailable.Any())
                 {
-                    throw new Exception($"Products unavailable: {string.Join(", ", unavailable)}");
+                    throw new Exception($"Products unavailable /OutOfStock: {string.Join(", ", unavailable)}");
                 }
 
                 return (inventoryDict, pricesDict);
@@ -302,39 +302,6 @@ namespace Eshop.Orders.Services
         }
 
 
-        //public async Task<Order> OrderCart(int cartId,CancellationToken ct)
-        //{
-        //    if (cartId <= 0)
-        //    {
-        //        throw new ArgumentException("Invalid cart ID.");
-        //    }
-        //    var cartitem = await _cartService.GetAllCartItems(cartId);
-        //    if (cartitem == null)
-        //    {
-        //        return null;
-        //    }
-        //    var orderDto = new OrderDto
-        //    {
-        //        UserId = cartitem.First().Cart.UserId,
-        //        Products = cartitem.Select(ci => new OrderItemDto
-        //        {
-        //            ProductId = ci.ProductId,
-        //            Quantity = ci.Quantity
-        //        }).ToList()
-        //    };
-        //    (Dictionary<int, ProductInventoryItem> inventoryDict, Dictionary<int, decimal> pricesDict) = await OrderValidations(orderDto);
-        //    try
-        //    {
-        //        (List<OrderItem> orderItems, Order newOrder) = await SaveOrders(orderDto, inventoryDict, pricesDict);
-        //        await ReductOrderedInventory(orderItems);
-        //        await _cartService.ClearCart(cartId,ct);
-        //        return newOrder;
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        throw new InvalidOperationException($"Order creation failed: {ex.Message}", ex);
-
-        //    }
-        //}
+       
     }
 }

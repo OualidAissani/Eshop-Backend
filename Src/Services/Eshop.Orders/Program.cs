@@ -68,7 +68,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     {
         option.Authority = builder.Configuration["Keycloak:Authority"];
         option.Audience = builder.Configuration["Keycloak:Audience"];
-        option.RequireHttpsMetadata = false;
+        option.RequireHttpsMetadata = builder.Environment.IsProduction() ? true : false;
         option.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateAudience = true,

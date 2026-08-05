@@ -24,17 +24,6 @@ builder.Services.AddHttpClient();
 builder.Services.AddHttpContextAccessor();
 
 
-//builder.Services.AddHangfire(x => 
-//    x.UsePostgreSqlStorage(options => 
-//    {
-//        options.UseNpgsqlConnection(builder.Configuration.GetConnectionString("PaymentDb"));
-//    })
-//    .UseSimpleAssemblyNameTypeSerializer()
-//    .UseRecommendedSerializerSettings());
-
-
-
-//builder.Services.AddHangfireServer();
 
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 

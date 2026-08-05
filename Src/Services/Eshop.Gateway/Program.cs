@@ -18,15 +18,33 @@ if (builder.Environment.IsDevelopment())
 
 builder.Services.AddRateLimiter(options =>
 {
-    options.AddFixedWindowLimiter("fixed", opt =>
-    {
-        opt.PermitLimit = 100;
-        opt.Window = TimeSpan.FromMinutes(1);
-        opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-        opt.QueueLimit = 2;
-    });
-});
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
+    // Baseline: applies automatically to every route that doesn't set its own policy
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+    RateLimitPartition.GetSlidingWindowLimiter(
+        partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        factory: _ => new SlidingWindowRateLimiterOptions
+        {
+            PermitLimit = 100,
+            Window = TimeSpan.FromMinutes(1),
+            SegmentsPerWindow = 6,       // window sliced into 6×10s buckets; oldest slice drops off each tick instead of the whole window resetting at once
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit = 2
+        }));
+
+    // Strict, named policy — only attached to order creation
+    options.AddPolicy("order-creation", httpContext =>
+        RateLimitPartition.GetSlidingWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new SlidingWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1),
+                SegmentsPerWindow = 4,
+                QueueLimit = 0
+            }));
+});
 
 
 builder.Services.AddCors(options =>
@@ -47,7 +65,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     {
         option.Authority = builder.Configuration["Keycloak:Authority"];
         option.Audience = builder.Configuration["Keycloak:Audience"];
-        option.RequireHttpsMetadata = false;
+        option.RequireHttpsMetadata = builder.Environment.IsProduction()?true:false;
         option.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateAudience = true,
@@ -82,7 +100,7 @@ app.UseRateLimiter();
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
-app.MapReverseProxy().RequireRateLimiting("fixed");
+app.MapReverseProxy();
 app.MapControllers();
 
 app.Run();

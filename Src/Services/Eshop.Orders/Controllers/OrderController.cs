@@ -129,7 +129,6 @@ namespace Eshop.Orders.Controllers
             }
 
             var userId= _httpContextAccessor.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
-            order.UserId = userId ?? "";
             try
             {
                 var createdOrder = await _orderService.CreateOrder(order,ct);
@@ -185,35 +184,6 @@ namespace Eshop.Orders.Controllers
             return NoContent();
         }
 
-        //[HttpPost("OrderCart/{cartId}")]
-        //public async Task<IActionResult> OrderCart(int cartId, [FromHeader(Name ="x_Idempotency_Key")] string key)
-        //{
-        //    if (key == null)
-        //    {
-        //        return BadRequest("Idempotency Key is required");
-        //    }
-
-        //    var cacheKey = $"Idempotency:Order:OrderCart";
-
-        //    var cached = await _cache.GetAsync(cacheKey);
-        //    if (cached != null)
-        //    {
-        //        return Ok(JsonSerializer.Deserialize<Order>(cached));
-        //    }
-        //    if (cartId <= 0)
-        //    {
-        //        return BadRequest("Invalid cart ID.");
-        //    }
-        //    var order=await _orderService.OrderCart(cartId);
-        //    if(order == null)
-        //    {
-        //        return BadRequest("We having a problem processing your request.");
-        //    }
-        //    await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(cached), new DistributedCacheEntryOptions
-        //    {
-        //        AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10)
-        //    });
-        //    return Ok(order);
-        //}
+      
     }
 }

@@ -21,42 +21,19 @@ namespace Eshop.Inventory.Handler
         {
             var message = context.Message;
 
-            var productIds = message.Products.Select(p => p.ProductId).ToList();
-            var inventories = await _inventoryService.GetInvetoriesByProductsIds(productIds, context.CancellationToken);
+            var items = message.Products
+                .Select(p => new Dtos.InventoryDto { ProductId = p.ProductId, Quantity = p.Quantity })
+                .ToList();
 
-            if (inventories.Count != productIds.Count)
+            var insufficientProductIds = await _inventoryService.ReserveInventory(items, context.CancellationToken);
+
+            if (insufficientProductIds.Count > 0)
             {
                 await _publishEndpoint.Publish(new OrderFailed { CorrelationId = message.CorrelationId });
                 return;
             }
 
-            var NewProductsValues = message.Products.ToDictionary(i=>i.ProductId);
-
-            foreach(var item in inventories)
-            {
-                if(NewProductsValues.TryGetValue(item.ProductId,out var match))
-                {
-                    if (item.Quantity >= match.Quantity)
-                    {
-                        item.Quantity-=match.Quantity;
-                    }
-                    else
-                    {
-                        await _publishEndpoint.Publish(new OrderFailed { CorrelationId = message.CorrelationId });
-                        return;
-                    }
-                }
-            }
-            var result = await _inventoryService.PushUpdatetOdB(inventories,context.CancellationToken);
-
-            if (result.Value != productIds.Count())
-            {
-                await _publishEndpoint.Publish(new OrderFailed { CorrelationId = message.CorrelationId });
-            }
-            else
-            {
-                await _publishEndpoint.Publish(new InventoryReserved { CorrelationId = message.CorrelationId });
-            }
+            await _publishEndpoint.Publish(new InventoryReserved { CorrelationId = message.CorrelationId });
         }
     }
 }

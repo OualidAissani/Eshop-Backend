@@ -122,19 +122,8 @@ namespace Eshop.Orders.Services
 
                     }).ToList();
                 }
-                var PaypalUrl = string.Empty;
                 var correlationId = Guid.NewGuid();
-                if (payementMethodEnum != Data.Enums.PaymentMethods.CashOnDelivery)
-                {
-                    var PaymentUrl = await _createPaymentOrderClient.GetResponse<CreatePaymentRecordResponse>(new CreatePaymentRecordRequest
-                    {
-                        Amount = newOrder.TotalPrice,
-                        Items = paymentItems,
-                        CorrelationId = correlationId,
-                        OrderId = newOrder.Id
-                    });
-                    PaypalUrl = PaymentUrl.Message.PaymentUrl;
-                }
+              
                 await _publishEndpoint.Publish(
                 new OrderSubmitted
                 {
@@ -146,13 +135,13 @@ namespace Eshop.Orders.Services
                     Products = inventoryParameter,
                     PaymentItems = paymentItems ?? new List<Events.OrderItemSagaDto>()
                 });
-
                 await _context.SaveChangesAsync(ct);
+
                 await tx.CommitAsync(ct);
+             
                 return new CreateOrderResponseDto
                 {
-                    Order = newOrder,
-                    PaymentUrl = PaypalUrl ?? ""
+                    Order = newOrder
                 };
 
             });

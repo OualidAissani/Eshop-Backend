@@ -128,7 +128,7 @@ namespace Eshop.Orders.Controllers
                 return CreatedAtAction(nameof(GetOrderById), new { id = JsonSerializer.Deserialize<Order>(cached)?.Id }, JsonSerializer.Deserialize<Order>(cached) ?? null);
             }
 
-            var userId= _httpContextAccessor.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
+             order.UserId= _httpContextAccessor.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
             try
             {
                 var createdOrder = await _orderService.CreateOrder(order,ct);
@@ -140,7 +140,7 @@ namespace Eshop.Orders.Controllers
                 {
                     AbsoluteExpirationRelativeToNow= TimeSpan.FromMinutes(5)
                 });
-                await _cache.RemoveAsync($"Orders:{userId}:All");
+                await _cache.RemoveAsync($"Orders:{order.UserId}:All");
                 return Ok(createdOrder.Value);
             }
             catch (ArgumentException ex)
@@ -153,13 +153,7 @@ namespace Eshop.Orders.Controllers
             }
         }
 
-        //[Authorize]
-        //[HttpPut]
-        //public async Task<IActionResult> UpdateOrder(int id, [FromBody] OrderDto order, [FromHeader(Name = "x_Idempotency_Key")] string key,CancellationToken ct)
-        //{
-
-        //    return NoContent();
-        //}
+     
         [HttpDelete]
         public async Task<IActionResult> DeleteOrder(int id,CancellationToken ct)
         {

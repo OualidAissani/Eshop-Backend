@@ -6,6 +6,7 @@ namespace Eshop.Orders.Services.IServices
     public interface IOrderService
     {
         Task<List<Order>> GetAllOrders(CancellationToken ct);
+        Task<PaginatedResult<Order>> GetAllOrdersPagination(PaginationParams paginationParams, CancellationToken ct);
 
         Task<List<Order>> GetAllUserOrderAsync(string userId, CancellationToken ct);
 

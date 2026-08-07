@@ -4,6 +4,7 @@ using Eshop.Orders.Models;
 using Eshop.Orders.Services.IServices;
 using FluentResults;
 using MassTransit;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
 using System.Security.Claims;
@@ -31,7 +32,67 @@ namespace Eshop.Orders.Services
         public async Task<List<Order>> GetAllOrders( CancellationToken ct)
         {
             return await _context.Orders.Include(o => o.OrderItems).AsSplitQuery().AsNoTracking().ToListAsync(ct);
+
+
+
+
+
+
+
+
         }
+
+        public async Task<PaginatedResult<Order>> GetAllOrdersPagination(PaginationParams paginationParams, CancellationToken ct)
+        {
+            if (paginationParams == null)
+            {
+                throw new ArgumentNullException(nameof(paginationParams));
+            }
+            var query = _context.Orders.AsQueryable();
+
+            int total = await query.CountAsync();
+
+
+            if (paginationParams.LastId.HasValue)
+            {
+
+                query=query.Where(i=>i.Id < paginationParams.LastId.Value);
+            }
+            var orders = await query
+                .Include(o => o.OrderItems)
+                .AsNoTracking()
+                .OrderByDescending(i => i.Id)
+                .Take(paginationParams.PageSize + 1)
+                .ToListAsync(ct);
+
+            int? cursor = null;
+
+            if(orders.Count > paginationParams.PageSize)
+            {
+                orders.RemoveAt(orders.Count - 1);
+                cursor = orders.Last().Id;
+            }
+
+
+            return new PaginatedResult<Order>
+            {
+                Items = orders,
+                NextCursor = cursor,
+                PageSize = paginationParams.PageSize,
+                Total = total
+            };
+
+        }
+
+
+
+
+
+
+
+
+
+
         public async Task<List<Order>> GetAllUserOrderAsync(string userId, CancellationToken ct)
         {
             return await _context

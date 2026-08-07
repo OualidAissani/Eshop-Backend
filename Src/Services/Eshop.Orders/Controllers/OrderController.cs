@@ -27,9 +27,10 @@ namespace Eshop.Orders.Controllers
         }
         [Authorize(Roles = "Admin")]
         [HttpGet("GetAllOrders")]
-        public async Task<IActionResult> GetAllOrders( CancellationToken ct)
+        public async Task<IActionResult> GetAllOrders([FromQuery] PaginationParams paging, CancellationToken ct)
         {
-            return Ok(await _orderService.GetAllOrders(ct));
+            var orders = await _orderService.GetAllOrdersPagination(paging, ct);
+            return Ok(orders);
         }
         [HttpGet("GetAllUserOrders")]
         public async Task<IActionResult> GetAllUserOrders( CancellationToken ct)

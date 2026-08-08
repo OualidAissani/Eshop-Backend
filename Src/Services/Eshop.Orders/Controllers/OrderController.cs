@@ -1,5 +1,6 @@
 ﻿using Eshop.Orders.Models;
 using Eshop.Orders.Services.IServices;
+using MassTransit.Internals.GraphValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Distributed;
@@ -179,6 +180,12 @@ namespace Eshop.Orders.Controllers
             return NoContent();
         }
 
+        [AllowAnonymous]
+        [HttpGet("trackOrder")]
+        public async Task<IActionResult> TrackOrder([FromQuery] string code, [FromQuery] string phone,CancellationToken ct)
+        {
+            return Ok(await _orderService.GetOrderByOrderNumber(code, phone, ct));
+        }
       
     }
 }

@@ -1,5 +1,6 @@
 ﻿using Eshop.Events;
 using Eshop.Orders.Data;
+using Eshop.Orders.Entities;
 using Eshop.Orders.Models;
 using Eshop.Orders.Services.IServices;
 using FluentResults;
@@ -8,6 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
 using System.Security.Claims;
+using System.Text;
 namespace Eshop.Orders.Services
 {
     public class OrderService : IOrderService
@@ -327,6 +329,30 @@ namespace Eshop.Orders.Services
         }
 
 
+        public async Task<OrderTrackingDto> GetOrderByOrderNumber(string orderNumber,string phoneNumber,CancellationToken ct)
+        {
+            if (orderNumber == null)
+            {
+                throw new NullReferenceException();
+            }
+            var productNames = new StringBuilder();
+            
+
+            return await _context.Orders.Where(o => o.OrderNumber == orderNumber && o.Phone==phoneNumber)
+                 .Select(i => new OrderTrackingDto
+                 {
+                     CustomerName=i.CustomerName,
+                     Phone=i.Phone,
+                     Commune = i.Commune,
+                     ShippingAddress = i.ShippingAddress,
+                     Wilaya = i.Wilaya,
+                     Status = i.Status,
+                     OrderItems = string.Join(", ", i.OrderItems.Select(d => d.ProductName))
+                 })
+                .FirstOrDefaultAsync(ct); //tacking order show status that set by admin and current loaction set by admin or connected to a delivery company
+
+
+        }
        
     }
 }

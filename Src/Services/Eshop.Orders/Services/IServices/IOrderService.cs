@@ -1,4 +1,5 @@
-﻿using Eshop.Orders.Models;
+﻿using Eshop.Orders.Entities;
+using Eshop.Orders.Models;
 using FluentResults;
 
 namespace Eshop.Orders.Services.IServices
@@ -21,6 +22,7 @@ namespace Eshop.Orders.Services.IServices
         Task<Result<bool>> UpdateOrderStatus(int orderId, Data.Enums.OrderStatus status, CancellationToken ct);
 
          Task<Result<bool>> MatchUserWithOrder(int orderId,string userId, CancellationToken ct);
+        Task<OrderTrackingDto> GetOrderByOrderNumber(string orderNumber, string phoneNumber, CancellationToken ct);
 
     }
 }

@@ -32,14 +32,6 @@ namespace Eshop.Orders.Services
         public async Task<List<Order>> GetAllOrders( CancellationToken ct)
         {
             return await _context.Orders.Include(o => o.OrderItems).AsSplitQuery().AsNoTracking().ToListAsync(ct);
-
-
-
-
-
-
-
-
         }
 
         public async Task<PaginatedResult<Order>> GetAllOrdersPagination(PaginationParams paginationParams, CancellationToken ct)
@@ -83,15 +75,6 @@ namespace Eshop.Orders.Services
             };
 
         }
-
-
-
-
-
-
-
-
-
 
         public async Task<List<Order>> GetAllUserOrderAsync(string userId, CancellationToken ct)
         {
@@ -139,6 +122,7 @@ namespace Eshop.Orders.Services
             var newOrder = new Order
             {
                 OrderItems = orderItems,
+                CustomerName=order.CustomerName,
                 UserId = order.UserId ?? Guid.NewGuid().ToString(),
                 ShippingAddress = order.ShippingAddress,
                 Phone = order.Phone,
@@ -238,15 +222,6 @@ namespace Eshop.Orders.Services
             }
         }
 
-        public Task<Order> UpdateOrder(OrderDto order,CancellationToken ct)
-        {
-            if (order == null || order.Products == null || !order.Products.Any())
-            {
-                throw new ArgumentNullException(nameof(order), "Order and its products cannot be null or empty.");
-            }
-
-            throw new NotImplementedException();
-        }
 
         public async Task<Result<bool>> OrderConfirmed(int orderId, CancellationToken ct)
         {
@@ -266,12 +241,12 @@ namespace Eshop.Orders.Services
 
         }
 
-        public async Task<Result<Order>> UpdateOrderStatus(int orderId, Data.Enums.OrderStatus status, CancellationToken ct)
+        public async Task<Result<bool>> UpdateOrderStatus(int orderId, Data.Enums.OrderStatus status, CancellationToken ct)
         {
             var order = await _context.Orders.FirstOrDefaultAsync(o => o.Id == orderId, ct);
             if (order == null)
             {
-                return Result.Fail<Order>("Order not found.");
+                return Result.Fail<bool>("Order not found.");
             }
 
             order.Status = status;
@@ -288,10 +263,10 @@ namespace Eshop.Orders.Services
 
             if (await _context.SaveChangesAsync(ct) == 0)
             {
-                return Result.Fail<Order>("Failed to update order status.");
+                return Result.Fail<bool>("Failed to update order status.");
             }
 
-            return order;
+            return true;
         }
 
         public async Task<Result<bool>> MatchUserWithOrder(int orderId,string userId, CancellationToken ct)

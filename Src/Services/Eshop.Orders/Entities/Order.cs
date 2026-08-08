@@ -8,7 +8,7 @@ namespace Eshop.Orders.Models
         [Key]
         public int Id { get; set; }
         public string OrderNumber { get; set; } = "Ord-"+Guid.NewGuid().ToString("N")[..8];
-
+        public string CustomerName { get; set; }
         public decimal TotalPrice { get; set; }
         public string Email { get; set; }
 

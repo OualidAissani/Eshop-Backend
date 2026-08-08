@@ -5,6 +5,7 @@
         required public List<OrderItemDto> Products { get; set; }
 
         public string PayementMethod { get; set; }
+        public string CustomerName { get; set; }
         public string Email { get; set; }
         public string Phone { get; set; }
         public string ShippingAddress { get; set; }

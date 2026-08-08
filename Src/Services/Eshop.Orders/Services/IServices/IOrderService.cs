@@ -14,15 +14,11 @@ namespace Eshop.Orders.Services.IServices
 
         Task<Result<CreateOrderResponseDto>> CreateOrder(OrderDto order, CancellationToken ct);
 
-     //  Task<Order> OrderCart(int cartId,CancellationToken ct);
-
-        Task<Order> UpdateOrder(OrderDto order,CancellationToken ct);
-
         Task<Result<bool>> DeleteOrder(int orderId, CancellationToken ct);
 
         Task<Result<bool>> OrderConfirmed(int orderId, CancellationToken ct);
 
-        Task<Result<Order>> UpdateOrderStatus(int orderId, Data.Enums.OrderStatus status, CancellationToken ct);
+        Task<Result<bool>> UpdateOrderStatus(int orderId, Data.Enums.OrderStatus status, CancellationToken ct);
 
          Task<Result<bool>> MatchUserWithOrder(int orderId,string userId, CancellationToken ct);
 

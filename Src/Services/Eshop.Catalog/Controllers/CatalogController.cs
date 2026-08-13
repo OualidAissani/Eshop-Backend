@@ -15,21 +15,12 @@ namespace Eshop.Catalog.Controllers;
 public class CatalogController : ControllerBase
 {
     private readonly IProductService _productrepo;
-    private readonly IMediaService _mediaService;
-    private readonly IDistributedCache _cache;
-    private readonly ILogger<CatalogController> _logger;
 
     public CatalogController(
-        IProductService productRepository,
-        ILogger<CatalogController> logger,
-        IMediaService mediaService
-,
-        IDistributedCache cache)
+        IProductService productRepository
+)
     {
         _productrepo = productRepository;
-        _logger = logger;
-        _mediaService = mediaService;
-        _cache = cache;
     }
 
     [RequestSizeLimit(50_000_000)]
@@ -52,16 +43,8 @@ public class CatalogController : ControllerBase
         {
             return BadRequest("Idempotency Key is required");   
         }
-        var cacheKey = $"Idempotency:Product:Create:{key}";
-
-        var cached = await _cache.GetAsync(cacheKey);
-
-        if (cached != null)
-        {
-            var cachedProduct = JsonSerializer.Deserialize<ProductDto>(cached);
-            return CreatedAtAction(nameof(GetProductById), new { id = cachedProduct?.Id }, cachedProduct);
-        }
-
+       
+        product.IdempotencyKey = key;
         var result = await _productrepo.CreateProduct(product,formFile,ct); 
 
         if(result.IsFailed)
@@ -69,17 +52,7 @@ public class CatalogController : ControllerBase
             return BadRequest(result.Errors.First().Message);
         }
      
-        await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(result.Value), new DistributedCacheEntryOptions
-        {
-            AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
-        });
-        if (result.Value?.Categories != null)
-        {
-            foreach (var category in result.Value.Categories)
-            {
-                await _cache.RemoveAsync($"Products:Category={category.Id}");
-            }
-        }
+       
         return CreatedAtAction(nameof(GetProductById),new {id=result.Value?.Id},result.Value);
     }
     
@@ -90,19 +63,8 @@ public class CatalogController : ControllerBase
         [FromForm] ProductsUpdateDto product,
         [FromForm(Name = "formFile")] List<IFormFile>? formFile,
         [FromForm] bool AppendImage,
-        [FromHeader(Name = "x-Idempotency-Key")] string key,CancellationToken ct)
+       CancellationToken ct)
     {
-        if (key == null)
-        {
-            return BadRequest("Idempotency Key is required");
-        }
-        var cacheKey = $"Idempotency:Product:Update:{key}";
-        var cached = await _cache.GetAsync(cacheKey);
-        if (cached != null)
-        {
-            return Ok(JsonSerializer.Deserialize<ProductDto>(cached) ?? null);
-        }
-       
 
         var result = await _productrepo.UpdateProduct(id,product, formFile, ct, AppendImage);
 
@@ -110,22 +72,7 @@ public class CatalogController : ControllerBase
         if(result.IsFailed)
         {
             return BadRequest(result.Errors.First().Message);
-        }
-
-        await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(result.Value), new DistributedCacheEntryOptions
-        {
-            AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
-        });
-
-        await _cache.RemoveAsync($"Products:Id={result.Value.Id}");
-
-        if (result.Value.Categories != null)
-        {
-            foreach (var category in result.Value.Categories)
-            {
-                await _cache.RemoveAsync($"Products:Category={category.Id}");
-            }
-        }
+        } 
 
         return Ok(result.Value);
 
@@ -140,14 +87,7 @@ public class CatalogController : ControllerBase
         {
             return BadRequest(result.Errors.First().Message);
         }
-        await _cache.RemoveAsync($"Products:Id={Id}");
-        if (result.Value?.Categories != null)
-        {
-            foreach (var category in result.Value.Categories)
-            {
-                await _cache.RemoveAsync($"Products:Category={category.Id}");
-            }
-        }
+       
         return Ok(new {message="The Product Has Been Deleted Successfully"});
     }
     
@@ -177,42 +117,23 @@ public class CatalogController : ControllerBase
     [HttpGet("{id}")]
     public async Task<ActionResult<ProductDto>> GetProductById(int id, CancellationToken ct)
     {
-        var cacheKey = $"Products:Id={id}";
-        var cached = await _cache.GetStringAsync(cacheKey);
-        if (cached != null)
-        {
-            var cachedProduct = JsonSerializer.Deserialize<ProductDto>(cached);
-            return Ok(cachedProduct);
-        }
+        
         var product = await _productrepo.GetProductById(id, ct);
 
         if (product == null)
         {
             return NotFound();
         }
-        await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(product), new DistributedCacheEntryOptions
-        {
-            AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
-        });
+        
         return Ok(product);
     }
     
     [HttpGet("category/{categoryId}")]
     public async Task<ActionResult<List<ProductDto>>> GetProductsByCategory(int categoryId, CancellationToken ct)
     {
-        var cachedKey=$"Products:Category={categoryId}";
-        var cached = await _cache.GetStringAsync(cachedKey);
-        if (cached != null)
-        {
-            return Ok(JsonSerializer.Deserialize<List<ProductDto>>(cached));
-        }
-
+       
         var products = await _productrepo.GetProductsByCategory(categoryId,ct);
 
-            await _cache.SetStringAsync(cachedKey, JsonSerializer.Serialize(products), new DistributedCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
-            });
         
         return Ok(products);
     }
@@ -224,41 +145,22 @@ public class CatalogController : ControllerBase
         {
             return BadRequest("You To Add A Search Term/Tag");
         }
-        var chachedKey=$"Products:Search={q}";
-        var cached = await _cache.GetStringAsync(chachedKey);
-        if (cached != null)
-        {
-            return Ok(JsonSerializer.Deserialize<List<ProductDto>>(cached));
-        }
+        
 
         var products=await _productrepo.ProductSearch(q,ct);
         if (products == null)
         {
             return NotFound();
         }
-            await _cache.SetStringAsync(chachedKey, JsonSerializer.Serialize(products), new DistributedCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
-            });
+           
 
         return Ok(products);
     }
     [HttpGet("hero")]
     public async Task<IActionResult> GetHeroProducts(CancellationToken ct)
     {
-        var cacheKey = "Products:Hero";
-        var cached = await _cache.GetStringAsync(cacheKey);
-        if (cached != null)
-        {
-            return Ok(JsonSerializer.Deserialize<List<ProductDto>>(cached));
-        }
-
+        
         var products = await _productrepo.GetHeroProducts(ct);
-
-        await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(products), new DistributedCacheEntryOptions
-        {
-            AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5)
-        });
 
         return Ok(products);
     }
@@ -273,10 +175,6 @@ public class CatalogController : ControllerBase
         {
             return BadRequest(result.Errors.First().Message);
         }
-
-        await _cache.RemoveAsync($"Products:Id={id}");
-        await _cache.RemoveAsync("Products:Hero");
-
         return Ok(result.Value);
     }
 

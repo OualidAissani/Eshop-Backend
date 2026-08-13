@@ -13,5 +13,7 @@ namespace Eshop.Catalog.Dtos
         public List<int>? Categories { get; set; }
     public Dictionary<string, string>? Attributes { get; set; }
 
+        public string? IdempotencyKey { get; set; }
+
     }
 }

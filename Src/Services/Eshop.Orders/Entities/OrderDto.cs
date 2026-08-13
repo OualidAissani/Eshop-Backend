@@ -12,6 +12,7 @@
         public string Wilaya { get; set; }
         public string Commune { get; set; }
         public string? UserId { get; set; }
+        public string? IdempontencyKey { get; set; }
     }
 
 }

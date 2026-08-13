@@ -10,9 +10,7 @@ using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using System.Text;
-using Microsoft.AspNetCore.Diagnostics;
-using Microsoft.AspNetCore.Mvc;
+using Scrutor;
 var builder = WebApplication.CreateBuilder(args);
 if(builder.Environment.IsDevelopment())
 {
@@ -32,13 +30,20 @@ builder.Services.AddHttpClient();
 builder.AddNpgsqlDbContext<CatalogDbContext>("CatalogDb");
 builder.AddMongoDBClient("CatalogMongoDb");
 builder.Services.Configure<MongoSettings>(builder.Configuration.GetRequiredSection("Mongo"));
+
 builder.Services.AddSingleton<MongoCatalogContext>();
 
 builder.Services.AddOpenApi();
+
 builder.Services.AddScoped<IMediaService, MediaService>();
+
 builder.Services.AddScoped<IProductService, ProductService>();
+builder.Services.Decorate<IProductService, CachedProductService>();
+
 builder.Services.AddScoped<ICategoryService, CategoryService>();
+
 builder.Services.AddHttpLogging(logging => { });
+
 builder.AddRedisDistributedCache("redis");
 
 

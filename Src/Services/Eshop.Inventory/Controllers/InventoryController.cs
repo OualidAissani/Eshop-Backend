@@ -16,48 +16,30 @@ namespace Eshop.Inventory.Controllers
     public class InventoryController : ControllerBase
     {
         private readonly IInventoryService _inventoryService;
-        private readonly IDistributedCache _cache;
-        public InventoryController(IInventoryService inventoryService,IDistributedCache cache)
+        public InventoryController(IInventoryService inventoryService)
         {
             _inventoryService = inventoryService;
-            _cache = cache;
         }
         [AllowAnonymous]
         [HttpGet]
        
         public async Task<IActionResult> GetAllInventories( CancellationToken ct)
         {
-            var cacheKey="Inventories:All";
-            var cached = await _cache.GetAsync(cacheKey);
-            if(cached != null)
-            {
-                return Ok(JsonSerializer.Deserialize<List<Models.Inventory>>(cached));
-            }
+           
             var inventories = await _inventoryService.GetAllInventories(ct);
-            await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(inventories), new DistributedCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5)
-            });
+           
             return Ok(inventories);
         }
         [HttpGet("{id}")]
         public async Task<IActionResult> GetInventoryById(int id, CancellationToken ct)
         {
-            var cacheKey = $"Inventory:{id}";
-            var cached = await _cache.GetAsync(cacheKey);
-            if(cached != null)
-            {
-                return Ok(JsonSerializer.Deserialize<Models.Inventory>(cached));
-            }
+          
             var inventory = await _inventoryService.GetInventoryById(id,ct);
             if (inventory == null)
             {
                 return NotFound();
             }
-            await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(inventory), new DistributedCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
-            });
+            
             return Ok(inventory);
         }
 
@@ -65,30 +47,13 @@ namespace Eshop.Inventory.Controllers
         public async Task<IActionResult> CreateInventory([FromBody] InventoryDto inventoryDto, CancellationToken ct,
             [FromHeader(Name = "x-Idempotency-Key")] string key)
         {
-            if (key == null)
-            {
-                return BadRequest();
-            }
-            var cacheKey = $"Idempotency:Inventory:Create:{key}";
-            var cached = await _cache.GetAsync(cacheKey);
-            if (cached != null)
-            {
-                return CreatedAtAction(nameof(GetInventoryById), new { id = JsonSerializer.Deserialize<Models.Inventory>(cached)?.Id }, JsonSerializer.Deserialize<Models.Inventory>(cached) ?? null);
-            }
-
+           inventoryDto.IdempontencyKey= key;
             var inventory = await _inventoryService.CreateInventoryForProduct(inventoryDto,ct);
 
             if (inventory.IsFailed)
             {
                 return BadRequest("");
             }
-
-            await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(inventory), new DistributedCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
-            });
-
-            await _cache.RemoveAsync("Inventories:All");
 
             return await GetAllInventories(ct);
         }
@@ -103,36 +68,24 @@ namespace Eshop.Inventory.Controllers
                 return NotFound(result.Errors.First().Message);
             }
             
-            await _cache.RemoveAsync($"Inventory:{id}");
-
-            await _cache.RemoveAsync("Inventories:All");
             return NoContent();
         }
         [HttpPut]
         public async Task<IActionResult> UpdateInventory([FromBody] InventoryDto inventoryDto, CancellationToken ct,
             [FromHeader(Name = "x-Idempotency-Key")] string key)
         {
+
             if (key == null)
             {
                 return BadRequest("Idempotency Key is required");
             }
-            var cacheKey = $"Idempotency:Inventory:Update:{key}";
-            var cached = await _cache.GetAsync(cacheKey);
-            if (cached != null)
-            {
-                return Ok(JsonSerializer.Deserialize<Models.Inventory>(cached));
-            }
+            inventoryDto.IdempontencyKey= key;
             var result = await _inventoryService.UpdateInventory(inventoryDto, ct);
             if (result.IsFailed)
             {
                 return BadRequest(result.Errors.First().Message);
             }
-            await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(result), new DistributedCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
-            });
-            await _cache.RemoveAsync($"Inventory:{result.Value.Id}");
-            await _cache.RemoveAsync("Inventories:All");
+            
             return Ok(result.Value);
         }
         [HttpPut("UpdateQuantity")]
@@ -144,24 +97,13 @@ namespace Eshop.Inventory.Controllers
             {
                 return BadRequest("Idempotency Key is required");
             }
-            var cacheKey = $"Idempotency:Inventory:UpdateQuantity:{key}";
-            var cached = await _cache.GetAsync(cacheKey);
-
-            if (cached != null)
-            {
-                return Ok(JsonSerializer.Deserialize<List<Models.Inventory>>(cached));
-            }
+           invDto.First().IdempontencyKey = key;
             var result = await _inventoryService.UpdateQuantity(invDto,ct);
             if (result.IsFailed)
             {
                 return BadRequest(result.Errors.First().Message);
             }
 
-                await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(result), new DistributedCacheEntryOptions
-                {
-                    AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
-                });
-            await _cache.RemoveAsync("Inventories:All");
             return Ok(result.Value);
         }
     }

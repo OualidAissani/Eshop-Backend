@@ -17,7 +17,6 @@ namespace Eshop.Catalog.Services.IServices
 
         Task<PaginatedResult<ProductDto>> GetProductsAsync(PaginationParams paging, CancellationToken ct);
 
-        Task<List<ProductDto>> GetAllProducts(CancellationToken ct);
 
         Task<List<ProductDto>> GetProductsByCategory(int categoryId, CancellationToken ct);
 

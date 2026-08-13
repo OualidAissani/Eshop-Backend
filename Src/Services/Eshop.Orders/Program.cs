@@ -7,12 +7,12 @@ using Eshop.Orders.Services.IServices;
 using MassTransit;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
-using Microsoft.AspNetCore.Diagnostics;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text.Json.Serialization;
+using Scrutor;
+
 var builder = WebApplication.CreateBuilder(args);
 if (builder.Environment.IsDevelopment())
 {
@@ -29,7 +29,8 @@ builder.Services.AddOpenApi();
 
 builder.Services.AddScoped<IOrderService, OrderService>();
 
-builder.Services.AddScoped<ICartService, CartService>();
+builder.Services.Decorate<IOrderService,CachedOrderService>();
+
 
 builder.AddRedisDistributedCache("redis");
 
@@ -51,7 +52,6 @@ builder.Services.AddMassTransit(o =>
         cfg.UseBusOutbox();
     });
     o.AddConsumer<OrderConfirmedConsumer>();
-    o.AddConsumer<UpdateCartProductConsumer>();
     o.AddConsumer<OrderCompensateConsumer>();
     o.AddRequestClient<GetProductRequest>(new Uri("queue:retrieve-product-price"));
     o.AddRequestClient<ProductInventoryAvailibityForOrderRequest>(new Uri("queue:product-inventory-quanity"));

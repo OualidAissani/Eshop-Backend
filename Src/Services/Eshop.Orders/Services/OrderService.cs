@@ -31,10 +31,6 @@ namespace Eshop.Orders.Services
             _publishEndpoint = publishEndpoint;
             _createPaymentOrderClient = createPaymentOrderClient;
         }
-        public async Task<List<Order>> GetAllOrders( CancellationToken ct)
-        {
-            return await _context.Orders.Include(o => o.OrderItems).AsSplitQuery().AsNoTracking().ToListAsync(ct);
-        }
 
         public async Task<PaginatedResult<Order>> GetAllOrdersPagination(PaginationParams paginationParams, CancellationToken ct)
         {

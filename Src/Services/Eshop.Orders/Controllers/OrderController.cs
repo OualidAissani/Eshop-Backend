@@ -16,15 +16,11 @@ namespace Eshop.Orders.Controllers
     {
         private readonly IOrderService _orderService;
         private readonly IHttpContextAccessor _httpContextAccessor;
-        private readonly IDistributedCache _cache;
-        private readonly ILogger<OrderController> _logger;
 
-        public OrderController(IOrderService orderService, IHttpContextAccessor httpContextAccessor, IDistributedCache cache, ILogger<OrderController> logger)
+        public OrderController(IOrderService orderService, IHttpContextAccessor httpContextAccessor)
         {
             _orderService = orderService;
             _httpContextAccessor = httpContextAccessor;
-            _cache = cache;
-            _logger = logger;
         }
         [Authorize(Roles = "Admin")]
         [HttpGet("GetAllOrders")]
@@ -38,27 +34,13 @@ namespace Eshop.Orders.Controllers
         {
             var userId = _httpContextAccessor.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-            var cacheKey = $"Orders:{userId}:All";
-
-            var cachedData=await _cache.GetAsync(cacheKey);
-
-            if (cachedData != null)
-            {
-                return Ok(JsonSerializer.Deserialize<List<Order>>(cachedData));
-            }
-
+            
             var orders=await _orderService.GetAllUserOrderAsync(userId, ct);
 
             if(orders==null || orders.Count==0)
             {
                 return NotFound();
             }
-
-            await _cache.SetStringAsync(cacheKey,JsonSerializer.Serialize(orders),new DistributedCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow= TimeSpan.FromMinutes(30)
-            });
-
             return Ok(orders);
         }
 
@@ -67,14 +49,6 @@ namespace Eshop.Orders.Controllers
         {
             var userId = _httpContextAccessor.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-            var cacheKey = $"Order:{userId}:{id}";
-
-            var cachedData = await _cache.GetAsync(cacheKey);
-
-            if(cachedData != null)
-            {
-                return Ok(JsonSerializer.Deserialize<Order>(cachedData));
-            }
 
             var order = await _orderService.GetOrderById(id,userId, ct);
 
@@ -83,10 +57,6 @@ namespace Eshop.Orders.Controllers
                 return NotFound();
             }
 
-            await _cache.SetStringAsync(cacheKey,JsonSerializer.Serialize(order),new DistributedCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow= TimeSpan.FromMinutes(30)
-            });
 
             return Ok(order);
         }
@@ -106,8 +76,6 @@ namespace Eshop.Orders.Controllers
                 return NotFound(result.Errors.FirstOrDefault()?.Message);
             }
 
-            await _cache.RemoveAsync($"Orders:Admin:All");
-
             return Ok(result.Value);
         }
 
@@ -116,21 +84,9 @@ namespace Eshop.Orders.Controllers
         public async Task<IActionResult> CreateOrder([FromBody] OrderDto order,
             [FromHeader(Name = "x-Idempotency-Key")] string key,CancellationToken ct)
         {
-            if(key== null)
-            {
-                return BadRequest("Idempotency Key is required");
-            }
-
-            var cacheKey = $"Idempotency:Order:Create:{key}";
-
-            var cached=await _cache.GetAsync(cacheKey);
-
-            if(cached != null)
-            {
-                return CreatedAtAction(nameof(GetOrderById), new { id = JsonSerializer.Deserialize<Order>(cached)?.Id }, JsonSerializer.Deserialize<Order>(cached) ?? null);
-            }
-
+            
              order.UserId= _httpContextAccessor.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
+            order.IdempontencyKey = key;
             try
             {
                 var createdOrder = await _orderService.CreateOrder(order,ct);
@@ -138,11 +94,7 @@ namespace Eshop.Orders.Controllers
                 {
                     return BadRequest(createdOrder.Errors[0].Message);
                 }
-                await _cache.SetStringAsync(cacheKey,JsonSerializer.Serialize(createdOrder.Value),new DistributedCacheEntryOptions
-                {
-                    AbsoluteExpirationRelativeToNow= TimeSpan.FromMinutes(5)
-                });
-                await _cache.RemoveAsync($"Orders:{order.UserId}:All");
+               
                 return Ok(createdOrder.Value);
             }
             catch (ArgumentException ex)
@@ -159,24 +111,12 @@ namespace Eshop.Orders.Controllers
         [HttpDelete]
         public async Task<IActionResult> DeleteOrder(int id,CancellationToken ct)
         {
-            var userId = _httpContextAccessor.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-            var checkOrderMatchWithUser=await _orderService.MatchUserWithOrder(id,userId, ct);
-
-            if (checkOrderMatchWithUser.IsFailed || checkOrderMatchWithUser.Value==false)
-            {
-                return NotFound(checkOrderMatchWithUser.Errors.FirstOrDefault()?.Message);
-            }
-
             var deleteResult=await _orderService.DeleteOrder(id,ct);
 
             if(deleteResult.IsFailed)
             {
                 return NotFound(deleteResult.Errors.FirstOrDefault()?.Message);
             }
-            await _cache.RemoveAsync($"Orders:{userId}:All");
-            await _cache.RemoveAsync($"Order:{userId}:{id}");
-
             return NoContent();
         }
 

@@ -21,7 +21,6 @@ using Xunit;
 [assembly: GenerateImposter(typeof(IPublishEndpoint))]
 [assembly: GenerateImposter(typeof(IHttpContextAccessor))]
 [assembly: GenerateImposter(typeof(ILogger<>))]
-[assembly: GenerateImposter(typeof(ICartService))]
 [assembly: GenerateImposter(typeof(IInventoryService))]
 [assembly: GenerateImposter(typeof(IPaymentService))]
 

@@ -193,15 +193,6 @@ namespace Eshop.Catalog.Services;
             return product == null ? null : ToProductDto(product);
         }
 
-        public async Task<List<ProductDto>> GetAllProducts(CancellationToken ct)
-        {
-            var products = await _mongoContext.Products
-                .Find(FilterDefinition<ProductDocument>.Empty)
-                .SortBy(d => d.DisplayOrder)
-                .ThenBy(d => d.ProductId)
-                .ToListAsync(ct);
-            return products.Select(ToProductDto).ToList();
-        }
 
         public async Task<List<ProductDto>> GetProductsByCategory(int categoryId, CancellationToken ct)
         {

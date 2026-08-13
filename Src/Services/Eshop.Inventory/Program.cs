@@ -51,6 +51,7 @@ builder.Services.AddAuthorizationBuilder();
 builder.Services.AddSwaggerGen();
 
 builder.Services.AddScoped<IInventoryService, InventoryService>();
+builder.Services.Decorate<IInventoryService, CachedInventoryService>();
 builder.Services.AddMassTransit(x =>
 {
     x.AddConsumer<ProductInventoryQuanityConsumer>();

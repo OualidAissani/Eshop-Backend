@@ -90,18 +90,19 @@ namespace Eshop.Inventory.Controllers
         }
         [HttpPut("UpdateQuantity")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> UpdateQuantity([FromBody] List<InventoryDto> invDto, CancellationToken ct,
+        public async Task<IActionResult> UpdateQuantity([FromBody] UpdateQuantityRequest invDto, CancellationToken ct,
             [FromHeader(Name = "x-Idempotency-Key")] string key)
         {
             if(key == null)
             {
                 return BadRequest("Idempotency Key is required");
             }
-           invDto.First().IdempontencyKey = key;
+            
+            invDto.IdempotencyKey= key;
             var result = await _inventoryService.UpdateQuantity(invDto,ct);
             if (result.IsFailed)
             {
-                return BadRequest(result.Errors.First().Message);
+                return BadRequest(result.Errors.First().Message);   
             }
 
             return Ok(result.Value);

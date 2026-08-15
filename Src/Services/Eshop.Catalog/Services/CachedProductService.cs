@@ -2,7 +2,6 @@
 using Eshop.Catalog.Models;
 using Eshop.Catalog.Services.IServices;
 using FluentResults;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.Extensions.Caching.Distributed;
 using System.Text.Json;
 

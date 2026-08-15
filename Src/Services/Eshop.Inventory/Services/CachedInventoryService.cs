@@ -1,7 +1,6 @@
 ﻿using Eshop.Events;
 using Eshop.Inventory.Dtos;
 using FluentResults;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.Extensions.Caching.Distributed;
 using System.Text.Json;
 
@@ -62,7 +61,10 @@ namespace Eshop.Inventory.Services
 
         public async Task<Result<bool?>> DeleteInventoryByProductId(int productId, CancellationToken ct)
         {
-            return await _inventoryService.DeleteInventoryByProductId(productId, ct);
+             var result=await _inventoryService.DeleteInventoryByProductId(productId, ct);
+            await _cache.RemoveAsync($"Inventories:All");
+
+            return result;
         }
 
         public async Task<List<Models.Inventory>> GetAllInventories(CancellationToken ct)
@@ -108,7 +110,10 @@ namespace Eshop.Inventory.Services
 
         public async Task<List<int>> ReserveInventory(List<Dtos.InventoryDto> items, CancellationToken ct)
         {
-            return await _inventoryService.ReserveInventory(items, ct);
+            var result= await _inventoryService.ReserveInventory(items, ct);
+            await _cache.RemoveAsync($"Inventories:All");
+
+            return result;
         }
 
         public async Task<Result<Models.Inventory>> UpdateInventory(Dtos.InventoryDto inventoryDto, CancellationToken ct)
@@ -137,13 +142,13 @@ namespace Eshop.Inventory.Services
             return result.Value;
         }
 
-        public async Task<Result<int>> UpdateQuantity(List<Dtos.InventoryDto> invDto, CancellationToken ct)
+        public async Task<Result<int>> UpdateQuantity(UpdateQuantityRequest invDto, CancellationToken ct)
         {
-            if (invDto.First().IdempontencyKey== null)
+            if (invDto.IdempotencyKey== null)
             {
                 return Result.Fail("Idempotency Key is required");
             }
-            var cacheKey = $"Idempotency:Inventory:UpdateQuantity:{invDto.First().IdempontencyKey}";
+            var cacheKey = $"Idempotency:Inventory:UpdateQuantity:{invDto.IdempotencyKey}";
             var cached = await _cache.GetAsync(cacheKey);
 
             if (cached != null)
@@ -156,7 +161,7 @@ namespace Eshop.Inventory.Services
                 return Result.Fail(result.Errors.First().Message);
             }
 
-            await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(result), new DistributedCacheEntryOptions
+            await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(result.Value), new DistributedCacheEntryOptions
             {
                 AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
             });

@@ -4,7 +4,6 @@ using Eshop.Orders.Models;
 using Eshop.Orders.Services.IServices;
 using FluentResults;
 using Microsoft.Extensions.Caching.Distributed;
-using System.Net.NetworkInformation;
 using System.Security.Claims;
 using System.Text.Json;
 
@@ -70,14 +69,14 @@ namespace Eshop.Orders.Services
 
             if (checkOrderMatchWithUser.IsFailed || checkOrderMatchWithUser.Value == false)
             {
-                return null;
+                return Result.Fail("something went wrong");
             }
 
             var deleteResult = await _orderService.DeleteOrder(orderId, ct);
 
             if (deleteResult.IsFailed)
             {
-                return null;
+                return Result.Fail(deleteResult.Errors[0].Message);
             }
             await _cache.RemoveAsync($"Orders:{userId}:All");
             await _cache.RemoveAsync($"Order:{userId}:{orderId}");
@@ -87,34 +86,16 @@ namespace Eshop.Orders.Services
 
         public async Task<PaginatedResult<Order>> GetAllOrdersPagination(PaginationParams paginationParams, CancellationToken ct)
         {
-            var cacheKey = $"Orders:Page:{paginationParams.PageSize}:{paginationParams.LastId}";
-            var cachedData = await _cache.GetAsync(cacheKey);
 
-            if (cachedData != null)
-            {
-                return JsonSerializer.Deserialize<PaginatedResult<Order>>(cachedData);
-            }
 
             var orders = await _orderService.GetAllOrdersPagination(paginationParams, ct);
 
-            await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(orders), new DistributedCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30)
-            });
+    
             return orders;
         }
 
         public async Task<List<Order>> GetAllUserOrderAsync(string userId, CancellationToken ct)
         {
-
-            var cacheKey = $"Orders:{userId}:All";
-
-            var cachedData = await _cache.GetAsync(cacheKey);
-
-            if (cachedData != null)
-            {
-                return JsonSerializer.Deserialize<List<Order>>(cachedData);
-            }
 
             var orders = await _orderService.GetAllUserOrderAsync(userId, ct);
 
@@ -123,10 +104,7 @@ namespace Eshop.Orders.Services
                 return null;
             }
 
-            await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(orders), new DistributedCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30)
-            });
+           
 
             return orders;
         }
@@ -160,7 +138,7 @@ namespace Eshop.Orders.Services
         public async Task<OrderTrackingDto> GetOrderByOrderNumber(string orderNumber, string phoneNumber, CancellationToken ct)
         {
             var cacheKey = $"Order:Tracking:{orderNumber}:{phoneNumber}";
-            var cahcedData = _cache.GetString(cacheKey);
+            var cahcedData = await _cache.GetStringAsync(cacheKey);
             if (cahcedData != null)
             {
                 return JsonSerializer.Deserialize<OrderTrackingDto>(cahcedData);

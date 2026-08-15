@@ -1,5 +1,6 @@
 ﻿using Eshop.Events;
 using Eshop.Inventory.Data;
+using Eshop.Inventory.Dtos;
 using FluentResults;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
@@ -79,17 +80,17 @@ namespace Eshop.Inventory.Services
 
             return inventory;
         }
-        public async Task<Result<int>> UpdateQuantity(List<Dtos.InventoryDto> invDto, CancellationToken ct)
+        public async Task<Result<int>> UpdateQuantity(UpdateQuantityRequest invDto, CancellationToken ct)
         {
-            if (invDto == null || invDto.Count == 0)
+            if (invDto == null || invDto.Items.Count == 0)
                 throw new ArgumentNullException();
 
             int totalUpdated = 0;
 
             var invs = await _db.Inventories
-                    .Where(i => invDto.Select(d=>d.ProductId).Contains(i.ProductId)).ToListAsync(ct);
+                    .Where(i => invDto.Items.Select(d=>d.ProductId).Contains(i.ProductId)).ToListAsync(ct);
 
-            var invDtopDictionary = invDto.ToDictionary(i => i.ProductId);
+            var invDtopDictionary = invDto.Items.ToDictionary(i => i.ProductId);
 
             foreach (var item in invs)
             {

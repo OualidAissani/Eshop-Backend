@@ -7,6 +7,8 @@
   <Folder Name="/Src/" />
   <Folder Name="/Src/Services/">
     <Project Path="Eshop.AppHost/Eshop.AppHost.csproj" Id="36452f43-a9a8-4aa5-9a61-d94467a156f5" />
+    <Project Path="Eshop.BlazorFrontend/Eshop.BlazorFrontend.Client/Eshop.BlazorFrontend.Client.csproj" Id="efc2ccc7-fc0c-46f7-ab7b-c1e24a109efd" />
+    <Project Path="Eshop.BlazorFrontend/Eshop.BlazorFrontend/Eshop.BlazorFrontend.csproj" Id="faaac110-49b7-4fcb-8f3f-2d56c3a15d30" />
     <Project Path="Eshop.Catalog/Eshop.Catalog.csproj" />
     <Project Path="Eshop.Events/Eshop.Events.csproj" />
     <Project Path="Eshop.Frontend/" Type="Website" DisplayName="Eshop.Frontend">

@@ -18,6 +18,11 @@ public class MediaService : IMediaService
     private const string Deleteurl = $"https://api.uploadcare.com/files/storage/";
     private readonly IConfiguration _configuration;
     private readonly ILogger<MediaService> _logger;
+    private static readonly HashSet<string> AllowedContentTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "image/jpeg", "image/png", "image/webp", "image/gif"
+    };
+    private const long MaxFileSizeBytes = 5 * 1024 * 1024; // 5 MB
     public MediaService(IHttpClientFactory httpClietnt, IConfiguration configuration, ILogger<MediaService> logger)
     {
         _configuration = configuration;
@@ -30,9 +35,16 @@ public class MediaService : IMediaService
         ArgumentNullException.ThrowIfNull(media);
         ArgumentNullException.ThrowIfNull(fileStream);
 
+        if (string.IsNullOrWhiteSpace(contentType) || !AllowedContentTypes.Contains(contentType))
+            throw new InvalidOperationException($"Unsupported file type: {contentType}");
+
         // Buffer entirely — makes Polly retries replayable
         using var ms = new MemoryStream();
         await fileStream.CopyToAsync(ms, ct);
+
+        if (ms.Length > MaxFileSizeBytes)
+            throw new InvalidOperationException($"'{fileName}' exceeds the {MaxFileSizeBytes / 1024 / 1024}MB limit.");
+
         var fileBytes = ms.ToArray();
 
         var httpClient = _httpClientFactory.CreateClient();
@@ -61,7 +73,7 @@ public class MediaService : IMediaService
     }
 
 
-    public async Task<bool> DeleteMedia(string mediaUrl,CancellationToken ct)
+    public async Task<bool> DeleteMedia(string mediaUrl, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(mediaUrl))
         {
@@ -76,8 +88,13 @@ public class MediaService : IMediaService
         httpClient.DefaultRequestHeaders.Accept.Clear();
         httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.uploadcare-v0.7+json"));
 
-        var uuid = mediaUrl.Split('/');
-        var jsonContent = new StringContent(JsonSerializer.Serialize(new[] { uuid[^2] }),System.Text.Encoding.UTF8,"application/json");
+        if (!Uri.TryCreate(mediaUrl, UriKind.Absolute, out var uri) || uri.Segments.Length < 2)
+        {
+            _logger.LogWarning("Could not parse UploadCare UUID from media URL: {MediaUrl}", mediaUrl);
+            return false;
+        }
+        var uuid = uri.Segments[^2].Trim('/');
+        var jsonContent = new StringContent(JsonSerializer.Serialize(new[] { uuid }), System.Text.Encoding.UTF8, "application/json");
 
 
         var request = new HttpRequestMessage(HttpMethod.Delete, Deleteurl)
@@ -85,7 +102,7 @@ public class MediaService : IMediaService
             Content = jsonContent
         };
 
-        var response = await httpClient.SendAsync(request);
+        var response = await httpClient.SendAsync(request, ct);
 
         var responseContent = await response.Content.ReadAsStringAsync(ct);
 
@@ -102,6 +119,11 @@ public class MediaService : IMediaService
         var mediaItems = new List<ProductMediaItem>();
         foreach (var file in formFile)
         {
+            if (string.IsNullOrWhiteSpace(file.ContentType) || !AllowedContentTypes.Contains(file.ContentType))
+                throw new InvalidOperationException($"Unsupported file type: {file.ContentType}");
+            if (file.Length > MaxFileSizeBytes)
+                throw new InvalidOperationException($"'{file.FileName}' exceeds the {MaxFileSizeBytes / 1024 / 1024}MB limit.");
+
             using var stream = file.OpenReadStream();
             var media = new ProductMediaItem
             {

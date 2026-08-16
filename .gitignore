@@ -25,3 +25,6 @@
 /Src/Services/Eshop.Frontend/src/context/useTestContext.tsx
 /Src/Services/Eshop.Payment/Eshop.Payment.csproj
 /Src/Services/Eshop.Payment/Eshop.Payment.csproj
+/Src/Services/Eshop.AppHost/appsettings.json
+/Src/Services/Eshop.BlazorFrontend/Eshop.BlazorFrontend.Client/Eshop.BlazorFrontend.Client.csproj
+/Src/Services/Eshop.BlazorFrontend/Eshop.BlazorFrontend/Eshop.BlazorFrontend.csproj

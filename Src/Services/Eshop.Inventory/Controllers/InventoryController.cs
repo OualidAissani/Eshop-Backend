@@ -42,7 +42,7 @@ namespace Eshop.Inventory.Controllers
             
             return Ok(inventory);
         }
-
+        [Authorize(Roles = "Admin")]
         [HttpPost]
         public async Task<IActionResult> CreateInventory([FromBody] InventoryDto inventoryDto, CancellationToken ct,
             [FromHeader(Name = "x-Idempotency-Key")] string key)
@@ -58,7 +58,7 @@ namespace Eshop.Inventory.Controllers
             return await GetAllInventories(ct);
         }
 
-        [Authorize]
+        [Authorize(Roles = "Admin")]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteInventory(int id, CancellationToken ct)
         {
@@ -70,6 +70,7 @@ namespace Eshop.Inventory.Controllers
             
             return NoContent();
         }
+        [Authorize(Roles = "Admin")]
         [HttpPut]
         public async Task<IActionResult> UpdateInventory([FromBody] InventoryDto inventoryDto, CancellationToken ct,
             [FromHeader(Name = "x-Idempotency-Key")] string key)

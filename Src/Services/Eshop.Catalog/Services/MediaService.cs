@@ -73,7 +73,7 @@ public class MediaService : IMediaService
     }
 
 
-    public async Task<bool> DeleteMedia(string mediaUrl, CancellationToken ct)
+    public async Task<bool> DeleteMedia(string mediaUrl,CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(mediaUrl))
         {
@@ -94,7 +94,7 @@ public class MediaService : IMediaService
             return false;
         }
         var uuid = uri.Segments[^2].Trim('/');
-        var jsonContent = new StringContent(JsonSerializer.Serialize(new[] { uuid }), System.Text.Encoding.UTF8, "application/json");
+        var jsonContent = new StringContent(JsonSerializer.Serialize(new[] { uuid }),System.Text.Encoding.UTF8,"application/json");
 
 
         var request = new HttpRequestMessage(HttpMethod.Delete, Deleteurl)

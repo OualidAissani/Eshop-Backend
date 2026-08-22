@@ -1,6 +1,7 @@
 ﻿using Eshop.Catalog.Data;
+using Eshop.Catalog.Data.Enums;
 using Eshop.Catalog.Dtos;
-using Eshop.Catalog.Models;
+using Eshop.Catalog.Entities;
 using Eshop.Catalog.Services.IServices;
 using Eshop.Events;
 using FluentResults;
@@ -18,6 +19,7 @@ namespace Eshop.Catalog.Services;
     private readonly ICategoryService _categoryService;
         private readonly ILogger<ProductService> _logger;
         private readonly IPublishEndpoint _publish;
+    private readonly IDiscountService _discountService;
 
     public ProductService(
         MongoCatalogContext mongoContext,
@@ -27,13 +29,15 @@ namespace Eshop.Catalog.Services;
         IHttpClientFactory httpClientFactory,
         IPublishEndpoint publish
 ,
-        ICategoryService categoryService)
+        ICategoryService categoryService,
+        IDiscountService discountService)
     {
         _mongoContext = mongoContext;
         _mediaService = mediaService;
         _logger = logger;
         _publish = publish;
         _categoryService = categoryService;
+        _discountService = discountService;
     }
     public async Task<List<ProductPriceDto>> GetProductPrice(List<int> ProductId, CancellationToken ct)
         {
@@ -81,8 +85,6 @@ namespace Eshop.Catalog.Services;
         return ToProductDto(productDocument);
     }
 
-
-
     public async Task<Result<ProductDto>> UpdateProduct(int ProductId, ProductsUpdateDto productDto, List<IFormFile>? formFile, CancellationToken ct, bool ImageAppend = false)
         {
 
@@ -117,7 +119,6 @@ namespace Eshop.Catalog.Services;
 
             return ToProductDto(product);
         }
-
 
         public async Task<Result<bool>> DeleteProduct(int productId, CancellationToken ct)
         {
@@ -246,14 +247,39 @@ namespace Eshop.Catalog.Services;
                 nextCursor = items[^1].ProductId;
             }
 
-            return new PaginatedResult<ProductDto>
+        // so what was done is at first you fetched products with discounts then made them in a dictionarry
+        // then you used in the origianl product list to match using product and alter the price of them .
+
+        var productIds = items.Select(i => i.ProductId).ToList();
+        var now = DateTime.UtcNow;
+        var activeDiscounts = await _mongoContext.Discounts
+            .Find(d => productIds.Contains(d.ProductId)
+                    && d.IsActive
+                    && (d.StartsAt == null || d.StartsAt <= now)
+                    && (d.ExpiresAt == null || d.ExpiresAt >= now))
+            .ToListAsync(ct);
+
+        var discountsByProductId = activeDiscounts.ToDictionary(d => d.ProductId);
+
+        var dtos = items.Select(item =>
+        {
+            var dto = ToProductDto(item);
+            if (discountsByProductId.TryGetValue(item.ProductId, out var discount))
             {
-                Items = items.Select(ToProductDto).ToList(),
-                PageSize = paging.PageSize,
-                NextCursor= nextCursor,
-                Total = (int)total
-            };
-        }
+                dto.Price = item.Price;
+                dto.DiscountedPrice = discount.ApplyDiscount(item.Price);
+            }
+            return dto;
+        }).ToList();
+
+        return new PaginatedResult<ProductDto>
+        {
+            Items = dtos,
+            PageSize = paging.PageSize,
+            NextCursor = nextCursor,
+            Total = (int)total
+        };
+    }
 
         public async Task<Result<bool>> AssignProductToCategory(int productId, int categoryId,CancellationToken ct)
         {
@@ -302,9 +328,6 @@ namespace Eshop.Catalog.Services;
             return true;
 
         }
-
-
-
 
         private async Task UpdateProductDocument(int ProductId, ProductsUpdateDto productDto, List<IFormFile>? formFile, ProductDocument product, bool imageAppend, CancellationToken ct)
         {
@@ -360,8 +383,6 @@ namespace Eshop.Catalog.Services;
                 product.Attributes = productDto.Attributes;
             }
         }
-
-
 
         private async Task<List<CategoryItem>> GetCategoriesByIds(List<int>? categoryIds, CancellationToken ct)
         {
@@ -486,5 +507,21 @@ namespace Eshop.Catalog.Services;
         return products.Select(ToProductDto).ToList();
     }
 
+    public async Task<Result<ProductDto>> ApplyProductDiscount( ProductDto product, CancellationToken ct)
+    {
+        if(product== null)
+        {
+            return Result.Fail<ProductDto>("Invalid product ");
+        }
+
+        var discountResult = await _discountService.GetDiscountByProductId(product.Id, ct);
+        if (discountResult.IsFailed)
+        {
+            return Result.Fail<ProductDto>("Discount not found");
+        }
+        product.DiscountedPrice = discountResult.Value.ApplyDiscount(product.Price);
+
+        return product;
+    }
 }
 

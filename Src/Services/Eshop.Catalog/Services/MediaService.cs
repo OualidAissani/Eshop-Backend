@@ -1,13 +1,10 @@
 ﻿using Eshop.Catalog.Dtos;
-using Eshop.Catalog.Models;
+using Eshop.Catalog.Entities;
 using Eshop.Catalog.Services.IServices;
-using Microsoft.AspNetCore.Mvc;
 using Polly;
-using System.IO;
-using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
-using System.Threading.Tasks;
+
 
 namespace Eshop.Catalog.Services;
 

@@ -1,9 +1,8 @@
-﻿namespace Eshop.Orders.Models
+﻿namespace Eshop.Orders.Dtos
 {
-    public class OrderItemDto
+    public class InventoryUpdateDto
     {
         public int ProductId { get; set; }
-
         public int Quantity { get; set; }
     }
 }

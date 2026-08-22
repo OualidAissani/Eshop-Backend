@@ -1,7 +1,7 @@
 ﻿using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
-namespace Eshop.Catalog.Models
+namespace Eshop.Catalog.Entities
 {
     public class CategoryDocument
     {

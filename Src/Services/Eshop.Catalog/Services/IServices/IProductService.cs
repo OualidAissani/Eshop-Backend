@@ -1,5 +1,5 @@
 ﻿using Eshop.Catalog.Dtos;
-using Eshop.Catalog.Models;
+using Eshop.Catalog.Entities;
 using FluentResults;
 
 namespace Eshop.Catalog.Services.IServices
@@ -26,6 +26,8 @@ namespace Eshop.Catalog.Services.IServices
 
         Task<Result<ProductDto>> UpdateHeroSelection(int productId, ProductHeroUpdateDto dto, CancellationToken ct);
         Task<List<ProductDto>> GetHeroProducts(CancellationToken ct);
+
+        Task<Result<ProductDto>> ApplyProductDiscount(ProductDto product, CancellationToken ct);
 
 
     }

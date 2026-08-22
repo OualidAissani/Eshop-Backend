@@ -1,4 +1,5 @@
-﻿using Eshop.Orders.Models;
+﻿using Eshop.Orders.Dtos;
+using Eshop.Orders.Models;
 using Eshop.Orders.Services.IServices;
 using MassTransit.Internals.GraphValidation;
 using Microsoft.AspNetCore.Authorization;

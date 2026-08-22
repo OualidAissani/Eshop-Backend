@@ -1,4 +1,5 @@
-﻿using Eshop.Catalog.Models;
+﻿using Eshop.Catalog.Data.Enums;
+using Eshop.Catalog.Entities;
 
 namespace Eshop.Catalog.Dtos
 {
@@ -8,6 +9,7 @@ namespace Eshop.Catalog.Dtos
         public string Title { get; set; }
         public string Description { get; set; }
         public decimal Price { get; set; }
+        public decimal? DiscountedPrice { get; set; }
         public ProductStatus Status { get; set; }
         public ProductSpecialStatus SpecialStatus { get; set; }
         public int? DisplayOrder { get; set; }

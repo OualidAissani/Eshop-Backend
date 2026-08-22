@@ -1,4 +1,5 @@
-﻿using Eshop.Catalog.Models;
+﻿using Eshop.Catalog.Data.Enums;
+using Eshop.Catalog.Models;
 
 namespace Eshop.Catalog.Dtos
 {

@@ -1,4 +1,4 @@
-﻿namespace Eshop.Catalog.Models
+﻿namespace Eshop.Catalog.Entities
 {
     public enum ProductSpecialStatus
     {

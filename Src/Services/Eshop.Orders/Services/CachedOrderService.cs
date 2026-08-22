@@ -1,5 +1,5 @@
 ﻿using Eshop.Orders.Data.Enums;
-using Eshop.Orders.Entities;
+using Eshop.Orders.Dtos;
 using Eshop.Orders.Models;
 using Eshop.Orders.Services.IServices;
 using FluentResults;

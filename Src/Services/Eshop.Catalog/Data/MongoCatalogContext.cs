@@ -1,4 +1,4 @@
-﻿using Eshop.Catalog.Models;
+﻿using Eshop.Catalog.Entities;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 
@@ -18,6 +18,7 @@ namespace Eshop.Catalog.Data
         }
 
         public IMongoCollection<ProductDocument> Products { get; }
+        public IMongoCollection<DiscountDocument> Discounts { get; }
         public IMongoCollection<CategoryDocument> Categories { get; }
         public IMongoCollection<CounterDocument> Counters { get; }
     }

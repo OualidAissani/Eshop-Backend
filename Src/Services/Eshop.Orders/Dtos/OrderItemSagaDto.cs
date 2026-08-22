@@ -1,6 +1,6 @@
 ﻿using Eshop.Events;
 
-namespace Eshop.Orders.Models
+namespace Eshop.Orders.Dtos
 {
     public class OrderItemSagaDto
     {

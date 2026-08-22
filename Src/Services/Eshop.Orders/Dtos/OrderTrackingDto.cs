@@ -1,6 +1,6 @@
 ﻿using Eshop.Orders.Data.Enums;
 
-namespace Eshop.Orders.Entities
+namespace Eshop.Orders.Dtos
 {
     public class OrderTrackingDto
     {

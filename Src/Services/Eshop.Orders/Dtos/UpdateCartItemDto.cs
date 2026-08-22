@@ -1,4 +1,4 @@
-﻿namespace Eshop.Orders.Models
+﻿namespace Eshop.Orders.Dtos
 {
     public class UpdateCartItemDto
     {

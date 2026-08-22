@@ -1,4 +1,6 @@
-﻿namespace Eshop.Orders.Models
+﻿using Eshop.Orders.Models;
+
+namespace Eshop.Orders.Dtos
 {
     public class CartDto
     {

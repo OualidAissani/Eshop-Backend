@@ -39,14 +39,23 @@ namespace Eshop.Catalog.Services;
         _categoryService = categoryService;
         _discountService = discountService;
     }
-    public async Task<List<ProductPriceDto>> GetProductPrice(List<int> ProductId, CancellationToken ct)
+    public async Task<List<ProductPriceDto>> GetProductPrice(List<int> ProductIds, CancellationToken ct)
         {
-            var productFilter = Builders<ProductDocument>.Filter.In(p => p.ProductId, ProductId);
+            var productFilter = Builders<ProductDocument>.Filter.In(p => p.ProductId, ProductIds);
+
+            var discountFilter = Builders<DiscountDocument>.Filter.In(d => d.ProductId, ProductIds) & Builders<DiscountDocument>.Filter.Lte(d => d.StartsAt, DateTime.UtcNow) & Builders<DiscountDocument>.Filter.Gt(d => d.ExpiresAt, DateTime.UtcNow);
+
             var products = await _mongoContext.Products.Find(productFilter).ToListAsync(ct);
+
+            var discount = await _mongoContext.Discounts.Find(discountFilter).ToListAsync(ct);
+
+           var discountDictionary= discount.ToDictionary(d => d.ProductId);
+
+        
             return products.Select(i => new ProductPriceDto
             {
                 Id = i.ProductId,
-                Price = i.Price,
+                Price = discountDictionary.TryGetValue(i.ProductId,out var newprice)?newprice.ApplyDiscount(i.Price):i.Price,
                 Name = i.Title
             }).ToList();
         }
@@ -191,7 +200,14 @@ namespace Eshop.Catalog.Services;
                 .Find(p => p.ProductId == productId)
                 .FirstOrDefaultAsync(ct);
 
-            return product == null ? null : ToProductDto(product);
+            var productDto= product == null ? null : ToProductDto(product);
+        var productDiscounted = await ApplyProductDiscount(productDto, ct);
+
+        if(productDiscounted.IsFailed && productDiscounted.Errors[0].Message.Equals("Discount not found"))
+        {
+            return productDto;
+        }
+        return productDiscounted.Value;
         }
 
 
@@ -254,7 +270,6 @@ namespace Eshop.Catalog.Services;
         var now = DateTime.UtcNow;
         var activeDiscounts = await _mongoContext.Discounts
             .Find(d => productIds.Contains(d.ProductId)
-                    && d.IsActive
                     && (d.StartsAt == null || d.StartsAt <= now)
                     && (d.ExpiresAt == null || d.ExpiresAt >= now))
             .ToListAsync(ct);

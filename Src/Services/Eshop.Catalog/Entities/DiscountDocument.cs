@@ -15,13 +15,12 @@ public class DiscountDocument
     public DateTime? StartsAt { get; set; }
     public DateTime? ExpiresAt { get; set; }
     public int TimesUsed { get; set; }
-    public bool IsActive { get; set; }
     public int ProductId { get; set; }
 
 
     public decimal ApplyDiscount(decimal price)
     {
-        if (!IsActive || (ExpiresAt.HasValue && ExpiresAt.Value < DateTime.UtcNow))
+        if (ExpiresAt.HasValue && ExpiresAt.Value < DateTime.UtcNow)
         {
             return price; // No discount applied
         }

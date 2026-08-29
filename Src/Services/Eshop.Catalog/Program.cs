@@ -1,6 +1,5 @@
 ﻿using Eshop.Catalog.Data;
 using Eshop.Catalog.EventsHandler;
-using Eshop.Catalog.Models;
 using Eshop.Catalog.Services;
 using Eshop.Catalog.Services.IServices;
 using Eshop.Events;
@@ -24,6 +23,7 @@ builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+       
     });
 builder.Services.AddHttpClient();
 
@@ -32,6 +32,7 @@ builder.AddMongoDBClient("CatalogMongoDb");
 builder.Services.Configure<MongoSettings>(builder.Configuration.GetRequiredSection("Mongo"));
 
 builder.Services.AddSingleton<MongoCatalogContext>();
+
 
 builder.Services.AddOpenApi();
 
@@ -42,6 +43,7 @@ builder.Services.Decorate<IProductService, CachedProductService>();
 
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 
+builder.Services.AddScoped<IDiscountService, DiscountService>();
 builder.Services.AddHttpLogging(logging => { });
 
 builder.AddRedisDistributedCache("redis");

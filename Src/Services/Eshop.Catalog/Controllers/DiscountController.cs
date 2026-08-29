@@ -5,7 +5,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Eshop.Catalog.Controllers;
-
+[Route("api/[controller]")]
+[ApiController]
 public class DiscountController:ControllerBase
 {
     private readonly MongoCatalogContext _context;
@@ -35,7 +36,7 @@ public class DiscountController:ControllerBase
     public async Task<IActionResult> GetDiscounts(CancellationToken ct)
     {
         var discounts = await _discountService.GetDiscounts(ct);
-        return Ok(discounts);
+        return Ok(discounts.Value);
     }
 
     [HttpGet("{id}")]
@@ -47,6 +48,30 @@ public class DiscountController:ControllerBase
             return BadRequest(discount.Errors);
         }
         return Ok(discount.Value);
+    }
+    [Authorize(Roles = "Admin")]
+    [HttpDelete("{productId}")]
+
+    public async Task<IActionResult> DeleteDiscount(int productId,CancellationToken ct)
+    {
+        var removalResult = await _discountService.DeleteDiscount(productId, ct);
+
+        if (removalResult.IsFailed)
+        {
+            return BadRequest(removalResult.Errors[0].Message);
+        }
+        return Ok();
+    }
+    [Authorize(Roles = "Admin")]
+    [HttpPut]
+    public async Task<IActionResult> UpdateDiscount([FromBody] DiscountDto discount, CancellationToken ct)
+    {
+        var updateResult = await _discountService.UpdateDiscount(discount, ct);
+        if (updateResult.IsFailed)
+        {
+            return BadRequest(updateResult.Errors);
+        }
+        return Ok(updateResult.Value);
     }
 
 

@@ -1,5 +1,5 @@
 ﻿using Eshop.Catalog.Dtos;
-using Eshop.Catalog.Models;
+using Eshop.Catalog.Entities;
 using Eshop.Catalog.Services.IServices;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;

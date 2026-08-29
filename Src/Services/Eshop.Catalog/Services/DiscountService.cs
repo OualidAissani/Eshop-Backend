@@ -50,7 +50,6 @@ namespace Eshop.Catalog.Services
             {
                 ProductId=discount.ProductId,
                 ExpiresAt=discount.ExpiresAt,
-                IsActive=(discount.StartsAt - DateTime.UtcNow)>=TimeSpan.Zero ? true : false,
                 StartsAt=discount.StartsAt,
                 TimesUsed=discount.TimesUsed,
                 Type=discount.Type,
@@ -85,7 +84,7 @@ namespace Eshop.Catalog.Services
                 return Result.Fail<DiscountDocument>("Invalid product ID");
             }
 
-            var discount = await _context.Discounts.Find(d => d.ProductId == id && d.IsActive == true).FirstOrDefaultAsync();
+            var discount = await _context.Discounts.Find(d => d.ProductId == id && d.StartsAt <= DateTime.UtcNow && d.ExpiresAt.Value > DateTime.UtcNow).FirstOrDefaultAsync();
             if(discount == null)
             {
                 return Result.Fail<DiscountDocument>("Discount not found");
@@ -96,7 +95,7 @@ namespace Eshop.Catalog.Services
 
         public async Task<Result<List<DiscountDocument>>> GetDiscounts(CancellationToken ct)
         {
-            var discounts = await _context.Discounts.Find(_ => true).ToListAsync();
+            var discounts = await _context.Discounts.Find(_ => _.StartsAt <= DateTime.UtcNow && _.ExpiresAt.Value > DateTime.UtcNow).ToListAsync();
             return discounts;
         }
 

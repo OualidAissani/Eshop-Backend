@@ -1,5 +1,5 @@
 ﻿using Eshop.Catalog.Dtos;
-using Eshop.Catalog.Models;
+using Eshop.Catalog.Entities;
 using Eshop.Catalog.Services.IServices;
 using FluentResults;
 using Microsoft.Extensions.Caching.Distributed;
@@ -16,6 +16,12 @@ namespace Eshop.Catalog.Services
             _cache = cache;
             _productService = productService;
         }
+
+        public async Task<Result<ProductDto>> ApplyProductDiscount(ProductDto product, CancellationToken ct)
+        {
+            return await _productService.ApplyProductDiscount(product, ct);
+        }
+
         public async Task<Result<bool>> AssignProductToCategory(int productId, int categoryId, CancellationToken ct)
         {
             return await _productService.AssignProductToCategory(productId,categoryId,ct);

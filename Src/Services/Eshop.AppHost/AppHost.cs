@@ -71,14 +71,7 @@ var Order=builder.AddProject<Eshop_Orders>("orderApi")
     .WithEnvironment("InventoryBaseUrl", $"{Inventory.GetEndpoint("https").Property(EndpointProperty.Url)}/api/inventory")
     .WaitFor(keycloak);
 
-var Payment=builder.AddProject<Eshop_Payment>("paymentApi")
-   .WithHttpHealthCheck("/health")
-    .WithReference(Rabbitmq)
-    .WaitFor(Rabbitmq)
-    .WithReference(PaymentDb)
-    .WithEnvironment("Keycloak__Authority", keycloakAuthority)
-    .WithEnvironment("Keycloak__Audience", "eshop-api")
-    .WaitFor(keycloak);
+
 
 var Gateway=builder.AddProject<Eshop_Gateway>("Gateway")
    .WithHttpHealthCheck("/health")

@@ -1,5 +1,5 @@
 ﻿using Eshop.Catalog.Dtos;
-using Eshop.Catalog.Models;
+using Eshop.Catalog.Entities;
 using FluentResults;
 using System;
 using System.Collections.Generic;

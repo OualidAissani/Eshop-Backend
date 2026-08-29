@@ -15,6 +15,7 @@ namespace Eshop.Catalog.Data
             Products = database.GetCollection<ProductDocument>(settings.Value.ProductsCollection);
             Categories = database.GetCollection<CategoryDocument>(settings.Value.CategoriesCollection);
             Counters = database.GetCollection<CounterDocument>(settings.Value.CountersCollection);
+            Discounts = database.GetCollection<DiscountDocument>(settings.Value.DiscountsCollection);
         }
 
         public IMongoCollection<ProductDocument> Products { get; }

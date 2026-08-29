@@ -1,6 +1,6 @@
 ﻿using Eshop.Catalog.Data;
 using Eshop.Catalog.Dtos;
-using Eshop.Catalog.Models;
+using Eshop.Catalog.Entities;
 using Eshop.Catalog.Services.IServices;
 using FluentResults;
 using MongoDB.Driver;

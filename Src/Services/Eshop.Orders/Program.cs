@@ -35,6 +35,14 @@ builder.Services.Decorate<IOrderService,CachedOrderService>();
 builder.AddRedisDistributedCache("redis");
 
 builder.Services.AddHttpClient();
+
+builder.Services.AddHttpClient("EmailService", client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["EmailService:BaseUrl"]);
+});
+
+builder.Services.AddScoped<IEmailService, EmailService>();
+
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddMassTransit(o =>

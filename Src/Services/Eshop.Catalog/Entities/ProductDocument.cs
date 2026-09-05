@@ -1,4 +1,5 @@
 ﻿using Eshop.Catalog.Data.Enums;
+using Microsoft.EntityFrameworkCore;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
@@ -8,6 +9,7 @@ namespace Eshop.Catalog.Entities
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
+        
         public string Id { get; set; }
         public int ProductId { get; set; }
         public string Title { get; set; }

@@ -17,19 +17,17 @@ namespace Eshop.Orders.Services
         private readonly OrderDbContext _context;
         private readonly IRequestClient<GetProductRequest> _client;
         private readonly IRequestClient<ProductInventoryAvailibityForOrderRequest> _client2;
-        private readonly IRequestClient<CreatePaymentRecordRequest> _createPaymentOrderClient;
-        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IEmailService _emailService;
         private readonly IPublishEndpoint _publishEndpoint;
 
         public OrderService(OrderDbContext context, IRequestClient<GetProductRequest> client,
-            IRequestClient<ProductInventoryAvailibityForOrderRequest> client2, IHttpContextAccessor httpContextAccessor, IPublishEndpoint publishEndpoint, IRequestClient<CreatePaymentRecordRequest> createPaymentOrderClient)
+            IRequestClient<ProductInventoryAvailibityForOrderRequest> client2, IPublishEndpoint publishEndpoint, IEmailService emailService)
         {
             _context = context;
             _client = client;
             _client2 = client2;
-            _httpContextAccessor = httpContextAccessor;
             _publishEndpoint = publishEndpoint;
-            _createPaymentOrderClient = createPaymentOrderClient;
+            _emailService = emailService;
         }
 
         public async Task<PaginatedResult<Order>> GetAllOrdersPagination(PaginationParams paginationParams, CancellationToken ct)
@@ -178,10 +176,14 @@ namespace Eshop.Orders.Services
                     Products = inventoryParameter,
                     PaymentItems = paymentItems ?? new List<Events.OrderItemSagaDto>()
                 });
-                await _context.SaveChangesAsync(ct);
+               var changes= await _context.SaveChangesAsync(ct);
 
                 await tx.CommitAsync(ct);
-             
+
+            if (changes != null)
+                {
+                    var result =await _emailService.SendEmailAsync(newOrder.Email,"ثم انشاء طلبك بنجاه","تم إنشاء طلبك بنجاح.",ct);
+                }
                 return new CreateOrderResponseDto
                 {
                     Order = newOrder

@@ -12,7 +12,7 @@ namespace Eshop.Orders.Services
             _httpClientFactory = httpClientFactory;
             _configuration = configuration;
         }
-        public async Task<bool> SendEmailAsync(string toEmail, string subject, string body, CancellationToken ct )
+        public async Task<bool> SendEmailAsync(string toEmail, string subject, string body, CancellationToken ct)
         {
             var client = _httpClientFactory.CreateClient("EmailService");
 
@@ -29,21 +29,22 @@ namespace Eshop.Orders.Services
             {
                 new {email = toEmail }
             };
-            var request=new 
+            var request = new
             {
                 sender,
-                to= toAddress,
+                to = toAddress,
                 subject,
-                textContent=body,
+                htmlContent = body,
+                textContent = System.Text.RegularExpressions.Regex.Replace(body, "<.*?>", " ").Trim(),
             };
             var jsoncontent = new StringContent(JsonSerializer.Serialize(request), System.Text.Encoding.UTF8, "application/json");
             var message = new HttpRequestMessage(HttpMethod.Post, url)
             {
-            Content= jsoncontent
+                Content = jsoncontent
             };
-            var response=await client.SendAsync(message);
+            var response = await client.SendAsync(message);
 
-            if(response.IsSuccessStatusCode)
+            if (response.IsSuccessStatusCode)
             {
                 return true;
             }

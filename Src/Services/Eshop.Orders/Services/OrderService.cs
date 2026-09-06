@@ -44,7 +44,7 @@ namespace Eshop.Orders.Services
             if (paginationParams.LastId.HasValue)
             {
 
-                query=query.Where(i=>i.Id < paginationParams.LastId.Value);
+                query = query.Where(i => i.Id < paginationParams.LastId.Value);
             }
             var orders = await query
                 .Include(o => o.OrderItems)
@@ -55,7 +55,7 @@ namespace Eshop.Orders.Services
 
             int? cursor = null;
 
-            if(orders.Count > paginationParams.PageSize)
+            if (orders.Count > paginationParams.PageSize)
             {
                 orders.RemoveAt(orders.Count - 1);
                 cursor = orders.Last().Id;
@@ -83,23 +83,86 @@ namespace Eshop.Orders.Services
                 .ToListAsync(ct);
 
         }
-        public async Task<Order?> GetOrderById(int orderId,string userId, CancellationToken ct)
+        public async Task<Order?> GetOrderById(int orderId, string userId, CancellationToken ct)
         {
-            var order= await _context.Orders
-                .Include(i=>i.OrderItems)
+            var order = await _context.Orders
+                .Include(i => i.OrderItems)
                 .AsSplitQuery()
                 .AsNoTracking()
                 .FirstOrDefaultAsync(o => o.Id == orderId && o.UserId == userId, ct);
             return order;
         }
 
-        //refactory is a must
-        public async Task<Result<CreateOrderResponseDto>> CreateOrder(OrderDto order,CancellationToken ct)
+        public async Task<Result<CreateOrderResponseDto>> CreateOrder(OrderDto order, CancellationToken ct)
         {
 
-            (Dictionary<int, ProductInventoryItem> inventoryDict, Dictionary<int, GetProductResponseDto> pricesDict) = await OrderValidations(order,ct);
+            (Dictionary<int, ProductInventoryItem> inventoryDict, Dictionary<int, GetProductResponseDto> pricesDict) = await OrderValidations(order, ct);
 
-            var orderItems = order.Products
+            List<OrderItem> orderItems;
+            Order newOrder;
+            List<Events.InventoryUpdateDto> inventoryParameter;
+            MappingOrderEnitites(order, inventoryDict, pricesDict, out orderItems, out newOrder, out inventoryParameter);
+
+            var strategy = _context.Database.CreateExecutionStrategy();
+
+            try
+            {
+                return await strategy.ExecuteAsync(async () =>
+                {
+                    await using var tx = await _context.Database.BeginTransactionAsync(ct);
+
+                    _context.Orders.Add(newOrder);
+
+                    if (await _context.SaveChangesAsync(ct) == 0)
+                    {
+                        throw new Exception("Error Occured While Saving Order To The Db");
+                    }
+
+                    List<Events.OrderItemSagaDto> paymentItems = ItemsToPay(orderItems, newOrder);
+
+                    var correlationId = Guid.NewGuid();
+
+                    PublishingConfimredOrderEvent(newOrder, inventoryParameter, paymentItems, correlationId);
+
+                    var changes = await _context.SaveChangesAsync(ct);
+
+                    await tx.CommitAsync(ct);
+
+                    if (changes != null)
+                    {
+                        var result = await _emailService.SendEmailAsync(newOrder.Email, "تم إنشاء طلبك بنجاح", Eshop.Orders.Services.EmailTemplates.OrderConfirmationEmail.Build(newOrder), ct);
+                    }
+                    return new CreateOrderResponseDto
+                    {
+                        Order = newOrder
+                    };
+
+                });
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+        }
+
+        private async void PublishingConfimredOrderEvent(Order newOrder, List<Events.InventoryUpdateDto> inventoryParameter, List<Events.OrderItemSagaDto> paymentItems, Guid correlationId)
+        {
+            await _publishEndpoint.Publish(
+                            new OrderSubmitted
+                            {
+                                OrderId = newOrder.Id,
+                                CorrelationId = correlationId,
+                                PaymentMethod = (Eshop.Events.PaymentMethods)newOrder.PayementMethod,
+                                Total = newOrder.TotalPrice,
+                                Email = newOrder.Email,
+                                Products = inventoryParameter,
+                                PaymentItems = paymentItems ?? new List<Events.OrderItemSagaDto>()
+                            });
+        }
+
+        private  void MappingOrderEnitites(OrderDto order, Dictionary<int, ProductInventoryItem> inventoryDict, Dictionary<int, GetProductResponseDto> pricesDict, out List<OrderItem> orderItems, out Order newOrder, out List<Events.InventoryUpdateDto> inventoryParameter)
+        {
+            orderItems = order.Products
                                 .Select(p => new OrderItem
                                 {
                                     ProductId = p.ProductId,
@@ -115,10 +178,10 @@ namespace Eshop.Orders.Services
                 throw new ArgumentException($"Invalid payment method: {order.PayementMethod}");
             }
 
-            var newOrder = new Order
+            newOrder = new Order
             {
                 OrderItems = orderItems,
-                CustomerName=order.CustomerName,
+                CustomerName = order.CustomerName,
                 UserId = order.UserId ?? Guid.NewGuid().ToString(),
                 ShippingAddress = order.ShippingAddress,
                 Phone = order.Phone,
@@ -128,89 +191,52 @@ namespace Eshop.Orders.Services
                 Email = order.Email,
                 TotalPrice = orderItems.Sum(i => i.FullPrice)
             };
-            var inventoryParameter = order.Products.Select(s => new Events.InventoryUpdateDto
+            inventoryParameter = order.Products.Select(s => new Events.InventoryUpdateDto
             {
                 ProductId = s.ProductId,
                 Quantity = s.Quantity
             }).ToList();
-
-            var strategy = _context.Database.CreateExecutionStrategy();
-
-            return await strategy.ExecuteAsync(async () =>
-            {
-                await using var tx = await _context.Database.BeginTransactionAsync(ct);
-
-                _context.Orders.Add(newOrder);
-
-                if (await _context.SaveChangesAsync(ct) == 0)
-                {
-                    throw new Exception("Error Occured While Saving Order To The Db");
-                }
-
-                var paymentItems = new List<Events.OrderItemSagaDto>();
-                if (newOrder.PayementMethod != Data.Enums.PaymentMethods.CashOnDelivery)
-                {
-                    paymentItems = orderItems.Select(i => new Events.OrderItemSagaDto
-                    {
-                        name = i.ProductName,
-                        quantity = i.Quantity,
-                        description = $"Order item for product {i.ProductId}",
-                        unit_amount = new AmountDto
-                        {
-                            value = i.UnitPrice,
-                            currency_code = "USD"
-                        }
-
-                    }).ToList();
-                }
-                var correlationId = Guid.NewGuid();
-              
-                await _publishEndpoint.Publish(
-                new OrderSubmitted
-                {
-                    OrderId = newOrder.Id,
-                    CorrelationId = correlationId,
-                    PaymentMethod = (Eshop.Events.PaymentMethods)newOrder.PayementMethod,
-                    Total = newOrder.TotalPrice,
-                    Email = newOrder.Email,
-                    Products = inventoryParameter,
-                    PaymentItems = paymentItems ?? new List<Events.OrderItemSagaDto>()
-                });
-               var changes= await _context.SaveChangesAsync(ct);
-
-                await tx.CommitAsync(ct);
-
-            if (changes != null)
-                {
-                    var result =await _emailService.SendEmailAsync(newOrder.Email,"ثم انشاء طلبك بنجاه","تم إنشاء طلبك بنجاح.",ct);
-                }
-                return new CreateOrderResponseDto
-                {
-                    Order = newOrder
-                };
-
-            });
         }
 
-
-
-        public async Task<Result<bool>> DeleteOrder(int orderId,CancellationToken ct)
+        private  List<Events.OrderItemSagaDto> ItemsToPay(List<OrderItem> orderItems, Order newOrder)
         {
-            if(orderId<=0)
+            var paymentItems = new List<Events.OrderItemSagaDto>();
+            if (newOrder.PayementMethod != Data.Enums.PaymentMethods.CashOnDelivery)
+            {
+                paymentItems = orderItems.Select(i => new Events.OrderItemSagaDto
+                {
+                    name = i.ProductName,
+                    quantity = i.Quantity,
+                    description = $"Order item for product {i.ProductId}",
+                    unit_amount = new AmountDto
+                    {
+                        value = i.UnitPrice,
+                        currency_code = "USD"
+                    }
+
+                }).ToList();
+            }
+
+            return paymentItems;
+        }
+
+        public async Task<Result<bool>> DeleteOrder(int orderId, CancellationToken ct)
+        {
+            if (orderId <= 0)
             {
                 return Result.Fail<bool>("Invalid order ID.");
             }
-           
+
             try
             {
                 var order = await _context.Orders.FirstOrDefaultAsync(o => o.Id == orderId, ct);
-                if(order == null)
+                if (order == null)
                 {
                     return Result.Fail<bool>("Order not found.");
                 }
                 _context.Orders.Remove(order);
 
-                if(await _context.SaveChangesAsync(ct) == 0)
+                if (await _context.SaveChangesAsync(ct) == 0)
                 {
                     return Result.Fail<bool>($"Failed to delete order {orderId}.");
                 }
@@ -225,14 +251,14 @@ namespace Eshop.Orders.Services
 
         public async Task<Result<bool>> OrderConfirmed(int orderId, CancellationToken ct)
         {
-            var order = await _context.Orders.FirstOrDefaultAsync(o => o.Id == orderId,ct);
-            if(order == null)
+            var order = await _context.Orders.FirstOrDefaultAsync(o => o.Id == orderId, ct);
+            if (order == null)
             {
                 return Result.Fail<bool>("Order not found.");
             }
-            order.Status = Data.Enums.OrderStatus.Confirmed;
+            order.Status = Data.Enums.OrderStatus.Processing;
 
-            if(await _context.SaveChangesAsync(ct) ==0)
+            if (await _context.SaveChangesAsync(ct) == 0)
             {
                 return Result.Fail<bool>("Failed to update order status to confirmed.");
             }
@@ -269,7 +295,7 @@ namespace Eshop.Orders.Services
             return true;
         }
 
-        public async Task<Result<bool>> MatchUserWithOrder(int orderId,string userId, CancellationToken ct)
+        public async Task<Result<bool>> MatchUserWithOrder(int orderId, string userId, CancellationToken ct)
         {
 
             var order = await _context.Orders.AsNoTracking().FirstOrDefaultAsync(o => o.Id == orderId, ct);
@@ -327,20 +353,18 @@ namespace Eshop.Orders.Services
         }
 
 
-        public async Task<OrderTrackingDto> GetOrderByOrderNumber(string orderNumber,string phoneNumber,CancellationToken ct)
+        public async Task<OrderTrackingDto> GetOrderByOrderNumber(string orderNumber, string phoneNumber, CancellationToken ct)
         {
             if (orderNumber == null)
             {
                 throw new NullReferenceException();
             }
-            var productNames = new StringBuilder();
-            
 
-            return await _context.Orders.Where(o => o.OrderNumber == orderNumber && o.Phone==phoneNumber)
+            return await _context.Orders.Where(o => o.OrderNumber == orderNumber && o.Phone == phoneNumber)
                  .Select(i => new OrderTrackingDto
                  {
-                     CustomerName=i.CustomerName,
-                     Phone=i.Phone,
+                     CustomerName = i.CustomerName,
+                     Phone = i.Phone,
                      Commune = i.Commune,
                      ShippingAddress = i.ShippingAddress,
                      Wilaya = i.Wilaya,
@@ -351,6 +375,6 @@ namespace Eshop.Orders.Services
 
 
         }
-       
+
     }
 }

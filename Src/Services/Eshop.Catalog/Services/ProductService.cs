@@ -124,7 +124,6 @@ namespace Eshop.Catalog.Services;
                 return Result.Fail<ProductDto>("Failed To Update Product");
             }
 
-            await _publish.Publish(new UpdateCartProduct(product.ProductId, product.Title, product.Price));
 
             return ToProductDto(product);
         }
@@ -157,7 +156,6 @@ namespace Eshop.Catalog.Services;
 
             await _publish.Publish(new DeleteInventory(productId));
 
-            await _publish.Publish(new DeleteCartProduct(productId));
 
             return true;
         }

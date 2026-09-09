@@ -24,6 +24,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Eshop.Events\Eshop.Events.csproj" />
+    <ProjectReference Include="..\Eshop.ServiceDefaults\Eshop.ServiceDefaults.csproj" />
   </ItemGroup>
 
 </Project>

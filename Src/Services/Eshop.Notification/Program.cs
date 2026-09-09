@@ -1,4 +1,5 @@
-﻿using Eshop.Notification.Services;
+﻿using Eshop.Notification.EventHandler;
+using Eshop.Notification.Services;
 using Eshop.Notification.Services.IServices;
 using MassTransit;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -10,6 +11,13 @@ using System.Text.Json.Serialization;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
+
+
+if (builder.Environment.IsDevelopment())
+{
+    builder.AddServiceDefaults();
+}
+
 
 builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
@@ -27,6 +35,7 @@ builder.Services.AddHttpClient("EmailService", client =>
 
 builder.Services.AddMassTransit(o =>
 {
+    o.AddConsumer<SendEmailEventConsumer>();
     o.UsingRabbitMq((context, cfg) =>
     {
         cfg.Host(builder.Configuration.GetConnectionString("Rabbitmq"));
@@ -72,10 +81,11 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
+app.MapDefaultEndpoints();
 
 app.UseHttpsRedirection();
 
-app.UseAuthorization();
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

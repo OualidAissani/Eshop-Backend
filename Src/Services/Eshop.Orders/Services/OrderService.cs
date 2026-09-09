@@ -130,7 +130,7 @@ namespace Eshop.Orders.Services
 
                     if (changes != null)
                     {
-                        NotifyCustomerOfOrderCreating(newOrder, ct);
+                        await NotifyCustomerOfOrderCreating(newOrder, ct);
 
                     }
                     return new CreateOrderResponseDto
@@ -146,29 +146,28 @@ namespace Eshop.Orders.Services
             }
         }
 
-        private async void NotifyCustomerOfOrderCreating(Order newOrder, CancellationToken ct)
+        private async Task NotifyCustomerOfOrderCreating(Order newOrder, CancellationToken ct)
         {
             var sendEmailPolicy = Policy
-                                    .Handle<HttpRequestException>()
+                                    .Handle<MassTransitException>()
                                     .Or<InvalidOperationException>()
                                     .WaitAndRetryAsync(
                                         retryCount: 3,
                                        sleepDurationProvider: attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)),
                                       onRetry: (exception, timespan, retryCount, context) =>
                                       {
-                                          _logger.LogWarning($"Media deletion failed. Retry {retryCount}/3 after {timespan.TotalSeconds}s. Error: {exception.Message}");
+                                          _logger.LogWarning($"email sending  failed. Retry {retryCount}/3 after {timespan.TotalSeconds}s. Error: {exception.Message}");
                                       });
 
             await sendEmailPolicy.ExecuteAsync(async () =>
             {
                 // var result = await _emailService.SendEmailAsync(newOrder.Email, "تم إنشاء طلبك بنجاح", Eshop.Orders.Services.EmailTemplates.OrderConfirmationEmail.Build(newOrder), ct);
                 await _publishEndpoint.Publish(new SendEmailEvent
-                {
-                    toEmail = newOrder.Email,
-                    subject = "تم إنشاء طلبك بنجاح",
-                    body = Eshop.Orders.Services.EmailTemplates.OrderConfirmationEmail.Build(newOrder),
-                    ct = ct
-                });
+                (
+                     newOrder.Email,
+                    "تم إنشاء طلبك بنجاح",
+                    Eshop.Orders.Services.EmailTemplates.OrderConfirmationEmail.Build(newOrder)
+                ));
                 
             });
         }

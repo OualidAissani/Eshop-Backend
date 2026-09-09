@@ -15,7 +15,7 @@ namespace Eshop.Notification.EventHandler
 
         public async Task Consume(ConsumeContext<SendEmailEvent> context)
         {
-            var result = await _emailService.SendEmailAsync(context.Message.toEmail, context.Message.subject, context.Message.body, context.Message.ct);
+            var result = await _emailService.SendEmailAsync(context.Message.toEmail, context.Message.subject, context.Message.body, context.CancellationToken);
 
             return;
         }

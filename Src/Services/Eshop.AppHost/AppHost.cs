@@ -70,7 +70,14 @@ var Order=builder.AddProject<Eshop_Orders>("orderApi")
     .WithEnvironment("Keycloak__Audience", "eshop-api")
     .WithEnvironment("InventoryBaseUrl", $"{Inventory.GetEndpoint("https").Property(EndpointProperty.Url)}/api/inventory")
     .WaitFor(keycloak);
-
+var Notification = builder.AddProject<Eshop_Notification>("notificationApi")
+   .WithHttpHealthCheck("/health")
+    .WithReference(Rabbitmq)
+    .WaitFor(Rabbitmq)
+    .WithReference(Redis)
+    .WithEnvironment("Keycloak__Authority", keycloakAuthority)
+    .WithEnvironment("Keycloak__Audience", "eshop-api")
+    .WaitFor(keycloak);
 
 
 var Gateway=builder.AddProject<Eshop_Gateway>("Gateway")

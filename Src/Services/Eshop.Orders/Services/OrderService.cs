@@ -5,11 +5,9 @@ using Eshop.Orders.Models;
 using Eshop.Orders.Services.IServices;
 using FluentResults;
 using MassTransit;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
-using System.Security.Claims;
-using System.Text;
+using Polly;
 namespace Eshop.Orders.Services
 {
     public class OrderService : IOrderService
@@ -19,15 +17,17 @@ namespace Eshop.Orders.Services
         private readonly IRequestClient<ProductInventoryAvailibityForOrderRequest> _client2;
         private readonly IEmailService _emailService;
         private readonly IPublishEndpoint _publishEndpoint;
+        private readonly ILogger<OrderService> _logger;
 
         public OrderService(OrderDbContext context, IRequestClient<GetProductRequest> client,
-            IRequestClient<ProductInventoryAvailibityForOrderRequest> client2, IPublishEndpoint publishEndpoint, IEmailService emailService)
+            IRequestClient<ProductInventoryAvailibityForOrderRequest> client2, IPublishEndpoint publishEndpoint, IEmailService emailService, ILogger<OrderService> logger)
         {
             _context = context;
             _client = client;
             _client2 = client2;
             _publishEndpoint = publishEndpoint;
             _emailService = emailService;
+            _logger = logger;
         }
 
         public async Task<PaginatedResult<Order>> GetAllOrdersPagination(PaginationParams paginationParams, CancellationToken ct)
@@ -130,7 +130,8 @@ namespace Eshop.Orders.Services
 
                     if (changes != null)
                     {
-                        var result = await _emailService.SendEmailAsync(newOrder.Email, "تم إنشاء طلبك بنجاح", Eshop.Orders.Services.EmailTemplates.OrderConfirmationEmail.Build(newOrder), ct);
+                        NotifyCustomerOfOrderCreating(newOrder, ct);
+
                     }
                     return new CreateOrderResponseDto
                     {
@@ -143,6 +144,33 @@ namespace Eshop.Orders.Services
             {
                 throw ex;
             }
+        }
+
+        private async void NotifyCustomerOfOrderCreating(Order newOrder, CancellationToken ct)
+        {
+            var sendEmailPolicy = Policy
+                                    .Handle<HttpRequestException>()
+                                    .Or<InvalidOperationException>()
+                                    .WaitAndRetryAsync(
+                                        retryCount: 3,
+                                       sleepDurationProvider: attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)),
+                                      onRetry: (exception, timespan, retryCount, context) =>
+                                      {
+                                          _logger.LogWarning($"Media deletion failed. Retry {retryCount}/3 after {timespan.TotalSeconds}s. Error: {exception.Message}");
+                                      });
+
+            await sendEmailPolicy.ExecuteAsync(async () =>
+            {
+                // var result = await _emailService.SendEmailAsync(newOrder.Email, "تم إنشاء طلبك بنجاح", Eshop.Orders.Services.EmailTemplates.OrderConfirmationEmail.Build(newOrder), ct);
+                await _publishEndpoint.Publish(new SendEmailEvent
+                {
+                    toEmail = newOrder.Email,
+                    subject = "تم إنشاء طلبك بنجاح",
+                    body = Eshop.Orders.Services.EmailTemplates.OrderConfirmationEmail.Build(newOrder),
+                    ct = ct
+                });
+                
+            });
         }
 
         private async void PublishingConfimredOrderEvent(Order newOrder, List<Events.InventoryUpdateDto> inventoryParameter, List<Events.OrderItemSagaDto> paymentItems, Guid correlationId)

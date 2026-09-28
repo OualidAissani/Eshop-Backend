@@ -16,6 +16,7 @@
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.3" />
     <PackageReference Include="SharpCompress" Version="0.49.0" />
     <PackageReference Include="Snappier" Version="1.3.1" />
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="3.53.3" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
       <PrivateAssets>all</PrivateAssets>
@@ -31,7 +32,6 @@
     <ProjectReference Include="..\Eshop.Orders\Eshop.Orders.csproj" />
     <ProjectReference Include="..\Eshop.Inventory\Eshop.Inventory.csproj" />
     <ProjectReference Include="..\Eshop.Events\Eshop.Events.csproj" />
-    <ProjectReference Include="..\Eshop.Payment\Eshop.Payment.csproj" />
     <ProjectReference Include="..\Eshop.Catalog\Eshop.Catalog.csproj" />
 	  <ProjectReference Include="..\Eshop.Notification\Eshop.Notification.csproj" />
 

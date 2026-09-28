@@ -6,6 +6,7 @@ using FluentAssertions;
 using Imposter.Abstractions;
 using MassTransit;
 using MassTransit.Testing;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -17,19 +18,20 @@ public class InventoryConsumerTests : IAsyncLifetime
 {
     private ServiceProvider _provider = null!;
     private ITestHarness _harness = null!;
-    private string _dbName = null!;
+    private SqliteConnection _connection = null!;
 
 
     public async Task InitializeAsync()
     {
-        _dbName = Guid.NewGuid().ToString();
+        _connection = new SqliteConnection("Data Source=:memory:");
+        await _connection.OpenAsync();
 
         var requestClientImposter = IRequestClient<VerifyProductExistence>.Imposter();
         var loggerImposter = ILogger<InventoryService>.Imposter();
 
         _provider = new ServiceCollection()
             .AddDbContext<InventoryDb>(opts =>
-                opts.UseInMemoryDatabase(_dbName))
+                opts.UseSqlite(_connection))
             .AddScoped<IInventoryService, InventoryService>()
             .AddSingleton(requestClientImposter.Instance())
             .AddSingleton(loggerImposter.Instance())
@@ -39,6 +41,12 @@ public class InventoryConsumerTests : IAsyncLifetime
             })
             .BuildServiceProvider(true);
 
+        using (var scope = _provider.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<InventoryDb>();
+            await db.Database.EnsureCreatedAsync();
+        }
+
         _harness = _provider.GetRequiredService<ITestHarness>();
         await _harness.Start();
     }
@@ -47,6 +55,7 @@ public class InventoryConsumerTests : IAsyncLifetime
     {
         await _harness.Stop();
         await _provider.DisposeAsync();
+        await _connection.DisposeAsync();
     }
 
     [Fact]

@@ -41,7 +41,6 @@ builder.Services.AddHttpClient("EmailService", client =>
     client.BaseAddress = new Uri(builder.Configuration["EmailService:BaseUrl"]);
 });
 
-builder.Services.AddScoped<IEmailService, EmailService>();
 
 builder.Services.AddHttpContextAccessor();
 

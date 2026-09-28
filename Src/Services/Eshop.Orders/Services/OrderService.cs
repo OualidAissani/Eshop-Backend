@@ -15,18 +15,16 @@ namespace Eshop.Orders.Services
         private readonly OrderDbContext _context;
         private readonly IRequestClient<GetProductRequest> _client;
         private readonly IRequestClient<ProductInventoryAvailibityForOrderRequest> _client2;
-        private readonly IEmailService _emailService;
         private readonly IPublishEndpoint _publishEndpoint;
         private readonly ILogger<OrderService> _logger;
 
         public OrderService(OrderDbContext context, IRequestClient<GetProductRequest> client,
-            IRequestClient<ProductInventoryAvailibityForOrderRequest> client2, IPublishEndpoint publishEndpoint, IEmailService emailService, ILogger<OrderService> logger)
+            IRequestClient<ProductInventoryAvailibityForOrderRequest> client2, IPublishEndpoint publishEndpoint, ILogger<OrderService> logger)
         {
             _context = context;
             _client = client;
             _client2 = client2;
             _publishEndpoint = publishEndpoint;
-            _emailService = emailService;
             _logger = logger;
         }
 

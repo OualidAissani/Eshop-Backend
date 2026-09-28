@@ -39,11 +39,6 @@ namespace Eshop.Test
             _sut = new CategoryService(_context, _logger);
         }
 
-        //public void Dispose()
-        //{
-        //    _context.Dispose();
-        //}
-
         [Fact]
         public async Task CreateAsync_ValidDto_SaveChangesAndReturnsIt()
         {
@@ -175,7 +170,7 @@ namespace Eshop.Test
 
         public void Dispose()
         {
-            throw new NotImplementedException();
+            _context.Dispose();
         }
     }
 }

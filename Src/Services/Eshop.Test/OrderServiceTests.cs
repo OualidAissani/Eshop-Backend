@@ -1,6 +1,7 @@
 ﻿using Eshop.Events;
 using Eshop.Inventory.Services;
 using Eshop.Orders.Data;
+using Eshop.Orders.Dtos;
 using Eshop.Orders.Models;
 using Eshop.Orders.Services;
 using Eshop.Orders.Services.IServices;
@@ -32,16 +33,19 @@ public class OrderServiceTests : IDisposable
     private readonly IRequestClient<GetProductRequest> _productClient;
     private readonly IRequestClient<ProductInventoryAvailibityForOrderRequest> _inventoryClient;
     private readonly IRequestClient<CreatePaymentRecordRequest> _createPaymentOrderClient;
-    private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly IPublishEndpoint _publishEndpoint;
     private readonly OrderService _sut;
+    private readonly ILogger<OrderService> _logger;
+    private readonly IHttpContextAccessor httpContextAccessor;
+    
 
 
     private readonly IPublishEndpointImposter _publishEndpointImposter;
     private readonly IRequestClientImposter<ProductInventoryAvailibityForOrderRequest> _inventoryClientImposter;
     private readonly IRequestClientImposter<GetProductRequest> _productClientImposter;
+    private readonly IRequestClientImposter<CreatePaymentRecordRequest> _createPaymentClientImposter;
+    private readonly ILoggerImposter<OrderService> _loggerImposter;
     private readonly IHttpContextAccessorImposter _httpContextAccessorImposter;
-    private readonly IRequestClientImposter<CreatePaymentRecordRequest> _createPaymentClientImposter; 
 
     public OrderServiceTests()
     {
@@ -59,7 +63,9 @@ public class OrderServiceTests : IDisposable
         _publishEndpoint = _publishEndpointImposter.Instance();
 
         _httpContextAccessorImposter = IHttpContextAccessor.Imposter();
-        _httpContextAccessor = _httpContextAccessorImposter.Instance();
+
+        _loggerImposter = ILogger<OrderService>.Imposter();
+        _logger = _loggerImposter.Instance();
 
         _inventoryClientImposter = IRequestClient<ProductInventoryAvailibityForOrderRequest>.Imposter();
         _inventoryClient = _inventoryClientImposter.Instance();
@@ -67,7 +73,7 @@ public class OrderServiceTests : IDisposable
         _createPaymentClientImposter = IRequestClient<CreatePaymentRecordRequest>.Imposter();
         _createPaymentOrderClient = _createPaymentClientImposter.Instance();
 
-        _sut = new OrderService(_context, _productClient, _inventoryClient, _httpContextAccessor, _publishEndpoint, _createPaymentOrderClient);
+        _sut = new OrderService(_context, _productClient, _inventoryClient, _publishEndpoint,_logger);
     }
 
     public void Dispose() => _context.Dispose();
@@ -77,22 +83,32 @@ public class OrderServiceTests : IDisposable
     [Fact]
     public async Task GetAllOrders_ReturnsAllOrders()
     {
+        var paginationParams = new PaginationParams()
+        {
+            LastId=null,
+            PageSize=10,
+        };
         _context.Orders.AddRange(
             CreateOrder(userId: "user1", totalPrice: 100m),
             CreateOrder(userId: "user2", totalPrice: 200m));
         await _context.SaveChangesAsync();
 
-        var result = await _sut.GetAllOrders(CancellationToken.None);
+        var result = await _sut.GetAllOrdersPagination(paginationParams,CancellationToken.None);
 
-        result.Should().HaveCount(2);
+        result.Items.Should().HaveCount(2);
     }
 
     [Fact]
     public async Task GetAllOrders_WhenEmpty_ReturnsEmptyList()
     {
-        var result = await _sut.GetAllOrders(CancellationToken.None);
+        var paginationParams = new PaginationParams()
+        {
+            LastId = null,
+            PageSize = 10,
+        };
+        var result = await _sut.GetAllOrdersPagination(paginationParams,CancellationToken.None);
 
-        result.Should().BeEmpty();
+        result.Items.Should().BeEmpty();
     }
 
     #endregion
@@ -171,7 +187,12 @@ public class OrderServiceTests : IDisposable
             Products = [new OrderItemDto { ProductId = 1, Quantity = 2 }],
             PayementMethod = "CashOnDelivery",
             ShippingAddress = "123 Main St",
-            UserId = "user1"
+            UserId = "user1",
+            Commune="COMMUNE",
+            CustomerName="customer1",
+            Email="ESHOP@gmail.com",
+            Phone="0123456789",
+            Wilaya="state"
         };
 
         SetupImpostorResponses(
@@ -199,12 +220,18 @@ public class OrderServiceTests : IDisposable
     [Fact]
     public async Task CreateOrder_WithCreditCard_PublishesEventWithPaymentItems()
     {
+
         var orderDto = new OrderDto
         {
-            Products = [new OrderItemDto { ProductId = 1, Quantity = 1 }],
+            Products = [new OrderItemDto { ProductId = 1, Quantity = 2 }],
             PayementMethod = "CreditCard",
-            ShippingAddress = "456 Oak Ave",
-            UserId = "user1"
+            ShippingAddress = "123 Main St",
+            UserId = "user1",
+            Commune = "COMMUNE",
+            CustomerName = "customer1",
+            Email = "ESHOP@gmail.com",
+            Phone = "0123456789",
+            Wilaya = "state"
         };
 
         SetupImpostorResponses(
@@ -312,8 +339,14 @@ public class OrderServiceTests : IDisposable
             ],
             PayementMethod = "CashOnDelivery",
             ShippingAddress = "Test",
-            UserId = "user1"
+            UserId = "user1",
+            Commune = "COMMUNE",
+            CustomerName = "customer1",
+            Email = "ESHOP@gmail.com",
+            Phone = "0123456789",
+            Wilaya = "state"
         };
+
 
         SetupImpostorResponses(
             inventoryItems:
@@ -339,10 +372,15 @@ public class OrderServiceTests : IDisposable
     {
         var orderDto = new OrderDto
         {
-            Products = [new OrderItemDto { ProductId = 1, Quantity = 1 }],
+            Products = [new OrderItemDto { ProductId = 1, Quantity = 2 }],
             PayementMethod = "CashOnDelivery",
-            ShippingAddress = "Test",
-            UserId = "user1"
+            ShippingAddress = "123 Main St",
+            UserId = "user1",
+            Commune = "COMMUNE",
+            CustomerName = "customer1",
+            Email = "ESHOP@gmail.com",
+            Phone = "0123456789",
+            Wilaya = "state"
         };
 
         SetupImpostorResponses(
@@ -482,7 +520,12 @@ public class OrderServiceTests : IDisposable
         TotalPrice = totalPrice,
         ShippingAddress = "Test Address",
         PayementMethod = Orders.Data.Enums.PaymentMethods.CashOnDelivery,
-        OrderItems = []
+        OrderItems = [],
+        Commune = "COMMUNE",
+        CustomerName = "customer1",
+        Email = "ESHOP@gmail.com",
+        Phone = "0123456789",
+        Wilaya = "state"
     };
 
     #endregion

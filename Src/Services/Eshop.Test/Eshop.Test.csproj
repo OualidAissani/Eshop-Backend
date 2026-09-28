@@ -23,6 +23,7 @@
     </PackageReference>
     <PackageReference Include="FluentAssertions" Version="8.9.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.6" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.6" />
     <PackageReference Include="MassTransit" Version="8.3.6" />
   </ItemGroup>
 
@@ -32,6 +33,8 @@
     <ProjectReference Include="..\Eshop.Events\Eshop.Events.csproj" />
     <ProjectReference Include="..\Eshop.Payment\Eshop.Payment.csproj" />
     <ProjectReference Include="..\Eshop.Catalog\Eshop.Catalog.csproj" />
+	  <ProjectReference Include="..\Eshop.Notification\Eshop.Notification.csproj" />
+
   </ItemGroup>
 
 </Project>

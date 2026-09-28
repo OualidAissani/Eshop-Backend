@@ -1,17 +1,22 @@
-﻿using Eshop.Catalog.Entities;
+﻿using DnsClient.Internal;
+using Eshop.Catalog.Entities;
 using Eshop.Catalog.Services;
 using FluentAssertions;
+using Imposter;
 using Imposter.Abstractions;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using System.Net;
 using Xunit;
 
-namespace Eshop.Test;
 
+[assembly: GenerateImposter(typeof(ILogger<>))]
+namespace Eshop.Test;
 public class MediaServiceTests : IDisposable
 {
     private readonly FakeHttpMessageHandler _handler;
     private readonly MediaService _sut;
+    private readonly ILogger<MediaService> _logger;
 
     public MediaServiceTests()
     {
@@ -29,8 +34,10 @@ public class MediaServiceTests : IDisposable
                 ["UploadCare:UploadCareBaseUrl"] = "https://ucarecdn.com/"
             })
             .Build();
+        var logger= ILogger<MediaService>.Imposter();
+        _logger = logger.Instance();
 
-        _sut = new MediaService(factoryImposter.Instance(), config);
+        _sut = new MediaService(factoryImposter.Instance(), config,_logger);
     }
 
     public void Dispose() { }
@@ -51,10 +58,9 @@ public class MediaServiceTests : IDisposable
 
         var result = await _sut.CreateMedia(media, stream, "image/png", "test.png", CancellationToken.None);
 
-        result.Media.Should().Be("https://ucarecdn.com/abc-123-uuid");
+        result.Media.Should().Be("https://ucarecdn.com/abc-123-uuid/test.png");
 
         result.Should().NotBeNull();
-        result.Media.Should().Be("https://ucarecdn.com/abc-123-uuid");
         result.Description.Should().Be("Test image");
     }
 
@@ -73,7 +79,7 @@ public class MediaServiceTests : IDisposable
         var result = await _sut.CreateMedia(media, stream, "image/jpeg", "photo.jpg", CancellationToken.None);
 
         result.Should().BeSameAs(media);
-        result.Media.Should().Be("https://ucarecdn.com/xyz-uuid");
+        result.Media.Should().Be("https://ucarecdn.com/xyz-uuid/photo.jpg");
     }
 
     [Fact]
@@ -141,7 +147,7 @@ public class MediaServiceTests : IDisposable
                 Content = new StringContent("""{"status":"ok"}""")
             });
 
-        var result = await _sut.DeleteMedia("abc-123-uuid", CancellationToken.None);
+        var result = await _sut.DeleteMedia("https://ucarecdn.com/xyz-uuid/photo.jpg", CancellationToken.None);
 
         result.Should().BeTrue();
     }

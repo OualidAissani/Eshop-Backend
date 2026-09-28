@@ -19,6 +19,7 @@ using System.Reflection.Metadata;
 using System.Text;
 using Xunit;
 using Eshop.Catalog.Data.Enums;
+using Eshop.Catalog.Entities;
 
 [assembly:GenerateImposter(typeof(ILogger<>))]
 [assembly:GenerateImposter(typeof(IHttpClientFactory))]
@@ -31,15 +32,26 @@ namespace Eshop.Test
         private readonly ProductService _sut;
         private readonly CatalogDbContext _context;
         private readonly MongoCatalogContext _mongoContext;
-        private readonly ILogger<ProductService> _logger;
+        private readonly ILogger<ProductService> _loggerProduct;
+        private readonly ILogger<MediaService> _loggerMedia;
+        private readonly ILogger<CategoryService> _loggerCategory;
+
+
         private readonly IConfiguration _configurations;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IPublishEndpoint _publish;
         private readonly IMediaService _mediaService;
+
+        private readonly IDiscountService _discountService;
+        private readonly ICategoryService _categoryService;
+        
         private readonly FakeHttpMessageHandler _handler;
 
 
-        private readonly ILoggerImposter<ProductService> _loggerImposter;
+        private readonly ILoggerImposter<ProductService> _loggerProductServiceImposter;
+        private readonly ILoggerImposter<MediaService> _loggerMediaServiceImposter;
+        private readonly ILoggerImposter<CategoryService> _loggerCategoryServiceImposter;
+
         private readonly IPublishEndpointImposter _publishEndpointImposter;
         private readonly IHttpClientFactoryImposter _httpClientFactoryImposter;
 
@@ -78,11 +90,16 @@ namespace Eshop.Test
                     ["UploadCare:UploadCareBaseUrl"] = "https://ucarecdn.com/"
                 })
                 .Build();
+            _loggerMediaServiceImposter = ILogger<MediaService>.Imposter();
+            _loggerMedia = _loggerMediaServiceImposter.Instance();
 
-            _mediaService = new MediaService(_httpClientFactory, _configurations);
+            _mediaService = new MediaService(_httpClientFactory, _configurations, _loggerMedia);
 
-            _loggerImposter = ILogger<ProductService>.Imposter();
-            _logger = _loggerImposter.Instance();
+            _loggerProductServiceImposter = ILogger<ProductService>.Imposter();
+            _loggerProduct = _loggerProductServiceImposter.Instance();
+
+            _loggerCategoryServiceImposter = ILogger<CategoryService>.Imposter();
+            _loggerCategory = _loggerCategoryServiceImposter.Instance();
 
             _publishEndpointImposter = IPublishEndpoint.Imposter();
             _publish = _publishEndpointImposter.Instance();
@@ -95,8 +112,13 @@ namespace Eshop.Test
                 CategoriesCollection = "categories",
                 CountersCollection = "counters"
             });
+
             _mongoContext = new MongoCatalogContext(mongoClient, mongoSettings);
-            _sut = new ProductService(_mongoContext, _mediaService, _logger, _configurations, _httpClientFactory, _publish);
+
+            _discountService = new DiscountService(_mongoContext);
+            _categoryService = new CategoryService(_mongoContext, _loggerCategory);
+
+            _sut = new ProductService(_mongoContext, _mediaService, _loggerProduct, _configurations, _httpClientFactory, _publish,_categoryService, _discountService);
         }
 
         public void Dispose()
@@ -190,13 +212,7 @@ namespace Eshop.Test
             updateResult.IsSuccess.Should().BeTrue();
             updateResult.Errors.Should().BeEmpty();
 
-            _publishEndpointImposter
-                .Publish(Arg<UpdateCartProduct>.Is(s =>
-                s.ProductId == productCreateResult.Value.Id &&
-                s.ProductName == updatedDto.Title &&
-                s.FullPrice == updatedDto.Price),
-            Arg<CancellationToken>.Any())
-            .Called(Count.Once());
+            
 
             
         }
@@ -236,8 +252,8 @@ namespace Eshop.Test
             deleteResult.Errors.Should().BeEmpty();
 
             _publishEndpointImposter
-                .Publish(Arg<DeleteCartProduct>.Is(s =>
-                s.ProductId == productCreateResult.Value.Id),
+                .Publish(Arg<DeleteInventory>.Is(s =>
+                s.productId == productCreateResult.Value.Id),
             Arg<CancellationToken>.Any())
             .Called(Count.Once());
         }

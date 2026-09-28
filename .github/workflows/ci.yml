@@ -36,8 +36,18 @@ jobs:
       - name: Build
         run: dotnet build Src/Services/Eshop.slnx --no-restore --configuration Release
 
+      - name: Start MongoDB
+        run: docker run -d --name mongodb \
+            -p 27017:27017 mongo:8
+
+          until docker exec mongodb mongosh --eval "db.adminCommand('ping')" > /dev/null 2>&1; do
+            echo "Waiting for MongoDB..."
+            sleep 2
+          done
+
       - name: Test
         run: dotnet test Src/Services/Eshop.slnx --no-build --configuration Release --verbosity normal --logger "trx;LogFileName=results.xml" --collect:"XPlat Code Coverage"
+
       - name: Upload test results
         uses: actions/upload-artifact@v4
         with:

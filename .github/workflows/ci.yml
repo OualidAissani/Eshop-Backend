@@ -37,8 +37,8 @@ jobs:
         run: dotnet build Src/Services/Eshop.slnx --no-restore --configuration Release
 
       - name: Start MongoDB
-        run: docker run -d --name mongodb \
-            -p 27017:27017 mongo:8
+        run:|
+	   docker run -d --name mongodb -p 27017:27017 mongo:8
 
           until docker exec mongodb mongosh --eval "db.adminCommand('ping')" > /dev/null 2>&1; do
             echo "Waiting for MongoDB..."

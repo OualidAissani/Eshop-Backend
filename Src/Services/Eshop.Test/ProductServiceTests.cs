@@ -3,7 +3,6 @@ using Eshop.Catalog.Dtos;
 using Eshop.Catalog.Services;
 using Eshop.Catalog.Services.IServices;
 using Eshop.Events;
-using Eshop.Payment.Data;
 using FluentAssertions;
 using Imposter.Abstractions;
 using MassTransit;

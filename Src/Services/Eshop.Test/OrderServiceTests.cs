@@ -5,7 +5,6 @@ using Eshop.Orders.Dtos;
 using Eshop.Orders.Models;
 using Eshop.Orders.Services;
 using Eshop.Orders.Services.IServices;
-using Eshop.Payment.Services.IServices;
 using FluentAssertions;
 using Imposter.Abstractions;
 using MassTransit;
@@ -23,7 +22,6 @@ using Xunit;
 [assembly: GenerateImposter(typeof(IHttpContextAccessor))]
 [assembly: GenerateImposter(typeof(ILogger<>))]
 [assembly: GenerateImposter(typeof(IInventoryService))]
-[assembly: GenerateImposter(typeof(IPaymentService))]
 
 namespace Eshop.Test;
 

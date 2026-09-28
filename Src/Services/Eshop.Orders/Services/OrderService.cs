@@ -126,7 +126,7 @@ namespace Eshop.Orders.Services
 
                     await tx.CommitAsync(ct);
 
-                    if (changes != null)
+                    if (changes > 0)
                     {
                         await NotifyCustomerOfOrderCreating(newOrder, ct);
 
@@ -140,7 +140,7 @@ namespace Eshop.Orders.Services
             }
             catch (Exception ex)
             {
-                throw ex;
+                throw new Exception("Error occurred while creating order", ex);
             }
         }
 
@@ -170,7 +170,7 @@ namespace Eshop.Orders.Services
             });
         }
 
-        private async void PublishingConfimredOrderEvent(Order newOrder, List<Events.InventoryUpdateDto> inventoryParameter, List<Events.OrderItemSagaDto> paymentItems, Guid correlationId)
+        private async Task PublishingConfimredOrderEvent(Order newOrder, List<Events.InventoryUpdateDto> inventoryParameter, List<Events.OrderItemSagaDto> paymentItems, Guid correlationId)
         {
             await _publishEndpoint.Publish(
                             new OrderSubmitted

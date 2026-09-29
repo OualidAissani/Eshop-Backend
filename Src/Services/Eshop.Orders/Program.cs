@@ -105,13 +105,14 @@ var app = builder.Build();
 
 MigrateDatabase();
 
-app.MapDefaultEndpoints();
 
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
     app.UseSwagger();
     app.UseSwaggerUI();
+    app.MapDefaultEndpoints();
+
 }
 app.UseStatusCodePages();
 app.UseExceptionHandler(errorApp =>

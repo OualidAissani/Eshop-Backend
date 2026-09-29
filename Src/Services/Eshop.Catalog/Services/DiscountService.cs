@@ -84,7 +84,7 @@ namespace Eshop.Catalog.Services
                 return Result.Fail<DiscountDocument>("Invalid product ID");
             }
 
-            var discount = await _context.Discounts.Find(d => d.ProductId == id && d.StartsAt <= DateTime.UtcNow && d.ExpiresAt.Value > DateTime.UtcNow).FirstOrDefaultAsync();
+            var discount = await _context.Discounts.Find(d => d.ProductId == id && d.StartsAt <= DateTime.UtcNow && d.ExpiresAt > DateTime.UtcNow).FirstOrDefaultAsync();
             if(discount == null)
             {
                 return Result.Fail<DiscountDocument>("Discount not found");
@@ -95,7 +95,7 @@ namespace Eshop.Catalog.Services
 
         public async Task<Result<List<DiscountDocument>>> GetDiscounts(CancellationToken ct)
         {
-            var discounts = await _context.Discounts.Find(_ => _.StartsAt <= DateTime.UtcNow && _.ExpiresAt.Value > DateTime.UtcNow).ToListAsync();
+            var discounts = await _context.Discounts.Find(_ => _.StartsAt <= DateTime.UtcNow && _.ExpiresAt > DateTime.UtcNow).ToListAsync();
             return discounts;
         }
 

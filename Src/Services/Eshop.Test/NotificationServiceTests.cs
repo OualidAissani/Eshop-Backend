@@ -6,11 +6,12 @@ using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using Xunit;
 
 
 
 namespace Eshop.Test;
-internal class NotificationServiceTests : IDisposable
+public class NotificationServiceTests : IDisposable
 {
     private readonly FakeHttpMessageHandler _handler;
     private readonly EmailService _emailService;
@@ -39,6 +40,16 @@ internal class NotificationServiceTests : IDisposable
 
     public void Dispose()
     {
-        throw new NotImplementedException();
+        _handler?.Dispose();
+    }
+
+    [Fact]
+    public async Task SendEmailAsync_ShouldSendEmailSuccessfully()
+    {
+        var to = "emailtest@gmail.com";
+        var subject = "suvject text";
+        var body = "booody";
+
+        await _emailService.SendEmailAsync(to,subject,body,CancellationToken.None);
     }
 }

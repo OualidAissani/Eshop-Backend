@@ -48,13 +48,6 @@ builder.Services.AddHttpLogging(logging => { });
 
 builder.AddRedisDistributedCache("redis");
 
-
-Console.WriteLine(
-    builder.Configuration.GetConnectionString("CatalogMongoDb"));
-
-Console.WriteLine(
-    builder.Configuration.GetConnectionString("redis"));
-
 builder.Services.AddMassTransit(o =>
 {
     o.AddConsumer<RetrieveProductPriceConsumer>();
@@ -115,11 +108,12 @@ builder.Services.AddAuthorizationBuilder();
 var app = builder.Build();
 
 
-app.MapDefaultEndpoints();
 
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    app.MapDefaultEndpoints();
+
 }
 app.UseStatusCodePages();
 app.UseExceptionHandler(errorApp =>

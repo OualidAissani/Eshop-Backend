@@ -120,7 +120,7 @@ namespace Eshop.Orders.Services
 
                     var correlationId = Guid.NewGuid();
 
-                    PublishingConfimredOrderEvent(newOrder, inventoryParameter, paymentItems, correlationId);
+                    await PublishingConfimredOrderEvent(newOrder, inventoryParameter, paymentItems, correlationId);
 
                     var changes = await _context.SaveChangesAsync(ct);
 

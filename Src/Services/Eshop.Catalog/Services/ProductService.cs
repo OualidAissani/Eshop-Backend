@@ -268,8 +268,8 @@ namespace Eshop.Catalog.Services;
         var now = DateTime.UtcNow;
         var activeDiscounts = await _mongoContext.Discounts
             .Find(d => productIds.Contains(d.ProductId)
-                    && (d.StartsAt == null || d.StartsAt <= now)
-                    && (d.ExpiresAt == null || d.ExpiresAt >= now))
+                    && (d.StartsAt <= now)
+                    && (d.ExpiresAt >= now))
             .ToListAsync(ct);
 
         var discountsByProductId = activeDiscounts.ToDictionary(d => d.ProductId);

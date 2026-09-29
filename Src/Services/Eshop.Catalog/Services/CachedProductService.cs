@@ -95,7 +95,7 @@ namespace Eshop.Catalog.Services
             var result = await _productService.DeleteProductReturnOldProduct(productId, ct);
             if (result.IsFailed)
             {
-                return null;
+                return Result.Fail(result.Errors.First().Message);
             }
             await _cache.RemoveAsync($"Products:Id={productId}");
             if (result.Value?.Categories != null)
@@ -217,7 +217,7 @@ namespace Eshop.Catalog.Services
 
             if (result.IsFailed)
             {
-                return null;
+                return Result.Fail(result.Errors.First().Message);
             }
 
             await _cache.RemoveAsync($"Products:Id={productId}");

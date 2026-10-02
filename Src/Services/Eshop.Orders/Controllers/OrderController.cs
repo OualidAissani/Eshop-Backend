@@ -1,4 +1,5 @@
 ﻿using Eshop.Orders.Dtos;
+using Eshop.Orders.Entities;
 using Eshop.Orders.Models;
 using Eshop.Orders.Services.IServices;
 using MassTransit.Internals.GraphValidation;
@@ -112,7 +113,9 @@ namespace Eshop.Orders.Controllers
         [HttpDelete]
         public async Task<IActionResult> DeleteOrder(int id,CancellationToken ct)
         {
-            var deleteResult=await _orderService.DeleteOrder(id,ct);
+            var userId = _httpContextAccessor.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            var deleteResult =await _orderService.DeleteOrder(id,userId,ct);
 
             if(deleteResult.IsFailed)
             {

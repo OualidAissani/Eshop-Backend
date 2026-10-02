@@ -1,4 +1,5 @@
-﻿using Eshop.Orders.Models;
+﻿using Eshop.Orders.Entities;
+using Eshop.Orders.Models;
 using Eshop.Orders.Sagas;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;

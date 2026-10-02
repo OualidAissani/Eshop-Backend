@@ -1,4 +1,4 @@
-﻿namespace Eshop.Orders.Models
+﻿namespace Eshop.Orders.Entities
 {
     public class PaginationParams
     {

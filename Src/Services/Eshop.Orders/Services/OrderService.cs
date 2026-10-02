@@ -8,6 +8,7 @@ using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
 using Polly;
+using Eshop.Orders.Entities;
 namespace Eshop.Orders.Services
 {
     public class OrderService : IOrderService
@@ -245,7 +246,7 @@ namespace Eshop.Orders.Services
             return paymentItems;
         }
 
-        public async Task<Result<bool>> DeleteOrder(int orderId, CancellationToken ct)
+        public async Task<Result<bool>> DeleteOrder(int orderId,string userId, CancellationToken ct)
         {
             if (orderId <= 0)
             {
@@ -254,7 +255,7 @@ namespace Eshop.Orders.Services
 
             try
             {
-                var order = await _context.Orders.FirstOrDefaultAsync(o => o.Id == orderId, ct);
+                var order = await _context.Orders.FirstOrDefaultAsync(o => o.Id == orderId && o.UserId == userId, ct);
                 if (order == null)
                 {
                     return Result.Fail<bool>("Order not found.");

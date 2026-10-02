@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Scrutor;
+using StackExchange.Redis;
 var builder = WebApplication.CreateBuilder(args);
 if(builder.Environment.IsDevelopment())
 {
@@ -46,7 +47,16 @@ builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<IDiscountService, DiscountService>();
 builder.Services.AddHttpLogging(logging => { });
 
-builder.AddRedisDistributedCache("redis");
+builder.Services.AddSingleton<IConnectionMultiplexer>(
+    ConnectionMultiplexer.Connect(
+        builder.Configuration.GetConnectionString("Redis")!));
+
+builder.Services.AddSingleton<IDatabase>(sp =>
+{
+    var redis = sp.GetRequiredService<IConnectionMultiplexer>();
+    return redis.GetDatabase();
+});
+
 
 builder.Services.AddMassTransit(o =>
 {

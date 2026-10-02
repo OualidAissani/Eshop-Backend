@@ -2,18 +2,19 @@
 using Eshop.Catalog.Entities;
 using Eshop.Catalog.Services.IServices;
 using FluentResults;
-using Microsoft.Extensions.Caching.Distributed;
 using System.Text.Json;
+using StackExchange.Redis;
+
 
 namespace Eshop.Catalog.Services
 {
     public class CachedProductService : IProductService
     {
         private readonly IProductService _productService;
-        private readonly IDistributedCache _cache;
-        public CachedProductService(IDistributedCache cache, IProductService productService)
+        private readonly IDatabase _redisdb;
+        public CachedProductService(IDatabase redisDb, IProductService productService)
         {
-            _cache = cache;
+            _redisdb = redisDb;
             _productService = productService;
         }
 
@@ -43,11 +44,16 @@ namespace Eshop.Catalog.Services
             }
             var cacheKey = $"Idempotency:Product:Create:{product.IdempotencyKey}";
 
-            var cached = await _cache.GetAsync(cacheKey);
+            var reserved= await _redisdb.StringSetAsync(cacheKey,"in-progress",TimeSpan.FromHours(24),When.NotExists);
 
-            if (cached != null)
+            if (!reserved)
             {
-                var cachedProduct = JsonSerializer.Deserialize<ProductDto>(cached);
+                var cached = await _redisdb.StringGetAsync(cacheKey);
+                if (cached== "in-progress")
+                {
+                    return Result.Fail("");
+                }
+                var cachedProduct = JsonSerializer.Deserialize<ProductDto>(cached.ToString());
                 return cachedProduct;
             }
 
@@ -58,15 +64,12 @@ namespace Eshop.Catalog.Services
                 return Result.Fail(result.Errors.First().Message);
             }
 
-            await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(result.Value), new DistributedCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
-            });
+            await _redisdb.StringSetAsync(cacheKey, JsonSerializer.Serialize(result.Value), TimeSpan.FromHours(24));
             if (result.Value?.Categories != null)
             {
                 foreach (var category in result.Value.Categories)
                 {
-                    await _cache.RemoveAsync($"Products:Category={category.Id}");
+                    await _redisdb.KeyDeleteAsync($"Products:Category={category.Id}");
                 }
             }
             return result.Value;
@@ -79,12 +82,12 @@ namespace Eshop.Catalog.Services
             {
                 return Result.Fail(result.Errors.First().Message);
             }
-            await _cache.RemoveAsync($"Products:Id={productId}");
+            await _redisdb.KeyDeleteAsync($"Products:Id={productId}");
             if (result.Value?.Categories != null)
             {
                 foreach (var category in result.Value.Categories)
                 {
-                    await _cache.RemoveAsync($"Products:Category={category.Id}");
+                    await _redisdb.KeyDeleteAsync($"Products:Category={category.Id}");
                 }
             }
             return true;
@@ -97,12 +100,12 @@ namespace Eshop.Catalog.Services
             {
                 return Result.Fail(result.Errors.First().Message);
             }
-            await _cache.RemoveAsync($"Products:Id={productId}");
+            await _redisdb.KeyDeleteAsync($"Products:Id={productId}");
             if (result.Value?.Categories != null)
             {
                 foreach (var category in result.Value.Categories)
                 {
-                    await _cache.RemoveAsync($"Products:Category={category.Id}");
+                    await _redisdb.KeyDeleteAsync($"Products:Category={category.Id}");
                 }
             }
             return result;
@@ -112,18 +115,19 @@ namespace Eshop.Catalog.Services
         public async Task<List<ProductDto>> GetHeroProducts(CancellationToken ct)
         {
             var cacheKey = "Products:Hero";
-            var cached = await _cache.GetStringAsync(cacheKey);
-            if (cached != null)
+            var reserved = await _redisdb.StringSetAsync(cacheKey,"in-progress",TimeSpan.FromHours(24),When.NotExists);
+            if (!reserved)
             {
-                return JsonSerializer.Deserialize<List<ProductDto>>(cached);
+                var cached = await _redisdb.StringGetAsync(cacheKey);
+                if (cached=="in-progress")
+                    return null;
+
+                return JsonSerializer.Deserialize<List<ProductDto>>(cached.ToString());
             }
 
             var products = await _productService.GetHeroProducts(ct);
 
-            await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(products), new DistributedCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5)
-            });
+            await _redisdb.StringSetAsync(cacheKey, JsonSerializer.Serialize(products), TimeSpan.FromHours(24));
 
             return products;
         }
@@ -131,10 +135,15 @@ namespace Eshop.Catalog.Services
         public async Task<ProductDto> GetProductById(int productId, CancellationToken ct)
         {
             var cacheKey = $"Products:Id={productId}";
-            var cached = await _cache.GetStringAsync(cacheKey);
-            if (cached != null)
+            var reserved = await _redisdb.StringSetAsync(cacheKey, "in-progress", TimeSpan.FromHours(24), When.NotExists);
+            if (reserved)
             {
-                var cachedProduct = JsonSerializer.Deserialize<ProductDto>(cached);
+                var cached = await _redisdb.StringGetAsync(cacheKey);
+                if (cached =="in-progress")
+                {
+                    return null;
+                }
+                var cachedProduct = JsonSerializer.Deserialize<ProductDto>(cached.ToString());
                 return cachedProduct;
             }
             var product = await _productService.GetProductById(productId, ct);
@@ -143,10 +152,7 @@ namespace Eshop.Catalog.Services
             {
                 return null;
             }
-            await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(product), new DistributedCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
-            });
+            await _redisdb.StringSetAsync(cacheKey, JsonSerializer.Serialize(product),TimeSpan.FromHours(24));
             return product;
         }
 
@@ -169,18 +175,19 @@ namespace Eshop.Catalog.Services
         public async Task<List<ProductDto>> GetProductsByCategory(int categoryId, CancellationToken ct)
         {
             var cachedKey = $"Products:Category={categoryId}";
-            var cached = await _cache.GetStringAsync(cachedKey);
-            if (cached != null)
+            var reserved = await _redisdb.StringSetAsync(cachedKey,"in-progress",TimeSpan.FromHours(24),When.NotExists);
+            if (!reserved)
             {
-                return JsonSerializer.Deserialize<List<ProductDto>>(cached);
+                var cached = await _redisdb.StringGetAsync(cachedKey);
+                if (cached == "in-progress")
+                    return null;
+
+                return JsonSerializer.Deserialize<List<ProductDto>>(cached.ToString());
             }
 
             var products = await _productService.GetProductsByCategory(categoryId, ct);
 
-            await _cache.SetStringAsync(cachedKey, JsonSerializer.Serialize(products), new DistributedCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
-            });
+            await _redisdb.StringSetAsync(cachedKey, JsonSerializer.Serialize(products),TimeSpan.FromHours(24));
 
             return products;
         }
@@ -191,11 +198,15 @@ namespace Eshop.Catalog.Services
             {
                 return null;
             }
-            var chachedKey = $"Products:Search={tag}";
-            var cached = await _cache.GetStringAsync(chachedKey);
-            if (cached != null)
+            var cachedKey = $"Products:Search={tag}";
+            var reserved = await _redisdb.StringSetAsync(cachedKey, "in-progress", TimeSpan.FromHours(24),When.NotExists);
+            if (!reserved != null)
             {
-                return JsonSerializer.Deserialize<List<ProductDto>>(cached);
+                var cached = await _redisdb.StringGetAsync(cachedKey);
+                    if (cached == "in-progress")
+                    return null;
+
+                return JsonSerializer.Deserialize<List<ProductDto>>(cached.ToString());
             }
 
             var products = await _productService.ProductSearch(tag, ct);
@@ -203,10 +214,7 @@ namespace Eshop.Catalog.Services
             {
                 return null;
             }
-            await _cache.SetStringAsync(chachedKey, JsonSerializer.Serialize(products), new DistributedCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
-            });
+            await _redisdb.StringSetAsync(cachedKey, JsonSerializer.Serialize(products),TimeSpan.FromHours(24));
 
             return products;
         }
@@ -220,8 +228,8 @@ namespace Eshop.Catalog.Services
                 return Result.Fail(result.Errors.First().Message);
             }
 
-            await _cache.RemoveAsync($"Products:Id={productId}");
-            await _cache.RemoveAsync("Products:Hero");
+            await _redisdb.KeyDeleteAsync($"Products:Id={productId}");
+            await _redisdb.KeyDeleteAsync("Products:Hero");
 
             return result.Value;
         }
@@ -238,13 +246,13 @@ namespace Eshop.Catalog.Services
             }
 
 
-            await _cache.RemoveAsync($"Products:Id={result.Value.Id}");
+            await _redisdb.KeyDeleteAsync($"Products:Id={result.Value.Id}");
 
             if (result.Value.Categories != null)
             {
                 foreach (var category in result.Value.Categories)
                 {
-                    await _cache.RemoveAsync($"Products:Category={category.Id}");
+                    await _redisdb.KeyDeleteAsync($"Products:Category={category.Id}");
                 }
             }
 

@@ -94,23 +94,14 @@ public class CatalogController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<PaginatedResult<ProductDto>>> GetProducts([FromQuery] int? lastId, CancellationToken ct, [FromQuery] int pageSize = 10)
     {
-        //var cacheKey= $"Products:List:PageSize={pageSize}:LastId={lastId}"; //TO FIND BETTER SOLUTIONS LATER
-        //var cached = await _cache.GetStringAsync(cacheKey);
-        //if (cached != null)
-        //{
-        //    var cachedResult = JsonSerializer.Deserialize<PaginatedResult<ProductDto>>(cached);
-        //    return Ok(cachedResult);
-        //}
+ 
 
         var result = await _productrepo.GetProductsAsync(new PaginationParams
         {
             PageSize = pageSize,
             LastId=lastId
         },ct);
-        //await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(result), new DistributedCacheEntryOptions
-        //{
-        //    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30)
-        //});
+
         return Ok(result);
     }
     

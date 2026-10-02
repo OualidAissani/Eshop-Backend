@@ -1,5 +1,5 @@
 ﻿using Eshop.Orders.Dtos;
-using Eshop.Orders.Models;
+using Eshop.Orders.Entities;
 using FluentResults;
 
 namespace Eshop.Orders.Services.IServices
@@ -14,7 +14,7 @@ namespace Eshop.Orders.Services.IServices
 
         Task<Result<CreateOrderResponseDto>> CreateOrder(OrderDto order, CancellationToken ct);
 
-        Task<Result<bool>> DeleteOrder(int orderId, CancellationToken ct);
+        Task<Result<bool>> DeleteOrder(int orderId,string userId, CancellationToken ct);
 
         Task<Result<bool>> OrderConfirmed(int orderId, CancellationToken ct);
 

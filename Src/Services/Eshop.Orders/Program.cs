@@ -10,8 +10,9 @@ using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using System.Text.Json.Serialization;
 using Scrutor;
+using StackExchange.Redis;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 if (builder.Environment.IsDevelopment())
@@ -32,8 +33,15 @@ builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.Decorate<IOrderService,CachedOrderService>();
 
 
-builder.AddRedisDistributedCache("redis");
+builder.Services.AddSingleton<IConnectionMultiplexer>(
+    ConnectionMultiplexer.Connect(
+        builder.Configuration.GetConnectionString("Redis")!));
 
+builder.Services.AddSingleton<IDatabase>(sp =>
+{
+    var redis = sp.GetRequiredService<IConnectionMultiplexer>();
+    return redis.GetDatabase();
+});
 builder.Services.AddHttpClient();
 
 builder.Services.AddHttpClient("EmailService", client =>

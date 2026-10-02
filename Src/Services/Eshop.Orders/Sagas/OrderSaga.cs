@@ -96,13 +96,13 @@ public class OrderStateMachineSaga : MassTransitStateMachine<OrderState>
             , When(OrderFailed)
             .PublishAsync(context => context.Init<OrderCompensate>(new
             {
-                OrderId = context.Saga.OrderId
+                OrderId = context.Saga.OrderId,
             }))
             .PublishAsync(context => context.Init<RefundPayment>(new
             {
-                CorrelationId= context.Saga.CorrelationId,
+                CorrelationId = context.Saga.CorrelationId,
                 OrderId = context.Saga.OrderId,
-                Amount=context.Saga.OrderTotal
+                Amount = context.Saga.OrderTotal
             }))
             .TransitionTo(Failed)
             .Finalize()

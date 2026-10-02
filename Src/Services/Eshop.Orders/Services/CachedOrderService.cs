@@ -1,10 +1,10 @@
 ﻿using Eshop.Orders.Data.Enums;
 using Eshop.Orders.Dtos;
-using Eshop.Orders.Models;
+using Eshop.Orders.Entities;
 using Eshop.Orders.Services.IServices;
 using FluentResults;
-using Microsoft.Extensions.Caching.Distributed;
-using System.Security.Claims;
+
+using StackExchange.Redis;
 using System.Text.Json;
 
 namespace Eshop.Orders.Services
@@ -12,13 +12,11 @@ namespace Eshop.Orders.Services
     public class CachedOrderService : IOrderService
     {
         private readonly IOrderService _orderService;
-        private readonly IDistributedCache _cache;
-        private readonly IHttpContextAccessor _httpContextAccessor;
-        public CachedOrderService(IOrderService orderService, IDistributedCache cache, IHttpContextAccessor httpContextAccessor)
+        private readonly IDatabase _redisDb;
+        public CachedOrderService(IOrderService orderService, IDatabase redisDb)
         {
             _orderService = orderService;
-            _cache = cache;
-            _httpContextAccessor = httpContextAccessor;
+            _redisDb = redisDb;
         }
         public async Task<Result<CreateOrderResponseDto>> CreateOrder(OrderDto order, CancellationToken ct)
         {
@@ -27,64 +25,38 @@ namespace Eshop.Orders.Services
                 return Result.Fail("Idempotency Key is required");
             }
 
-            var cacheKey = $"Idempotency:Order:Create:{order.IdempontencyKey}";
+            var key = $"Idempotency:Order:Create:{order.UserId}:{order.IdempontencyKey}";
+            var reserved = await _redisDb.StringSetAsync(key, "in-progress", TimeSpan.FromHours(24), When.NotExists);
 
-            var cached = await _cache.GetAsync(cacheKey);
-
-            if (cached != null)
+            if (!reserved)
             {
-                return JsonSerializer.Deserialize<CreateOrderResponseDto>(cached);
+                var existing = await _redisDb.StringGetAsync(key);
+                if (existing == "in-progress")
+                    return Result.Fail("Request already in progress"); // or 409
+                return JsonSerializer.Deserialize<CreateOrderResponseDto>(existing.ToString())!;
             }
 
-            order.UserId = _httpContextAccessor.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
-            try
-            {
-                var createdOrder = await _orderService.CreateOrder(order, ct);
-                if (createdOrder.IsFailed)
-                {
-                    return Result.Fail(createdOrder.Errors[0].Message);
-                }
-                await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(createdOrder.Value), new DistributedCacheEntryOptions
-                {
-                    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5)
-                });
-                await _cache.RemoveAsync($"Orders:{order.UserId}:All");
-                return createdOrder.Value;
-            }
-            catch (ArgumentException ex)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                throw;
-            }
+            var createdOrder = await _orderService.CreateOrder(order, ct);
+            await _redisDb.StringSetAsync(key, JsonSerializer.Serialize(createdOrder.Value), TimeSpan.FromHours(24));
+
+            return createdOrder.Value;
         }
 
-        public async Task<Result<bool>> DeleteOrder(int orderId, CancellationToken ct)
+        public async Task<Result<bool>> DeleteOrder(int orderId,string userId, CancellationToken ct)
         {
-            var userId = _httpContextAccessor.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-            var checkOrderMatchWithUser = await _orderService.MatchUserWithOrder(orderId, userId, ct);
-
-            if (checkOrderMatchWithUser.IsFailed || checkOrderMatchWithUser.Value == false)
-            {
-                return Result.Fail("something went wrong");
-            }
-
-            var deleteResult = await _orderService.DeleteOrder(orderId, ct);
+            var deleteResult = await _orderService.DeleteOrder(orderId,userId, ct);
 
             if (deleteResult.IsFailed)
             {
                 return Result.Fail(deleteResult.Errors[0].Message);
             }
-            await _cache.RemoveAsync($"Orders:{userId}:All");
-            await _cache.RemoveAsync($"Order:{userId}:{orderId}");
+            await _redisDb.KeyDeleteAsync($"Order:{userId}:{orderId}");
 
             return true;
         }
 
-        public async Task<PaginatedResult<Order>> GetAllOrdersPagination(PaginationParams paginationParams, CancellationToken ct)
+        public async Task<PaginatedResult<Entities.Order>> GetAllOrdersPagination(PaginationParams paginationParams, CancellationToken ct)
         {
 
 
@@ -94,7 +66,7 @@ namespace Eshop.Orders.Services
             return orders;
         }
 
-        public async Task<List<Order>> GetAllUserOrderAsync(string userId, CancellationToken ct)
+        public async Task<List<Entities.Order>> GetAllUserOrderAsync(string userId, CancellationToken ct)
         {
 
             var orders = await _orderService.GetAllUserOrderAsync(userId, ct);
@@ -109,28 +81,29 @@ namespace Eshop.Orders.Services
             return orders;
         }
 
-        public async Task<Order?> GetOrderById(int orderId, string userId, CancellationToken ct)
+        public async Task<Entities.Order?> GetOrderById(int orderId, string userId, CancellationToken ct)
         {
             var cacheKey = $"Order:{userId}:{orderId}";
 
-            var cachedData = await _cache.GetAsync(cacheKey);
+            var reserved = await _redisDb.StringSetAsync(cacheKey, "in-progress", TimeSpan.FromHours(24), When.NotExists);
 
-            if (cachedData != null)
+            if(!reserved)
             {
-                return JsonSerializer.Deserialize<Order>(cachedData);
+                var cachedData = await _redisDb.StringGetAsync(cacheKey);
+                if (cachedData == "in-progress")
+                {
+                    return null;
+                }
+                return JsonSerializer.Deserialize<Entities.Order>(cachedData.ToString());
             }
-
             var order = await _orderService.GetOrderById(orderId, userId, ct);
 
-            if (order == null)
+            if (order is null)
             {
                 return null;
             }
 
-            await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(order), new DistributedCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30)
-            });
+            await _redisDb.StringSetAsync(cacheKey, JsonSerializer.Serialize(order),TimeSpan.FromHours(24));
 
             return order;
         }
@@ -138,17 +111,22 @@ namespace Eshop.Orders.Services
         public async Task<OrderTrackingDto> GetOrderByOrderNumber(string orderNumber, string phoneNumber, CancellationToken ct)
         {
             var cacheKey = $"Order:Tracking:{orderNumber}:{phoneNumber}";
-            var cahcedData = await _cache.GetStringAsync(cacheKey);
-            if (cahcedData != null)
+            var reserved = await _redisDb.StringSetAsync(cacheKey,"in-progress",TimeSpan.FromHours(24),When.NotExists);
+
+            if (!reserved)
             {
-                return JsonSerializer.Deserialize<OrderTrackingDto>(cahcedData);
+                var cahcedData = await _redisDb.StringGetAsync(cacheKey);
+                if (cahcedData =="in-progress")
+                {
+                    return null;
+                }
+                return JsonSerializer.Deserialize<OrderTrackingDto>(cahcedData.ToString())!;
+
             }
             var orderTracking = await _orderService.GetOrderByOrderNumber(orderNumber, phoneNumber, ct);
 
-            await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(orderTracking), new DistributedCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30)
-            });
+            await _redisDb.StringSetAsync(cacheKey, JsonSerializer.Serialize(orderTracking));
+
             return orderTracking;
 
         }
@@ -171,7 +149,6 @@ namespace Eshop.Orders.Services
                 return Result.Fail(result.Errors.FirstOrDefault()?.Message);
             }
 
-            await _cache.RemoveAsync($"Orders:Admin:All");
 
             return result.Value;
         }

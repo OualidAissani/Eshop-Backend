@@ -1,5 +1,6 @@
 ﻿using System.Globalization;
 using System.Text;
+using Eshop.Orders.Entities;
 using Eshop.Orders.Models;
 
 namespace Eshop.Orders.Services.EmailTemplates

@@ -2,6 +2,7 @@
 using Eshop.Inventory.Services;
 using Eshop.Orders.Data;
 using Eshop.Orders.Dtos;
+using Eshop.Orders.Entities;
 using Eshop.Orders.Models;
 using Eshop.Orders.Services;
 using Eshop.Orders.Services.IServices;
@@ -428,7 +429,7 @@ public class OrderServiceTests : IDisposable
     [Fact]
     public async Task DeleteOrder_WithZeroId_ReturnsFalse()
     {
-        var result = await _sut.DeleteOrder(0, CancellationToken.None);
+        var result = await _sut.DeleteOrder(0,"userid", CancellationToken.None);
 
         result.IsFailed.Should().BeTrue();
     }
@@ -442,7 +443,7 @@ public class OrderServiceTests : IDisposable
         _context.Orders.Add(order);
         await _context.SaveChangesAsync();
 
-        var result = await _sut.DeleteOrder(order.Id, CancellationToken.None);
+        var result = await _sut.DeleteOrder(order.Id, "user1", CancellationToken.None);
 
         result.Value.Should().BeTrue();
         (await _context.Orders.FindAsync(order.Id)).Should().BeNull();
@@ -457,7 +458,7 @@ public class OrderServiceTests : IDisposable
         _context.Orders.Add(order);
         await _context.SaveChangesAsync();
 
-        var result = await _sut.DeleteOrder(order.Id, CancellationToken.None);
+        var result = await _sut.DeleteOrder(order.Id, "otherUser", CancellationToken.None);
 
         result.IsFailed.Should().BeTrue();
     }
@@ -467,7 +468,7 @@ public class OrderServiceTests : IDisposable
     {
         SetupHttpContextUser("user1");
 
-        var result = await _sut.DeleteOrder(999, CancellationToken.None);
+        var result = await _sut.DeleteOrder(999, "user1", CancellationToken.None);
 
         result.IsFailed.Should().BeTrue();
     }

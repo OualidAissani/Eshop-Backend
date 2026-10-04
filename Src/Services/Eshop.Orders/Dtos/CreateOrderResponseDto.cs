@@ -4,6 +4,6 @@ namespace Eshop.Orders.Dtos
 {
     public class CreateOrderResponseDto
     {
-        public Order Order { get; init; } = null!;
+        public OrderResponseDto Order { get; init; } = null!;
     }
 }

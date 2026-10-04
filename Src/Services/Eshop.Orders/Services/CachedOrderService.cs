@@ -3,9 +3,8 @@ using Eshop.Orders.Dtos;
 using Eshop.Orders.Entities;
 using Eshop.Orders.Services.IServices;
 using FluentResults;
-
+using REDox.Json;
 using StackExchange.Redis;
-using System.Text.Json;
 
 namespace Eshop.Orders.Services
 {
@@ -37,7 +36,7 @@ namespace Eshop.Orders.Services
             }
 
             var createdOrder = await _orderService.CreateOrder(order, ct);
-            await _redisDb.StringSetAsync(key, JsonSerializer.Serialize(createdOrder.Value), TimeSpan.FromHours(24));
+            await _redisDb.StringSetAsync(key, JsonSerializer.Serialize(createdOrder.Value.Order), TimeSpan.FromHours(24));
 
             return createdOrder.Value;
         }
@@ -85,17 +84,14 @@ namespace Eshop.Orders.Services
         {
             var cacheKey = $"Order:{userId}:{orderId}";
 
-            var reserved = await _redisDb.StringSetAsync(cacheKey, "in-progress", TimeSpan.FromHours(24), When.NotExists);
 
-            if(!reserved)
-            {
                 var cachedData = await _redisDb.StringGetAsync(cacheKey);
-                if (cachedData == "in-progress")
+                if (cachedData.HasValue)
                 {
-                    return null;
-                }
                 return JsonSerializer.Deserialize<Entities.Order>(cachedData.ToString());
+
             }
+
             var order = await _orderService.GetOrderById(orderId, userId, ct);
 
             if (order is null)
@@ -111,21 +107,16 @@ namespace Eshop.Orders.Services
         public async Task<OrderTrackingDto> GetOrderByOrderNumber(string orderNumber, string phoneNumber, CancellationToken ct)
         {
             var cacheKey = $"Order:Tracking:{orderNumber}:{phoneNumber}";
-            var reserved = await _redisDb.StringSetAsync(cacheKey,"in-progress",TimeSpan.FromHours(24),When.NotExists);
 
-            if (!reserved)
-            {
                 var cahcedData = await _redisDb.StringGetAsync(cacheKey);
-                if (cahcedData =="in-progress")
+                if (cahcedData.HasValue)
                 {
-                    return null;
-                }
                 return JsonSerializer.Deserialize<OrderTrackingDto>(cahcedData.ToString())!;
-
             }
+
             var orderTracking = await _orderService.GetOrderByOrderNumber(orderNumber, phoneNumber, ct);
 
-            await _redisDb.StringSetAsync(cacheKey, JsonSerializer.Serialize(orderTracking));
+            await _redisDb.StringSetAsync(cacheKey, JsonSerializer.Serialize(orderTracking),TimeSpan.FromHours(24));
 
             return orderTracking;
 

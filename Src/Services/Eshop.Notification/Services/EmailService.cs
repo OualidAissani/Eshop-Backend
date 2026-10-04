@@ -42,7 +42,7 @@ public class EmailService : IEmailService
         {
             Content = jsoncontent
         };
-        var response = await client.SendAsync(message);
+        var response = await client.SendAsync(message, ct);
 
         if (response.IsSuccessStatusCode)
         {

@@ -2,7 +2,7 @@
 using Eshop.Catalog.Entities;
 using Eshop.Catalog.Services.IServices;
 using FluentResults;
-using System.Text.Json;
+using REDox.Json;
 using StackExchange.Redis;
 
 
@@ -115,15 +115,11 @@ namespace Eshop.Catalog.Services
         public async Task<List<ProductDto>> GetHeroProducts(CancellationToken ct)
         {
             var cacheKey = "Products:Hero";
-            var reserved = await _redisdb.StringSetAsync(cacheKey,"in-progress",TimeSpan.FromHours(24),When.NotExists);
-            if (!reserved)
-            {
-                var cached = await _redisdb.StringGetAsync(cacheKey);
-                if (cached=="in-progress")
-                    return null;
 
+                var cached = await _redisdb.StringGetAsync(cacheKey);
+                if (cached.HasValue)
                 return JsonSerializer.Deserialize<List<ProductDto>>(cached.ToString());
-            }
+
 
             var products = await _productService.GetHeroProducts(ct);
 
@@ -135,17 +131,13 @@ namespace Eshop.Catalog.Services
         public async Task<ProductDto> GetProductById(int productId, CancellationToken ct)
         {
             var cacheKey = $"Products:Id={productId}";
-            var reserved = await _redisdb.StringSetAsync(cacheKey, "in-progress", TimeSpan.FromHours(24), When.NotExists);
-            if (reserved)
-            {
+
                 var cached = await _redisdb.StringGetAsync(cacheKey);
-                if (cached =="in-progress")
+                if (cached.HasValue)
                 {
-                    return null;
-                }
-                var cachedProduct = JsonSerializer.Deserialize<ProductDto>(cached.ToString());
-                return cachedProduct;
+                return JsonSerializer.Deserialize<ProductDto>(cached.ToString());
             }
+            
             var product = await _productService.GetProductById(productId, ct);
 
             if (product == null)
@@ -175,15 +167,13 @@ namespace Eshop.Catalog.Services
         public async Task<List<ProductDto>> GetProductsByCategory(int categoryId, CancellationToken ct)
         {
             var cachedKey = $"Products:Category={categoryId}";
-            var reserved = await _redisdb.StringSetAsync(cachedKey,"in-progress",TimeSpan.FromHours(24),When.NotExists);
-            if (!reserved)
-            {
+
                 var cached = await _redisdb.StringGetAsync(cachedKey);
                 if (cached == "in-progress")
-                    return null;
-
                 return JsonSerializer.Deserialize<List<ProductDto>>(cached.ToString());
-            }
+            
+
+        
 
             var products = await _productService.GetProductsByCategory(categoryId, ct);
 

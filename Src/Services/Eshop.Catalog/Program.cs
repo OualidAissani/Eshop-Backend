@@ -117,7 +117,7 @@ builder.Services.AddAuthorizationBuilder();
 
 var app = builder.Build();
 
-
+EnsureOutboxDatabase();
 
 if (app.Environment.IsDevelopment())
 {

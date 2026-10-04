@@ -44,10 +44,7 @@ builder.Services.AddSingleton<IDatabase>(sp =>
 });
 builder.Services.AddHttpClient();
 
-builder.Services.AddHttpClient("EmailService", client =>
-{
-    client.BaseAddress = new Uri(builder.Configuration["EmailService:BaseUrl"]);
-});
+
 
 
 builder.Services.AddHttpContextAccessor();

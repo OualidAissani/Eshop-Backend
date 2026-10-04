@@ -29,9 +29,8 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddHttpClient("EmailService", client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["EmailService:BaseUrl"]);
-    client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
-    client.DefaultRequestHeaders.Add("api-key", builder.Configuration["EmailService:ApiKey"]);
 });
+
 
 builder.Services.AddMassTransit(o =>
 {

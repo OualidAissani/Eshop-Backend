@@ -214,6 +214,10 @@ public class OrderServiceTests : IDisposable
                 e.PaymentMethod == Events.PaymentMethods.CashOnDelivery),
                 Arg<CancellationToken>.Any())
             .Called(Count.Once());
+        _publishEndpointImposter.Publish(Arg<SendEmailEvent>.Is(e =>
+            e.toEmail == result.Value.Order.Email &&
+            e.subject == "تم إنشاء طلبك بنجاح" &&
+            !string.IsNullOrWhiteSpace(e.body)), Arg<CancellationToken>.Any()).Called(Count.Once());
     }
 
     [Fact]

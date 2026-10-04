@@ -122,19 +122,45 @@ namespace Eshop.Orders.Services
                     var correlationId = Guid.NewGuid();
 
                     await PublishingConfimredOrderEvent(newOrder, inventoryParameter, paymentItems, correlationId);
+                    await NotifyCustomerOfOrderCreating(newOrder, ct);
 
-                    var changes = await _context.SaveChangesAsync(ct);
+                    await _context.SaveChangesAsync(ct);
 
                     await tx.CommitAsync(ct);
 
-                    if (changes > 0)
+                    var orderResponse = new OrderResponseDto()
                     {
-                        await NotifyCustomerOfOrderCreating(newOrder, ct);
+                        Id=newOrder.Id,
+                        DeliveredAt=newOrder.DeliveredAt,
+                        Commune = newOrder.Commune,
+                        CustomerName=newOrder.CustomerName,
+                        Email= newOrder.Email,
+                        OrderedAt=newOrder.OrderedAt,
+                        OrderItems=newOrder.OrderItems.Select(i => new OrderItemResponseDto
+                        {
+                            Id = i.Id,
+                            ProductId = i.ProductId,
+                            ProductName = i.ProductName,
+                            Quantity = i.Quantity,
+                            UnitPrice = i.UnitPrice,
+                            FullPrice = i.FullPrice,
+                            InventoryId = i.InventoryId
+                        }).ToList(),
+                        OrderNumber = newOrder.OrderNumber,
+                        PayementMethod = newOrder.PayementMethod,
+                        Phone = newOrder.Phone,
+                        ShippingAddress = newOrder.ShippingAddress,
+                        Status = newOrder.Status,
+                        TotalPrice = newOrder.TotalPrice,
+                        Wilaya = newOrder.Wilaya,
+                        ShippedAt=newOrder.ShippedAt,
+                        UserId=newOrder.UserId
 
-                    }
+                    };
+
                     return new CreateOrderResponseDto
                     {
-                        Order = newOrder
+                        Order = orderResponse
                     };
 
                 });
@@ -160,7 +186,6 @@ namespace Eshop.Orders.Services
 
             await sendEmailPolicy.ExecuteAsync(async () =>
             {
-                // var result = await _emailService.SendEmailAsync(newOrder.Email, "تم إنشاء طلبك بنجاح", Eshop.Orders.Services.EmailTemplates.OrderConfirmationEmail.Build(newOrder), ct);
                 await _publishEndpoint.Publish(new SendEmailEvent
                 (
                      newOrder.Email,

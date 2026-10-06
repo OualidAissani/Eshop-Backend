@@ -90,6 +90,10 @@ namespace Eshop.Orders.Services
                 .AsSplitQuery()
                 .AsNoTracking()
                 .FirstOrDefaultAsync(o => o.Id == orderId && o.UserId == userId, ct);
+            if (order == null)
+            {
+                return null;
+            }
             return MapOrderToDto(order);
         }
 

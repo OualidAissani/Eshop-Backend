@@ -7,7 +7,6 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Eshop.Catalog.Entities;
 
-[Index(nameof(ProductId), IsUnique = true)]
 public class DiscountDocument
 {
     [BsonId]

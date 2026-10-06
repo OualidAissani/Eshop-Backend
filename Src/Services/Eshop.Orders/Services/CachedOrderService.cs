@@ -55,7 +55,7 @@ namespace Eshop.Orders.Services
             return true;
         }
 
-        public async Task<PaginatedResult<Entities.Order>> GetAllOrdersPagination(PaginationParams paginationParams, CancellationToken ct)
+        public async Task<PaginatedResult<OrderResponseDto>> GetAllOrdersPagination(PaginationParams paginationParams, CancellationToken ct)
         {
 
 
@@ -65,7 +65,7 @@ namespace Eshop.Orders.Services
             return orders;
         }
 
-        public async Task<List<Entities.Order>> GetAllUserOrderAsync(string userId, CancellationToken ct)
+        public async Task<List<OrderResponseDto>> GetAllUserOrderAsync(string userId, CancellationToken ct)
         {
 
             var orders = await _orderService.GetAllUserOrderAsync(userId, ct);
@@ -80,7 +80,7 @@ namespace Eshop.Orders.Services
             return orders;
         }
 
-        public async Task<Entities.Order?> GetOrderById(int orderId, string userId, CancellationToken ct)
+        public async Task<OrderResponseDto?> GetOrderById(int orderId, string userId, CancellationToken ct)
         {
             var cacheKey = $"Order:{userId}:{orderId}";
 
@@ -88,7 +88,7 @@ namespace Eshop.Orders.Services
                 var cachedData = await _redisDb.StringGetAsync(cacheKey);
                 if (cachedData.HasValue)
                 {
-                return JsonSerializer.Deserialize<Entities.Order>(cachedData.ToString());
+                return JsonSerializer.Deserialize<OrderResponseDto>(cachedData.ToString());
 
             }
 

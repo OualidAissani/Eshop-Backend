@@ -29,7 +29,7 @@ namespace Eshop.Orders.Services
             _logger = logger;
         }
 
-        public async Task<PaginatedResult<Order>> GetAllOrdersPagination(PaginationParams paginationParams, CancellationToken ct)
+        public async Task<PaginatedResult<OrderResponseDto>> GetAllOrdersPagination(PaginationParams paginationParams, CancellationToken ct)
         {
             if (paginationParams == null)
             {
@@ -61,9 +61,9 @@ namespace Eshop.Orders.Services
             }
 
 
-            return new PaginatedResult<Order>
+            return new PaginatedResult<OrderResponseDto>
             {
-                Items = orders,
+                Items = orders.Select(s => MapOrderToDto(s)).ToList(),
                 NextCursor = cursor,
                 PageSize = paginationParams.PageSize,
                 Total = total
@@ -71,25 +71,26 @@ namespace Eshop.Orders.Services
 
         }
 
-        public async Task<List<Order>> GetAllUserOrderAsync(string userId, CancellationToken ct)
+        public async Task<List<OrderResponseDto>> GetAllUserOrderAsync(string userId, CancellationToken ct)
         {
-            return await _context
+            var orders=await _context
                 .Orders
                 .Include(o => o.OrderItems)
                 .Where(i => i.UserId == userId)
                 .AsSplitQuery()
                 .AsNoTracking()
                 .ToListAsync(ct);
+            return orders.Select(s=>MapOrderToDto(s)).ToList();
 
         }
-        public async Task<Order?> GetOrderById(int orderId, string userId, CancellationToken ct)
+        public async Task<OrderResponseDto?> GetOrderById(int orderId, string userId, CancellationToken ct)
         {
             var order = await _context.Orders
                 .Include(i => i.OrderItems)
                 .AsSplitQuery()
                 .AsNoTracking()
                 .FirstOrDefaultAsync(o => o.Id == orderId && o.UserId == userId, ct);
-            return order;
+            return MapOrderToDto(order);
         }
 
         public async Task<Result<CreateOrderResponseDto>> CreateOrder(OrderDto order, CancellationToken ct)
@@ -128,35 +129,7 @@ namespace Eshop.Orders.Services
 
                     await tx.CommitAsync(ct);
 
-                    var orderResponse = new OrderResponseDto()
-                    {
-                        Id=newOrder.Id,
-                        DeliveredAt=newOrder.DeliveredAt,
-                        Commune = newOrder.Commune,
-                        CustomerName=newOrder.CustomerName,
-                        Email= newOrder.Email,
-                        OrderedAt=newOrder.OrderedAt,
-                        OrderItems=newOrder.OrderItems.Select(i => new OrderItemResponseDto
-                        {
-                            Id = i.Id,
-                            ProductId = i.ProductId,
-                            ProductName = i.ProductName,
-                            Quantity = i.Quantity,
-                            UnitPrice = i.UnitPrice,
-                            FullPrice = i.FullPrice,
-                            InventoryId = i.InventoryId
-                        }).ToList(),
-                        OrderNumber = newOrder.OrderNumber,
-                        PayementMethod = newOrder.PayementMethod,
-                        Phone = newOrder.Phone,
-                        ShippingAddress = newOrder.ShippingAddress,
-                        Status = newOrder.Status,
-                        TotalPrice = newOrder.TotalPrice,
-                        Wilaya = newOrder.Wilaya,
-                        ShippedAt=newOrder.ShippedAt,
-                        UserId=newOrder.UserId
-
-                    };
+                    OrderResponseDto orderResponse = MapOrderToDto(newOrder);
 
                     return new CreateOrderResponseDto
                     {
@@ -169,6 +142,39 @@ namespace Eshop.Orders.Services
             {
                 throw new Exception("Error occurred while creating order", ex);
             }
+        }
+
+        private static OrderResponseDto MapOrderToDto(Order newOrder)
+        {
+            return new OrderResponseDto()
+            {
+                Id = newOrder.Id,
+                DeliveredAt = newOrder.DeliveredAt,
+                Commune = newOrder.Commune,
+                CustomerName = newOrder.CustomerName,
+                Email = newOrder.Email,
+                OrderedAt = newOrder.OrderedAt,
+                OrderItems = newOrder.OrderItems.Select(i => new OrderItemResponseDto
+                {
+                    Id = i.Id,
+                    ProductId = i.ProductId,
+                    ProductName = i.ProductName,
+                    Quantity = i.Quantity,
+                    UnitPrice = i.UnitPrice,
+                    FullPrice = i.FullPrice,
+                    InventoryId = i.InventoryId
+                }).ToList(),
+                OrderNumber = newOrder.OrderNumber,
+                PayementMethod = newOrder.PayementMethod,
+                Phone = newOrder.Phone,
+                ShippingAddress = newOrder.ShippingAddress,
+                Status = newOrder.Status,
+                TotalPrice = newOrder.TotalPrice,
+                Wilaya = newOrder.Wilaya,
+                ShippedAt = newOrder.ShippedAt,
+                UserId = newOrder.UserId
+
+            };
         }
 
         private async Task NotifyCustomerOfOrderCreating(Order newOrder, CancellationToken ct)

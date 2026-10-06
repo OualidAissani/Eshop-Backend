@@ -2,7 +2,6 @@
 using Eshop.Catalog.EventsHandler;
 using Eshop.Catalog.Services;
 using Eshop.Catalog.Services.IServices;
-using Eshop.Events;
 using MassTransit;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
@@ -107,7 +106,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             {
                 if (context.Exception is SecurityTokenExpiredException)
                 {
-                    context.Response.Headers.Add("Token-Expired", "true");
+                    context.Response.Headers["Token-Expired"] = "true";
                 }
                 return Task.CompletedTask;
             }
@@ -117,7 +116,8 @@ builder.Services.AddAuthorizationBuilder();
 
 var app = builder.Build();
 
-EnsureOutboxDatabase();
+var mongoContext = app.Services.GetRequiredService<MongoCatalogContext>();
+await mongoContext.EnsureIndexesAsync();
 
 if (app.Environment.IsDevelopment())
 {
@@ -146,7 +146,6 @@ app.UseExceptionHandler(errorApp =>
         await context.Response.WriteAsJsonAsync(problem);
     });
 });
-
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();

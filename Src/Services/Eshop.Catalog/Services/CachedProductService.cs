@@ -169,11 +169,9 @@ namespace Eshop.Catalog.Services
             var cachedKey = $"Products:Category={categoryId}";
 
                 var cached = await _redisdb.StringGetAsync(cachedKey);
-                if (cached == "in-progress")
+                if (cached.HasValue)
                 return JsonSerializer.Deserialize<List<ProductDto>>(cached.ToString());
-            
-
-        
+           
 
             var products = await _productService.GetProductsByCategory(categoryId, ct);
 

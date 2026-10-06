@@ -1,7 +1,9 @@
 ﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
+using System.Net;
 using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -51,9 +53,10 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("https://eshop-backend-ten-alpha.vercel.app")
-              .AllowAnyHeader()
-              .AllowAnyMethod();
+        policy.WithOrigins("https://maktabahislamiia.vercel.app/")
+       .AllowAnyHeader()
+       .AllowAnyMethod()
+       .WithExposedHeaders("Token-Expired");
     });
 });
 
@@ -95,6 +98,11 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 app.UseCors("AllowFrontend");
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+    KnownProxies = { IPAddress.Parse("64.29.17.131") } 
+});
 
 app.UseRateLimiter();
 app.UseHttpsRedirection();

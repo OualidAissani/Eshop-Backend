@@ -6,11 +6,11 @@ namespace Eshop.Orders.Services.IServices
 {
     public interface IOrderService
     {
-        Task<PaginatedResult<Order>> GetAllOrdersPagination(PaginationParams paginationParams, CancellationToken ct);
+        Task<PaginatedResult<OrderResponseDto>> GetAllOrdersPagination(PaginationParams paginationParams, CancellationToken ct);
 
-        Task<List<Order>> GetAllUserOrderAsync(string userId, CancellationToken ct);
+        Task<List<OrderResponseDto>> GetAllUserOrderAsync(string userId, CancellationToken ct);
 
-        Task<Order?> GetOrderById(int orderId, string userId, CancellationToken ct);
+        Task<OrderResponseDto?> GetOrderById(int orderId, string userId, CancellationToken ct);
 
         Task<Result<CreateOrderResponseDto>> CreateOrder(OrderDto order, CancellationToken ct);
 

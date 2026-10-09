@@ -188,7 +188,7 @@ namespace Eshop.Catalog.Services
             }
             var cachedKey = $"Products:Search={tag}";
             var reserved = await _redisdb.StringSetAsync(cachedKey, "in-progress", TimeSpan.FromHours(24),When.NotExists);
-            if (!reserved != null)
+            if (!reserved)
             {
                 var cached = await _redisdb.StringGetAsync(cachedKey);
                     if (cached == "in-progress")

@@ -53,7 +53,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("https://maktabahislamiia.vercel.app/")
+        policy.WithOrigins("https://maktabahislamiia.vercel.app")
        .AllowAnyHeader()
        .AllowAnyMethod()
        .WithExposedHeaders("Token-Expired");

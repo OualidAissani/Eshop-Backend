@@ -36,7 +36,7 @@ namespace Eshop.Orders.Services
             }
 
             var createdOrder = await _orderService.CreateOrder(order, ct);
-            await _redisDb.StringSetAsync(key, JsonSerializer.Serialize(createdOrder.Value.Order), TimeSpan.FromHours(24));
+            await _redisDb.StringSetAsync(key, JsonSerializer.Serialize(createdOrder.Value), TimeSpan.FromHours(24));
 
             return createdOrder.Value;
         }

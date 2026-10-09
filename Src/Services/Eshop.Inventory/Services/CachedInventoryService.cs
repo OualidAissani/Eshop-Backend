@@ -2,17 +2,18 @@
 using Eshop.Inventory.Dtos;
 using FluentResults;
 using Microsoft.Extensions.Caching.Distributed;
-using System.Text.Json;
+using REDox.Json;
+using StackExchange.Redis;
 
 namespace Eshop.Inventory.Services
 {
     public class CachedInventoryService : IInventoryService
     {
         private readonly IInventoryService _inventoryService;
-        private readonly IDistributedCache _cache;
-        public CachedInventoryService(IDistributedCache cache, IInventoryService inventoryService)
+        private readonly IDatabase _redisDb;
+        public CachedInventoryService(IDatabase cache, IInventoryService inventoryService)
         {
-            _cache = cache;
+            _redisDb = cache;
             _inventoryService = inventoryService;
         }
         public async Task<Result<Models.Inventory>> CreateInventoryForProduct(Dtos.InventoryDto Inventory, CancellationToken ct)
@@ -22,25 +23,29 @@ namespace Eshop.Inventory.Services
                 return Result.Fail("");
             }
             var cacheKey = $"Idempotency:Inventory:Create:{Inventory.IdempontencyKey}";
-            var cached = await _cache.GetAsync(cacheKey);
-            if (cached != null)
+            var reserved = await _redisDb.StringSetAsync(cacheKey, "in-progress", TimeSpan.FromHours(24), When.NotExists);
+            if (!reserved)
             {
-                return JsonSerializer.Deserialize<Models.Inventory>(cached) ?? null;
+                var cached=await _redisDb.StringGetAsync(cacheKey);
+                if (cached =="in-progress")
+                {
+                    return Result.Fail("Request already in progress"); // or 409
+
+                }
+                return JsonSerializer.Deserialize<Models.Inventory>(cached.ToString()) ?? null;
             }
+
 
             var inventory = await _inventoryService.CreateInventoryForProduct(Inventory, ct);
 
             if (inventory.IsFailed)
             {
-                return Result.Fail("");
+                return Result.Fail("Failed to create inventory");
             }
 
-            await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(inventory), new DistributedCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
-            });
+            await _redisDb.StringSetAsync(cacheKey, JsonSerializer.Serialize(inventory.Value),TimeSpan.FromHours(24));
 
-            await _cache.RemoveAsync("Inventories:All");
+            await _redisDb.KeyDeleteAsync("Inventories:All");
 
             return inventory;
         }
@@ -53,16 +58,16 @@ namespace Eshop.Inventory.Services
                 return Result.Fail(result.Errors.First().Message);
             }
 
-            await _cache.RemoveAsync($"Inventory:{InventoryId}");
+            await _redisDb.KeyDeleteAsync($"Inventory:{InventoryId}");
 
-            await _cache.RemoveAsync("Inventories:All");
+            await _redisDb.KeyDeleteAsync("Inventories:All");
             return true;
         }
 
         public async Task<Result<bool?>> DeleteInventoryByProductId(int productId, CancellationToken ct)
         {
              var result=await _inventoryService.DeleteInventoryByProductId(productId, ct);
-            await _cache.RemoveAsync($"Inventories:All");
+            await _redisDb.KeyDeleteAsync($"Inventories:All");
 
             return result;
         }
@@ -70,36 +75,30 @@ namespace Eshop.Inventory.Services
         public async Task<List<Models.Inventory>> GetAllInventories(CancellationToken ct)
         {
             var cacheKey = "Inventories:All";
-            var cached = await _cache.GetAsync(cacheKey);
-            if (cached != null)
+            var cached = await _redisDb.StringGetAsync(cacheKey);
+            if (cached.HasValue)
             {
-                return JsonSerializer.Deserialize<List<Models.Inventory>>(cached);
+                return JsonSerializer.Deserialize<List<Models.Inventory>>(cached.ToString());
             }
             var inventories = await _inventoryService.GetAllInventories(ct);
-            await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(inventories), new DistributedCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5)
-            });
+            await _redisDb.StringSetAsync(cacheKey, JsonSerializer.Serialize(inventories), TimeSpan.FromHours(24));
             return inventories;
         }
 
         public async Task<Models.Inventory?> GetInventoryById(int InventoryId, CancellationToken ct)
         {
             var cacheKey = $"Inventory:{InventoryId}";
-            var cached = await _cache.GetAsync(cacheKey);
-            if (cached != null)
+            var cached = await _redisDb.StringGetAsync(cacheKey);
+            if (cached.HasValue)
             {
-                return JsonSerializer.Deserialize<Models.Inventory>(cached);
+                return JsonSerializer.Deserialize<Models.Inventory>(cached.ToString());
             }
             var inventory = await _inventoryService.GetInventoryById(InventoryId, ct);
             if (inventory == null)
             {
                 return null;
             }
-            await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(inventory), new DistributedCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
-            });
+            await _redisDb.StringSetAsync(cacheKey, JsonSerializer.Serialize(inventory),TimeSpan.FromHours(24));
             return inventory;
         }
 
@@ -111,7 +110,7 @@ namespace Eshop.Inventory.Services
         public async Task<List<int>> ReserveInventory(List<Dtos.InventoryDto> items, CancellationToken ct)
         {
             var result= await _inventoryService.ReserveInventory(items, ct);
-            await _cache.RemoveAsync($"Inventories:All");
+            await _redisDb.KeyDeleteAsync($"Inventories:All");
 
             return result;
         }
@@ -123,22 +122,19 @@ namespace Eshop.Inventory.Services
                 return Result.Fail("Idempotency Key is required");
             }
             var cacheKey = $"Idempotency:Inventory:Update:{inventoryDto.IdempontencyKey}";
-            var cached = await _cache.GetAsync(cacheKey);
-            if (cached != null)
+            var cached = await _redisDb.StringGetAsync(cacheKey);
+            if (cached.HasValue)
             {
-                return JsonSerializer.Deserialize<Models.Inventory>(cached);
+                return JsonSerializer.Deserialize<Models.Inventory>(cached.ToString());
             }
             var result = await _inventoryService.UpdateInventory(inventoryDto, ct);
             if (result.IsFailed)
             {
                 return Result.Fail(result.Errors.First().Message);
             }
-            await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(result), new DistributedCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
-            });
-            await _cache.RemoveAsync($"Inventory:{result.Value.Id}");
-            await _cache.RemoveAsync("Inventories:All");
+            await _redisDb.StringSetAsync(cacheKey, JsonSerializer.Serialize(result), TimeSpan.FromHours(24));
+            await _redisDb.KeyDeleteAsync($"Inventory:{result.Value.Id}");
+            await _redisDb.KeyDeleteAsync("Inventories:All");
             return result.Value;
         }
 
@@ -149,11 +145,11 @@ namespace Eshop.Inventory.Services
                 return Result.Fail("Idempotency Key is required");
             }
             var cacheKey = $"Idempotency:Inventory:UpdateQuantity:{invDto.IdempotencyKey}";
-            var cached = await _cache.GetAsync(cacheKey);
+            var cached = await _redisDb.StringGetAsync(cacheKey);
 
-            if (cached != null)
+            if (cached.HasValue)
             {
-                return JsonSerializer.Deserialize<int>(cached);
+                return JsonSerializer.Deserialize<int>(cached.ToString());
             }
             var result = await _inventoryService.UpdateQuantity(invDto, ct);
             if (result.IsFailed)
@@ -161,11 +157,8 @@ namespace Eshop.Inventory.Services
                 return Result.Fail(result.Errors.First().Message);
             }
 
-            await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(result.Value), new DistributedCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
-            });
-            await _cache.RemoveAsync("Inventories:All");
+            await _redisDb.StringSetAsync(cacheKey, JsonSerializer.Serialize(result.Value),TimeSpan.FromHours(24));
+            await _redisDb.KeyDeleteAsync("Inventories:All");
             return result.Value;
         }
     }

@@ -9,6 +9,8 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    # Hard stop: without this a stuck step can run until GitHub's 6-hour limit.
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -38,18 +40,45 @@ jobs:
 
       - name: Start MongoDB
         run: |
+          # Tests connect to mongodb://localhost:27017.
+          # Pull first: `docker run` has no timeout of its own, so a stalled
+          # image download would otherwise hang this step indefinitely.
+          timeout 300 docker pull mongo:8
           docker run -d --name mongodb -p 27017:27017 mongo:8
 
-          until docker exec mongodb mongosh --eval "db.adminCommand('ping')" > /dev/null 2>&1; do
-            echo "Waiting for MongoDB..."
+          # Bounded wait. The container can exit right after `docker run` returns
+          # 0 (bad image, insufficient resources, unsupported CPU flags). Without
+          # a deadline the loop below spins until the job timeout, which is why
+          # CI sat at this step for hours with no error.
+          for attempt in $(seq 1 60); do
+            if [ -z "$(docker ps --quiet --filter name=^mongodb$)" ]; then
+              echo "::error::MongoDB container exited."
+              docker ps -a
+              docker logs mongodb || true
+              exit 1
+            fi
+
+            if docker exec mongodb mongosh --quiet --eval "db.runCommand({ ping: 1 }).ok" > /dev/null 2>&1; then
+              echo "MongoDB is ready after ${attempt} attempt(s)."
+              exit 0
+            fi
+
+            echo "Waiting for MongoDB... (${attempt}/60)"
             sleep 2
           done
+
+          echo "::error::MongoDB did not become ready within 120s."
+          docker ps -a
+          docker logs --tail 200 mongodb || true
+          exit 1
 
       - name: Test
         run: dotnet test Src/Services/Eshop.slnx --no-build --configuration Release --verbosity normal --logger "trx;LogFileName=results.xml" --collect:"XPlat Code Coverage"
 
       - name: Upload test results
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-results
           path: "**/TestResults/*.trx"
+          if-no-files-found: warn

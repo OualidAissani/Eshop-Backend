@@ -107,4 +107,6 @@ Everything needed is in `deploy/`:
 - `deploy/docker-compose.yml` — the stack Dokploy deploys
 - `deploy/.env.example` — the environment variables to paste into Dokploy
 
-See **[DEPLOYMENT.md](DEPLOYMENT.md)** for the step-by-step guide: managed services, environment variables, Dokploy setup, domain routing, and troubleshooting.
+Keycloak is not the stock image: the login theme and the realm export are baked into a private image built from a separate repo, referenced by `KEYCLOAK_IMAGE` (see §7 of the guide).
+
+See **[DEPLOYMENT.md](DEPLOYMENT.md)** for the step-by-step guide: managed services, environment variables, the Keycloak image, Dokploy setup, domain routing, and troubleshooting.

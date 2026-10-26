@@ -34,9 +34,12 @@ x-service: &service
 
 services:
   keycloak:
-    image: quay.io/keycloak/keycloak:26.8.1
+    # Built from the private theme repo (Dockerfile + keycloak-theme.jar +
+    # realm-export.json), pushed to a registry. See DEPLOYMENT.md §7.
+    # The image already contains the theme and the realm import, so there are
+    # no file mounts here, and its CMD is `start --import-realm --optimized`.
+    image: ${KEYCLOAK_IMAGE:?KEYCLOAK_IMAGE must point at the private Keycloak image}
     restart: unless-stopped
-    command: ["start", "--import-realm"]
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
@@ -51,9 +54,6 @@ services:
       KC_HTTP_ENABLED: "true"
       KC_HEALTH_ENABLED: "true"
       KC_LOG_LEVEL: INFO
-    volumes:
-      - ../Src/Services/Eshop.AppHost/realms/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
-      - ../Src/Services/Eshop.AppHost/realms/keycloak-theme.jar:/opt/keycloak/providers/keycloak-theme.jar:ro
     healthcheck:
       test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/9000'"]
       interval: 15s

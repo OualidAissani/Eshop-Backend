@@ -41,20 +41,31 @@ jobs:
       - name: Start MongoDB
         run: |
           # Tests connect to mongodb://localhost:27017.
+          #
+          # Why 7.0 and not 8.x: MongoDB 8.0+ refuses to start on Linux kernel
+          # 6.19 - 7.0.13 (TCMalloc/rseq, SERVER-121912) and the guard still
+          # rejects Ubuntu 26.04's kernel even though it is past 7.0.14
+          # (SERVER-136848, open). GitHub's ubuntu-latest runners are affected,
+          # so `mongo:8` exits immediately with "MongoDB cannot start".
+          # MongoDB 7.0 has no such guard. Production uses Atlas, so this only
+          # affects CI.
+          #
           # Pull first: `docker run` has no timeout of its own, so a stalled
           # image download would otherwise hang this step indefinitely.
-          timeout 300 docker pull mongo:8
-          docker run -d --name mongodb -p 27017:27017 mongo:8
+          timeout 300 docker pull mongo:7.0
+          docker run -d --name mongodb -p 27017:27017 mongo:7.0
 
           # Bounded wait. The container can exit right after `docker run` returns
-          # 0 (bad image, insufficient resources, unsupported CPU flags). Without
-          # a deadline the loop below spins until the job timeout, which is why
-          # CI sat at this step for hours with no error.
+          # 0 (bad image, unsupported kernel). Without a deadline the loop below
+          # spins until the job timeout, which is why CI once sat at this step
+          # for hours with no error.
           for attempt in $(seq 1 60); do
             if [ -z "$(docker ps --quiet --filter name=^mongodb$)" ]; then
-              echo "::error::MongoDB container exited."
-              docker ps -a
+              echo "::error::MongoDB container exited before becoming ready."
               docker logs mongodb || true
+              if docker logs mongodb 2>&1 | grep -q "known incompatibility"; then
+                echo "::error::This image refuses to start on the runner kernel (SERVER-121912). Keep mongo:7.0 or a 8.x build that no longer ships the startup guard."
+              fi
               exit 1
             fi
 

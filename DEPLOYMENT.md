@@ -5,7 +5,7 @@
 | Layer | Where |
 |---|---|
 | Catalog, Inventory, Orders, Notification, Gateway | **VPS** (Dokploy, Docker) |
-| Keycloak | **VPS** (Dokploy, data in managed PostgreSQL) |
+| Keycloak | **VPS** (Dokploy, data in managed PostgreSQL, private theme image) |
 | Traefik (TLS + routing) | **VPS** (installed and managed by Dokploy) |
 | PostgreSQL | **External / managed** (Neon, Supabase, RDS, ...) |
 | MongoDB | **External / managed** (Atlas, ...) |
@@ -36,7 +36,7 @@ These were the blockers between the repository and a working Dokploy deployment:
 | 6 | `UseHttpsRedirection()` ran in HTTP-only containers behind a proxy | Redirects/loops and failing health checks | HTTPS redirection disabled in Production; TLS terminates at Traefik |
 | 7 | Gateway used Aspire service names and `https://` destinations in Production | YARP could not resolve `catalogApi`, `orderApi`, etc. outside Aspire | Compose overrides all cluster destinations with Docker DNS + HTTP |
 | 8 | Gateway trusted only one hard-coded proxy IP and a hard-coded CORS origin | Wrong client IPs for rate limiting, CORS failures after moving hosts | Trusted proxies, `ForwardLimit`, and CORS origins are configurable via environment variables |
-| 9 | Keycloak was only ever started with `start-dev`, no production DB/TLS/realm import | Login would not work on a real hostname | Keycloak 26 uses managed PostgreSQL, HTTPS hostname, proxy headers, and the committed realm import |
+| 9 | Keycloak was only ever started with `start-dev`, no production DB/TLS/realm import | Login would not work on a real hostname | Keycloak 26 uses managed PostgreSQL, HTTPS hostname, proxy headers, and your realm export + theme baked into a private image (§7) |
 | 10 | No TLS / public routing | Keycloak requires HTTPS in production | Traefik labels in the compose file + Dokploy's Let's Encrypt |
 | 11 | Secrets lived in local, git-ignored `appsettings.json` | A fresh clone has no config at all | All runtime config comes from environment variables |
 | 12 | Managed databases did not exist / were not reachable from the VPS | Services crash or time out at startup | Setup documented in §5 |
@@ -176,6 +176,7 @@ Fill in:
 - `MONGO_CONNECTION`, `MONGO_DATABASE`
 - `REDIS_CONNECTION`
 - `RABBITMQ_CONNECTION`
+- `KEYCLOAK_IMAGE` — the private Keycloak image you pushed in §7
 - `KEYCLOAK_ADMIN_USER`, `KEYCLOAK_ADMIN_PASSWORD`
 - UploadCare and Brevo keys
 
@@ -214,26 +215,105 @@ Then:
 
 ---
 
-## 7. Create the Compose service in Dokploy
+## 7. Build and publish the Keycloak image
+
+Keycloak here is not the stock image: it carries your **login theme** and the **realm export**. Those live in a separate **private** repo with its own `Dockerfile`.
+
+Dokploy cannot build it for you: a Compose service is bound to **one** Git repo (the Eshop repo), so it cannot `build:` a Dockerfile that lives in a different repository. The image therefore has to be built and pushed once, and referenced through `KEYCLOAK_IMAGE`.
+
+### 7.1 Dockerfile (private Keycloak repo)
+
+```dockerfile
+FROM quay.io/keycloak/keycloak:26.8.1 AS builder
+
+# Theme + realm must exist before `kc.sh build` so they are augmented once at
+# build time instead of on every container start.
+COPY keycloak-theme.jar /opt/keycloak/providers/keycloak-theme.jar
+COPY realm-export.json /opt/keycloak/data/import/realm-export.json
+
+# Build-time options. They must match the runtime environment, otherwise
+# `--optimized` refuses to start.
+ENV KC_DB=postgres
+ENV KC_HEALTH_ENABLED=true
+
+RUN /opt/keycloak/bin/kc.sh build
+
+FROM quay.io/keycloak/keycloak:26.8.1
+# Re-declare, otherwise the image only starts with `--optimized` when these are
+# also present at runtime.
+ENV KC_DB=postgres
+ENV KC_HEALTH_ENABLED=true
+COPY --from=builder /opt/keycloak/ /opt/keycloak/
+
+# No hostname, no URLs: everything environment-specific comes from Compose
+# (KC_HOSTNAME, KC_DB_URL, KC_PROXY_HEADERS, ...).
+ENTRYPOINT ["/opt/keycloak/bin/kc.sh"]
+CMD ["start", "--import-realm", "--optimized"]
+```
+
+Differences from the Render version:
+
+| Render Dockerfile | Why it changed |
+|---|---|
+| `--hostname=https://keycloakifyeshop.onrender.com` | Hard-coded. The hostname now comes from `KC_HOSTNAME=https://${AUTH_DOMAIN}`, so the same image works on any domain |
+| `--http-enabled=true`, `--proxy-headers=xforwarded`, `--hostname-strict=false` on the CLI | Kept as `KC_HTTP_ENABLED` / `KC_PROXY_HEADERS` in the Compose environment |
+| `RUN kc.sh build --health-enabled=true` | Health is a **build** option, so it is set as `KC_HEALTH_ENABLED` before `kc.sh build` |
+| Single stage | Multi-stage + `--optimized` keeps startup at a few seconds instead of re-augmenting on every boot |
+| `26.5.7` | `26.8.1` to match the deployment. If the Keycloakify theme renders wrong, rebuild the jar against the same version |
+
+### 7.2 Build and push
+
+```bash
+docker build -t ghcr.io/<owner>/eshop-keycloak:26.8.1 .
+echo "<GHCR_PAT>" | docker login ghcr.io -u <owner> --password-stdin
+docker push ghcr.io/<owner>/eshop-keycloak:26.8.1
+```
+
+The tag should always equal the Keycloak version, and `KEYCLOAK_IMAGE` in `deploy/.env` must point at it:
+
+```env
+KEYCLOAK_IMAGE=ghcr.io/<owner>/eshop-keycloak:26.8.1
+```
+
+Docker Hub works the same way (`docker.io/<user>/eshop-keycloak:26.8.1`), just with a private repo there too.
+
+### 7.3 Give the VPS access to the private image
+
+Pick one:
+
+- **Dokploy UI:** **Settings → Registry** → registry `ghcr.io`, username `<owner>`, password = a GitHub PAT with `read:packages`.
+- **On the VPS:** `docker login ghcr.io -u <owner> -p <PAT>`.
+
+If the deploy fails with `unauthorized` / `denied` / `manifest unknown`, this is the step that is missing.
+
+### 7.4 When the theme or realm changes
+
+Rebuild, push with a new tag (for example `26.8.1-2`), update `KEYCLOAK_IMAGE`, redeploy. The realm import still only runs against an **empty** Keycloak database — later realm changes have to be applied in the admin console.
+
+`Src/Services/Eshop.AppHost/realms/` still holds a copy of the theme jar and the realm export, but only for local Aspire development. In production the copies **inside the image** win, so keep the two in sync when you change the theme or the realm.
+
+---
+
+## 8. Create the Compose service in Dokploy
 
 1. **Projects → Create Project → Create Service → Compose**.
 2. **Provider → Git**:
    - Repository: `https://github.com/OualidAissani/Eshop-Backend.git`
    - Branch: `main`
 3. **Compose Path**: `deploy/docker-compose.yml`
-   - The file uses `context: ..` and `../Src/Services/...` mounts, so it must be deployed from the repository layout. Do not upload a standalone copy of the YAML.
-4. **Environment**: paste the full contents of your `deploy/.env`.
+   - The file uses `context: ..` for the five .NET builds, so it must be deployed from the repository layout. Do not upload a standalone copy of the YAML.
+4. **Environment**: paste the full contents of your `deploy/.env` (including `KEYCLOAK_IMAGE` from §7).
 5. **Domains** — choose one approach, not both:
    - **Labels (already in the compose file):** nothing to do. `api.<host>` → `gateway:8080`, `auth.<host>` → `keycloak:8080`, with `certresolver=letsencrypt`.
    - **Dokploy UI:** delete the two `labels:` blocks from the compose file, then add in the **Domains** tab:
      - `api.<host>` → service `gateway`, port `8080`, HTTPS on
      - `auth.<host>` → service `keycloak`, port `8080`, HTTPS on
 6. Optional: click **Preview Compose** to see how Dokploy injects its labels/network.
-7. Click **Deploy** and watch the build logs. The first build produces five .NET images and takes several minutes. Keycloak's first realm import takes 30–90 s.
+7. Click **Deploy** and watch the build logs. The first build produces five .NET images and takes several minutes; Keycloak is pulled from your registry (§7). Keycloak's first realm import takes 30–90 s.
 
 ---
 
-## 8. Verify
+## 9. Verify
 
 ### External connectivity
 
@@ -292,7 +372,7 @@ Expect `401` without a bearer token.
 
 ---
 
-## 9. Keycloak setup
+## 10. Keycloak setup
 
 1. Open `https://auth.<host>/admin`.
 2. Log in with `KEYCLOAK_ADMIN_USER` / `KEYCLOAK_ADMIN_PASSWORD` from the environment variables.
@@ -310,7 +390,7 @@ The realm is imported only when the Keycloak database is empty. If you change `r
 
 ---
 
-## 10. Point Vercel at the VPS
+## 11. Point Vercel at the VPS
 
 In `Src/Services/Eshop.Frontend/vercel.json`, change only the `/api` destination and **keep the SPA fallback rewrite**:
 
@@ -372,7 +452,7 @@ Options:
 
 ---
 
-## 11. Day-2 operations
+## 12. Day-2 operations
 
 ### Deploy a new version
 
@@ -429,7 +509,7 @@ There are no database volumes on the VPS, so clearing Docker data cannot delete 
 
 ---
 
-## 12. Troubleshooting
+## 13. Troubleshooting
 
 | Symptom | Check |
 |---|---|
@@ -445,6 +525,9 @@ There are no database volumes on the VPS, so clearing Docker data cannot delete 
 | Redis `NOAUTH` / TLS errors | `password=...` must be in `REDIS_CONNECTION`; managed Redis requires `ssl=True` and usually port `6379`. |
 | RabbitMQ `ACCESS_REFUSED` / `NOT_ALLOWED` | The path in the URI is the **virtual host**; port must be `5671` for `amqps`. |
 | `502` from the gateway | Check the target service's logs in Dokploy. `/api/Payment` is expected to be `502` because Payment is not deployed. |
+| Keycloak image cannot be pulled (`unauthorized`, `denied`, `manifest unknown`) | The image is private: configure **Settings → Registry** in Dokploy or run `docker login ghcr.io` on the VPS (§7.3); check the tag in `KEYCLOAK_IMAGE` exists |
+| Keycloak exits at startup with a build-option error | The image was built with different build-time options than the runtime environment. `--optimized` requires them to match (for example `KC_DB=postgres` at build and at runtime) |
+| Login page shows the stock Keycloak theme | The theme jar is not in the image: `docker run --rm <image> ls /opt/keycloak/providers`. Also check the jar was built for this Keycloak version |
 | Keycloak restarts or `database "keycloak" does not exist` | Create the `keycloak` database; verify `PG_HOST`, `PG_PORT`, `PG_JDBC_SSLMODE`, and the credentials. |
 | Keycloak never becomes healthy | First import is slow. Check its logs; the health port is `9000` (`KC_HEALTH_ENABLED=true`). |
 | Keycloak redirects to `http://` or the wrong host | `KC_HOSTNAME` must be `https://auth.<host>`; Traefik must pass `X-Forwarded-Proto`. Redeploy after changing it. |
@@ -455,7 +538,7 @@ There are no database volumes on the VPS, so clearing Docker data cannot delete 
 
 ---
 
-## 13. Security checklist
+## 14. Security checklist
 
 - Rotate every key that was previously stored in local `appsettings.json`: UploadCare, Brevo, PayPal (if used later), and every database/broker password.
 - Keep the Dokploy environment variables private; never commit `deploy/.env`.

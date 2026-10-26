@@ -1,6 +1,6 @@
 ﻿using Eshop.Catalog.Data;
 using Eshop.Catalog.Data.Enums;
-using Eshop.Catalog.Dtos;
+using Eshop.Catalog.Dtos.DisocuntDtos;
 using Eshop.Catalog.Entities;
 using Eshop.Catalog.Services.IServices;
 using FluentResults;

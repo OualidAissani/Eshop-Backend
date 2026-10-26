@@ -95,3 +95,16 @@ dotnet run --project Src/Services/Eshop.AppHost
 ```
 
 Aspire handles service discovery, RabbitMQ, Redis, and PostgreSQL startup automatically.
+
+---
+
+## Production deployment
+
+The deployment targets **Dokploy** on a VPS. Dokploy runs the stack and its own Traefik for TLS; the VPS hosts Keycloak and the five .NET services. PostgreSQL, MongoDB, Redis, and RabbitMQ are managed services hosted outside the VPS, wired in through environment variables.
+
+Everything needed is in `deploy/`:
+
+- `deploy/docker-compose.yml` — the stack Dokploy deploys
+- `deploy/.env.example` — the environment variables to paste into Dokploy
+
+See **[DEPLOYMENT.md](DEPLOYMENT.md)** for the step-by-step guide: managed services, environment variables, Dokploy setup, domain routing, and troubleshooting.

@@ -15,10 +15,7 @@ using StackExchange.Redis;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
-if (builder.Environment.IsDevelopment())
-{
-    builder.AddServiceDefaults();
-}
+builder.AddServiceDefaults();
 builder.AddNpgsqlDbContext<OrderDbContext>("OrderDb");
 builder.Services.AddControllers().AddJsonOptions(options =>
 {
@@ -83,7 +80,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     {
         option.Authority = builder.Configuration["Keycloak:Authority"];
         option.Audience = builder.Configuration["Keycloak:Audience"];
-        option.RequireHttpsMetadata = builder.Environment.IsProduction() ? true : false;
+        option.RequireHttpsMetadata = builder.Configuration.GetValue(
+            "Keycloak:RequireHttpsMetadata",
+            builder.Environment.IsProduction());
         option.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateAudience = true,
@@ -111,13 +110,13 @@ var app = builder.Build();
 MigrateDatabase();
 
 
+app.MapDefaultEndpoints();
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
     app.UseSwagger();
     app.UseSwaggerUI();
-    app.MapDefaultEndpoints();
-
 }
 app.UseStatusCodePages();
 app.UseExceptionHandler(errorApp =>
@@ -140,7 +139,11 @@ app.UseExceptionHandler(errorApp =>
         await context.Response.WriteAsJsonAsync(problem);
     });
 });
-app.UseHttpsRedirection();
+if (!app.Environment.IsProduction())
+{
+    app.UseHttpsRedirection();
+}
+
 app.UseAuthentication();
 app.UseAuthorization();
 

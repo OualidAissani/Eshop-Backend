@@ -1,14 +1,15 @@
 ﻿using Eshop.Events;
 using Eshop.Orders.Data;
 using Eshop.Orders.Dtos;
+using Eshop.Orders.Entities;
 using Eshop.Orders.Models;
 using Eshop.Orders.Services.IServices;
 using FluentResults;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
-using System.Data;
 using Polly;
-using Eshop.Orders.Entities;
+using System.Data;
+using System.Security.Claims;
 namespace Eshop.Orders.Services
 {
     public class OrderService : IOrderService
@@ -281,7 +282,7 @@ namespace Eshop.Orders.Services
             return paymentItems;
         }
 
-        public async Task<Result<bool>> DeleteOrder(int orderId,string userId, CancellationToken ct)
+        public async Task<Result<bool>> DeleteOrder(int orderId,string userId, CancellationToken ct) //change
         {
             if (orderId <= 0)
             {
@@ -290,6 +291,7 @@ namespace Eshop.Orders.Services
 
             try
             {
+
                 var order = await _context.Orders.FirstOrDefaultAsync(o => o.Id == orderId && o.UserId == userId, ct);
                 if (order == null)
                 {

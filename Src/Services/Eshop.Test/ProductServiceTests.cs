@@ -19,6 +19,7 @@ using System.Text;
 using Xunit;
 using Eshop.Catalog.Data.Enums;
 using Eshop.Catalog.Entities;
+using Eshop.Catalog.Dtos.ProductDtos;
 
 [assembly:GenerateImposter(typeof(ILogger<>))]
 [assembly:GenerateImposter(typeof(IHttpClientFactory))]

@@ -13,10 +13,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 
 
-if (builder.Environment.IsDevelopment())
-{
-    builder.AddServiceDefaults();
-}
+builder.AddServiceDefaults();
 
 
 builder.Services.AddControllers();
@@ -49,7 +46,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         o.Audience = builder.Configuration["Keycloak:Audience"];
         o.Authority = builder.Configuration["Keycloak:Authority"];
 
-        o.RequireHttpsMetadata = builder.Environment.IsProduction() ? true : false;
+        o.RequireHttpsMetadata = builder.Configuration.GetValue(
+            "Keycloak:RequireHttpsMetadata",
+            builder.Environment.IsProduction());
 
         o.TokenValidationParameters = new TokenValidationParameters
         {
@@ -76,14 +75,17 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
+app.MapDefaultEndpoints();
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
-    app.MapDefaultEndpoints();
-
 }
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsProduction())
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseAuthentication();
 app.UseAuthorization();

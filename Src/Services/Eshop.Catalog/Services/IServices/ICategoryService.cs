@@ -1,4 +1,4 @@
-﻿using Eshop.Catalog.Dtos;
+﻿using Eshop.Catalog.Dtos.CategoryDtos;
 using Eshop.Catalog.Entities;
 using FluentResults;
 using System;

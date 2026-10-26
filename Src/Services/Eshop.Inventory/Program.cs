@@ -12,22 +12,32 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
+using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
-if (builder.Environment.IsDevelopment())
-{
-    builder.AddServiceDefaults();
-}
+builder.AddServiceDefaults();
 builder.AddNpgsqlDbContext<InventoryDb>("InventoryDb");
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
+builder.Services.AddSingleton<IConnectionMultiplexer>(
+
+    ConnectionMultiplexer.Connect(builder.Configuration.GetConnectionString("Redis"))
+    );
+
+builder.Services.AddSingleton<IDatabase>(sp => {
+    var redis = sp.GetRequiredService<IConnectionMultiplexer>();
+    return redis.GetDatabase();
+    });
+
 builder.AddRedisDistributedCache("redis");
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(option =>
     {
         option.Authority = builder.Configuration["Keycloak:Authority"];
         option.Audience = builder.Configuration["Keycloak:Audience"];
-        option.RequireHttpsMetadata = builder.Environment.IsProduction() ? true : false;
+        option.RequireHttpsMetadata = builder.Configuration.GetValue(
+            "Keycloak:RequireHttpsMetadata",
+            builder.Environment.IsProduction());
         option.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateAudience = true,
@@ -77,13 +87,13 @@ MigrateDatabase();
 
 
 
+app.MapDefaultEndpoints();
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
     app.UseSwagger();
     app.UseSwaggerUI();
-    app.MapDefaultEndpoints();
-
 }
 app.UseStatusCodePages();
 app.UseExceptionHandler(errorApp =>
@@ -107,7 +117,11 @@ app.UseExceptionHandler(errorApp =>
     });
 });
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsProduction())
+{
+    app.UseHttpsRedirection();
+}
+
 app.UseAuthentication();
 app.UseAuthorization();
 

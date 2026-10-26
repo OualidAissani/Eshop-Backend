@@ -1,4 +1,4 @@
-﻿using Eshop.Catalog.Dtos;
+﻿using Eshop.Catalog.Dtos.ProductDtos;
 using Eshop.Catalog.Entities;
 using Eshop.Catalog.Services.IServices;
 using Polly;

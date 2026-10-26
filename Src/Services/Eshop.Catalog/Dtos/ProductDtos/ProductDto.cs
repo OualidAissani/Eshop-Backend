@@ -1,7 +1,9 @@
 ﻿using Eshop.Catalog.Data.Enums;
+using Eshop.Catalog.Dtos.CategoryDtos;
 using Eshop.Catalog.Entities;
+using MediaDtoType = Eshop.Catalog.Dtos.MediaDto.MediaDto;
 
-namespace Eshop.Catalog.Dtos
+namespace Eshop.Catalog.Dtos.ProductDtos
 {
     public class ProductDto
     {
@@ -13,7 +15,7 @@ namespace Eshop.Catalog.Dtos
         public ProductStatus Status { get; set; }
         public ProductSpecialStatus SpecialStatus { get; set; }
         public int? DisplayOrder { get; set; }
-        public List<MediaDto> Media { get; set; }
+        public List<MediaDtoType> Media { get; set; }
         public List<CategoryDto> Categories { get; set; }
         public bool IsHeroFeatured { get; set; }
         public int? HeroOrder { get; set; }

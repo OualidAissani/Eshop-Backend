@@ -1,0 +1,216 @@
+# ---------------------------------------------------------------------------
+# Eshop production stack for Dokploy.
+#
+# Runs on the VPS: Keycloak + the five .NET services.
+# Managed services (external): PostgreSQL, MongoDB, Redis, RabbitMQ.
+#
+# Dokploy's Traefik owns ports 80/443 and terminates TLS, so there is no Caddy
+# here. `gateway` and `keycloak` join the external `dokploy-network` so Traefik
+# can reach them.
+#
+# In the Dokploy UI:
+#   Compose Path: deploy/docker-compose.yml
+#   Environment:  the contents of deploy/.env
+#
+# Domain routing uses the Traefik labels below. If you prefer the Dokploy
+# "Domains" tab, delete both `labels:` blocks and add the domains there
+# instead (do not do both).
+# ---------------------------------------------------------------------------
+
+x-common-env: &common-env
+  ASPNETCORE_ENVIRONMENT: Production
+  Keycloak__Authority: https://${AUTH_DOMAIN}/realms/Eshop
+  Keycloak__Audience: eshop-api
+  Keycloak__RequireHttpsMetadata: "true"
+  ConnectionStrings__Rabbitmq: "${RABBITMQ_CONNECTION}"
+  ConnectionStrings__Redis: "${REDIS_CONNECTION}"
+
+x-service: &service
+  restart: unless-stopped
+  stop_grace_period: 30s
+  extra_hosts:
+    # Lets containers reach the public Keycloak URL through the host's Traefik.
+    - "${AUTH_DOMAIN}:host-gateway"
+
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.8.1
+    restart: unless-stopped
+    command: ["start", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KC_DB: postgres
+      KC_DB_URL: "jdbc:postgresql://${PG_HOST}:${PG_PORT}/${KEYCLOAK_DB}?sslmode=${PG_JDBC_SSLMODE}"
+      KC_DB_USERNAME: "${KEYCLOAK_DB_USER:-${PG_USER}}"
+      KC_DB_PASSWORD: "${KEYCLOAK_DB_PASSWORD:-${PG_PASSWORD}}"
+      KC_DB_POOL_INITIAL_SIZE: "2"
+      KC_DB_POOL_MAX_SIZE: "10"
+      KC_HOSTNAME: https://${AUTH_DOMAIN}
+      KC_PROXY_HEADERS: xforwarded
+      KC_HTTP_ENABLED: "true"
+      KC_HEALTH_ENABLED: "true"
+      KC_LOG_LEVEL: INFO
+    volumes:
+      - ../Src/Services/Eshop.AppHost/realms/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+      - ../Src/Services/Eshop.AppHost/realms/keycloak-theme.jar:/opt/keycloak/providers/keycloak-theme.jar:ro
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/9000'"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 90s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=dokploy-network"
+      - "traefik.http.routers.eshop-auth.rule=Host(`${AUTH_DOMAIN}`)"
+      - "traefik.http.routers.eshop-auth.entrypoints=websecure"
+      - "traefik.http.routers.eshop-auth.tls.certresolver=letsencrypt"
+      - "traefik.http.services.eshop-auth.loadbalancer.server.port=8080"
+    networks:
+      - eshop
+      - dokploy-network
+
+  catalog:
+    <<: *service
+    build:
+      context: ..
+      dockerfile: Src/Services/Eshop.Catalog/Dockerfile
+    image: eshop/catalog:${TAG:-latest}
+    environment:
+      <<: *common-env
+      ConnectionStrings__CatalogDb: "Host=${PG_HOST};Port=${PG_PORT};Database=${CATALOG_DB};Username=${PG_USER};Password=${PG_PASSWORD};SSL Mode=${PG_SSL_MODE};Maximum Pool Size=10"
+      ConnectionStrings__CatalogMongoDb: "${MONGO_CONNECTION}"
+      Mongo__Database: ${MONGO_DATABASE}
+      UploadCare__PublicKey: ${UPLOADCARE_PUBLIC_KEY}
+      UploadCare__SecretKey: ${UPLOADCARE_SECRET_KEY}
+      UploadCare__Store: ${UPLOADCARE_STORE:-1}
+      UploadCare__UploadCareBaseUrl: ${UPLOADCARE_BASE_URL}
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+      start_period: 90s
+    networks:
+      - eshop
+
+  inventory:
+    <<: *service
+    build:
+      context: ..
+      dockerfile: Src/Services/Eshop.Inventory/Dockerfile
+    image: eshop/inventory:${TAG:-latest}
+    environment:
+      <<: *common-env
+      ConnectionStrings__InventoryDb: "Host=${PG_HOST};Port=${PG_PORT};Database=${INVENTORY_DB};Username=${PG_USER};Password=${PG_PASSWORD};SSL Mode=${PG_SSL_MODE};Maximum Pool Size=10"
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+      start_period: 90s
+    networks:
+      - eshop
+
+  orders:
+    <<: *service
+    build:
+      context: ..
+      dockerfile: Src/Services/Eshop.Orders/Dockerfile
+    image: eshop/orders:${TAG:-latest}
+    environment:
+      <<: *common-env
+      ConnectionStrings__OrderDb: "Host=${PG_HOST};Port=${PG_PORT};Database=${ORDER_DB};Username=${PG_USER};Password=${PG_PASSWORD};SSL Mode=${PG_SSL_MODE};Maximum Pool Size=10"
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+      start_period: 90s
+    networks:
+      - eshop
+
+  notification:
+    <<: *service
+    build:
+      context: ..
+      dockerfile: Src/Services/Eshop.Notification/Dockerfile
+    image: eshop/notification:${TAG:-latest}
+    environment:
+      <<: *common-env
+      EmailService__ApiKey: ${EMAIL_API_KEY}
+      EmailService__BaseUrl: ${EMAIL_BASE_URL}
+      EmailService__SenderName: ${EMAIL_SENDER_NAME}
+      EmailService__SenderEmail: ${EMAIL_SENDER_EMAIL}
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    networks:
+      - eshop
+
+  gateway:
+    <<: *service
+    build:
+      context: ..
+      dockerfile: Src/Services/Eshop.Gateway/Dockerfile
+    image: eshop/gateway:${TAG:-latest}
+    environment:
+      <<: *common-env
+      ForwardedHeaders__TrustAll: "true"
+      Cors__AllowedOrigins__0: ${FRONTEND_ORIGIN}
+      ReverseProxy__Clusters__Paymentcluster__Destinations__destination1__Address: http://payment:8080
+      ReverseProxy__Clusters__Catalogcluster__Destinations__destination1__Address: http://catalog:8080
+      ReverseProxy__Clusters__Inventorycluster__Destinations__destination1__Address: http://inventory:8080
+      ReverseProxy__Clusters__Ordercluster__Destinations__destination1__Address: http://orders:8080
+      ReverseProxy__Clusters__Cartcluster__Destinations__destination1__Address: http://orders:8080
+      ReverseProxy__Clusters__CategoryCluster__Destinations__destination1__Address: http://catalog:8080
+      ReverseProxy__Clusters__DiscountCluster__Destinations__destination1__Address: http://catalog:8080
+    depends_on:
+      keycloak:
+        condition: service_healthy
+      catalog:
+        condition: service_healthy
+      inventory:
+        condition: service_healthy
+      orders:
+        condition: service_healthy
+      notification:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=dokploy-network"
+      - "traefik.http.routers.eshop-api.rule=Host(`${API_DOMAIN}`)"
+      - "traefik.http.routers.eshop-api.entrypoints=websecure"
+      - "traefik.http.routers.eshop-api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.eshop-api.loadbalancer.server.port=8080"
+    networks:
+      - eshop
+      - dokploy-network
+
+networks:
+  eshop:
+    driver: bridge
+  dokploy-network:
+    external: true

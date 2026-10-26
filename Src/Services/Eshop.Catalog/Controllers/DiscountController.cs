@@ -1,5 +1,5 @@
 ﻿using Eshop.Catalog.Data;
-using Eshop.Catalog.Dtos;
+using Eshop.Catalog.Dtos.DisocuntDtos;
 using Eshop.Catalog.Services.IServices;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

@@ -1,5 +1,6 @@
 ﻿using Eshop.Catalog.Data;
 using Eshop.Catalog.Dtos;
+using Eshop.Catalog.Dtos.CategoryDtos;
 using Eshop.Catalog.Entities;
 using Eshop.Catalog.Services;
 using FluentAssertions;

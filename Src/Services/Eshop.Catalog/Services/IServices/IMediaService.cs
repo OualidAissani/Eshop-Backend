@@ -1,4 +1,4 @@
-﻿using Eshop.Catalog.Dtos;
+﻿using Eshop.Catalog.Dtos.ProductDtos;
 using Eshop.Catalog.Entities;
 
 namespace Eshop.Catalog.Services.IServices

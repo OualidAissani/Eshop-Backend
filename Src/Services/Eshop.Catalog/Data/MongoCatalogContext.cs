@@ -19,6 +19,7 @@ namespace Eshop.Catalog.Data
             Categories = database.GetCollection<CategoryDocument>(settings.Value.CategoriesCollection);
             Counters = database.GetCollection<CounterDocument>(settings.Value.CountersCollection);
             Discounts = database.GetCollection<DiscountDocument>(settings.Value.DiscountsCollection);
+            Collections=database.GetCollection<CollectionDocument>(settings.Value.CollectionsCollection);
 
 
         }
@@ -39,6 +40,7 @@ namespace Eshop.Catalog.Data
         public IMongoCollection<DiscountDocument> Discounts { get; }
         public IMongoCollection<CategoryDocument> Categories { get; }
         public IMongoCollection<CounterDocument> Counters { get; }
+        public IMongoCollection<CollectionDocument> Collections { get; }
 
         public void Dispose()
         {

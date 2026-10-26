@@ -1,4 +1,4 @@
-﻿namespace Eshop.Catalog.Dtos
+﻿namespace Eshop.Catalog.Dtos.MediaDto
 {
     public class MediaDto
     {

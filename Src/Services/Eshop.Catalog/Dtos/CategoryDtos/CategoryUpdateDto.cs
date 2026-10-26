@@ -1,4 +1,4 @@
-﻿namespace Eshop.Catalog.Dtos
+﻿namespace Eshop.Catalog.Dtos.CategoryDtos
 {
     public class CategoryUpdateDto
     {

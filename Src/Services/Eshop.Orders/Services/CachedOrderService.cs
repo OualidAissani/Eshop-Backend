@@ -25,21 +25,31 @@ namespace Eshop.Orders.Services
             }
 
             var key = $"Idempotency:Order:Create:{order.UserId}:{order.IdempontencyKey}";
-            var reserved = await _redisDb.StringSetAsync(key, "in-progress", TimeSpan.FromHours(24), When.NotExists);
-
-            if (!reserved)
+            try
             {
-                var existing = await _redisDb.StringGetAsync(key);
-                if (existing == "in-progress")
-                    return Result.Fail("Request already in progress"); // or 409
-                return JsonSerializer.Deserialize<CreateOrderResponseDto>(existing.ToString())!;
+
+                var reserved = await _redisDb.StringSetAsync(key, "in-progress", TimeSpan.FromHours(24), When.NotExists);
+
+                if (!reserved)
+                {
+                    var existing = await _redisDb.StringGetAsync(key);
+                    if (existing == "in-progress")
+                        return Result.Fail("Request already in progress"); // or 409
+                    return JsonSerializer.Deserialize<CreateOrderResponseDto>(existing.ToString())!;
+                }
+
+                var createdOrder = await _orderService.CreateOrder(order, ct);
+                await _redisDb.StringSetAsync(key, JsonSerializer.Serialize(createdOrder.Value), TimeSpan.FromHours(24));
+
+                return createdOrder.Value;
+            }
+            catch (Exception ex) {
+
+                await _redisDb.KeyDeleteAsync(key);
+                return Result.Fail(ex.Message);
+            }
             }
 
-            var createdOrder = await _orderService.CreateOrder(order, ct);
-            await _redisDb.StringSetAsync(key, JsonSerializer.Serialize(createdOrder.Value), TimeSpan.FromHours(24));
-
-            return createdOrder.Value;
-        }
 
         public async Task<Result<bool>> DeleteOrder(int orderId,string userId, CancellationToken ct)
         {

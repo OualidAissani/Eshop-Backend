@@ -1,6 +1,7 @@
 ﻿using Eshop.Catalog.Data;
 using Eshop.Catalog.Data.Enums;
-using Eshop.Catalog.Dtos;
+using Eshop.Catalog.Dtos.CategoryDtos;
+using Eshop.Catalog.Dtos.ProductDtos;
 using Eshop.Catalog.Entities;
 using Eshop.Catalog.Services.IServices;
 using Eshop.Events;
@@ -9,6 +10,7 @@ using MassTransit;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using Polly;
+using MediaDtoType = Eshop.Catalog.Dtos.MediaDto.MediaDto;
 
 namespace Eshop.Catalog.Services;
 
@@ -427,7 +429,7 @@ namespace Eshop.Catalog.Services;
                 Description = product.Description,
                 DisplayOrder = product.DisplayOrder,
                 Price = product.Price,
-                Media = product.Media.Select(m => new MediaDto { MediaUrl = m.Media }).ToList(),
+                Media = product.Media.Select(m => new MediaDtoType { MediaUrl = m.Media }).ToList(),
                 IsHeroFeatured = product.IsHeroFeatured,
                 HeroOrder = product.HeroOrder,
                 HeroImageUrl = product.HeroImageUrl,

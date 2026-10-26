@@ -1,0 +1,16 @@
+**/.git
+**/.github
+**/.vs
+**/.vscode
+**/bin
+**/obj
+**/TestResults
+**/node_modules
+**/dist
+**/*.user
+**/appsettings.json
+**/appsettings.*.json
+!Src/Services/Eshop.Gateway/appsettings.json
+deploy
+*.md
+LICENSE

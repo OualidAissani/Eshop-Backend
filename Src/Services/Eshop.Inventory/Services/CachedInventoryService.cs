@@ -40,10 +40,11 @@ namespace Eshop.Inventory.Services
 
             if (inventory.IsFailed)
             {
+                await _redisDb.KeyDeleteAsync(cacheKey);
                 return Result.Fail("Failed to create inventory");
             }
 
-            await _redisDb.StringSetAsync(cacheKey, JsonSerializer.Serialize(inventory.Value),TimeSpan.FromHours(24));
+            await _redisDb.StringSetAsync(cacheKey, JsonSerializer.Serialize(inventory.Value),TimeSpan.FromSeconds(60));
 
             await _redisDb.KeyDeleteAsync("Inventories:All");
 
@@ -132,7 +133,7 @@ namespace Eshop.Inventory.Services
             {
                 return Result.Fail(result.Errors.First().Message);
             }
-            await _redisDb.StringSetAsync(cacheKey, JsonSerializer.Serialize(result), TimeSpan.FromHours(24));
+            await _redisDb.StringSetAsync(cacheKey, JsonSerializer.Serialize(result.Value), TimeSpan.FromSeconds(60));
             await _redisDb.KeyDeleteAsync($"Inventory:{result.Value.Id}");
             await _redisDb.KeyDeleteAsync("Inventories:All");
             return result.Value;

@@ -11,10 +11,7 @@ using Microsoft.IdentityModel.Tokens;
 using Scrutor;
 using StackExchange.Redis;
 var builder = WebApplication.CreateBuilder(args);
-if(builder.Environment.IsDevelopment())
-{
-    builder.AddServiceDefaults();
-}
+builder.AddServiceDefaults();
 
 builder.Configuration.AddEnvironmentVariables();
 // Add services to the container.
@@ -91,7 +88,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     {
         option.Authority = builder.Configuration["Keycloak:Authority"];
         option.Audience = builder.Configuration["Keycloak:Audience"]; 
-        option.RequireHttpsMetadata = builder.Environment.IsProduction() ? true : false;
+        option.RequireHttpsMetadata = builder.Configuration.GetValue(
+            "Keycloak:RequireHttpsMetadata",
+            builder.Environment.IsProduction());
         option.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateAudience = true,
@@ -116,14 +115,16 @@ builder.Services.AddAuthorizationBuilder();
 
 var app = builder.Build();
 
+MigrateDatabase();
+
 var mongoContext = app.Services.GetRequiredService<MongoCatalogContext>();
 await mongoContext.EnsureIndexesAsync();
+
+app.MapDefaultEndpoints();
 
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
-    app.MapDefaultEndpoints();
-
 }
 app.UseStatusCodePages();
 app.UseExceptionHandler(errorApp =>
@@ -146,7 +147,11 @@ app.UseExceptionHandler(errorApp =>
         await context.Response.WriteAsJsonAsync(problem);
     });
 });
-app.UseHttpsRedirection();
+if (!app.Environment.IsProduction())
+{
+    app.UseHttpsRedirection();
+}
+
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseHttpLogging();
@@ -154,10 +159,10 @@ app.MapControllers();
 
 app.Run();
 
-void EnsureOutboxDatabase()
+void MigrateDatabase()
 {
     using var scope = app.Services.CreateScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
-    dbContext.Database.EnsureCreated();
+    dbContext.Database.Migrate();
 }
 

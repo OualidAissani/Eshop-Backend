@@ -1,4 +1,4 @@
-﻿using Eshop.Catalog.Dtos;
+﻿using Eshop.Catalog.Dtos.ProductDtos;
 using Eshop.Catalog.Entities;
 using Eshop.Catalog.Services.IServices;
 using FluentResults;
@@ -44,35 +44,45 @@ namespace Eshop.Catalog.Services
             }
             var cacheKey = $"Idempotency:Product:Create:{product.IdempotencyKey}";
 
-            var reserved= await _redisdb.StringSetAsync(cacheKey,"in-progress",TimeSpan.FromHours(24),When.NotExists);
-
-            if (!reserved)
+            try
             {
-                var cached = await _redisdb.StringGetAsync(cacheKey);
-                if (cached== "in-progress")
+
+                var reserved = await _redisdb.StringSetAsync(cacheKey, "in-progress", TimeSpan.FromHours(24), When.NotExists);
+
+                if (!reserved)
                 {
-                    return Result.Fail("");
+                    var cached = await _redisdb.StringGetAsync(cacheKey);
+                    if (cached == "in-progress")
+                    {
+                        return Result.Fail("");
+                    }
+                    var cachedProduct = JsonSerializer.Deserialize<ProductDto>(cached.ToString());
+                    return cachedProduct;
                 }
-                var cachedProduct = JsonSerializer.Deserialize<ProductDto>(cached.ToString());
-                return cachedProduct;
-            }
 
-            var result = await _productService.CreateProduct(product, formFile, ct);
+                var result = await _productService.CreateProduct(product, formFile, ct);
 
-            if (result.IsFailed)
-            {
-                return Result.Fail(result.Errors.First().Message);
-            }
-
-            await _redisdb.StringSetAsync(cacheKey, JsonSerializer.Serialize(result.Value), TimeSpan.FromHours(24));
-            if (result.Value?.Categories != null)
-            {
-                foreach (var category in result.Value.Categories)
+                if (result.IsFailed)
                 {
-                    await _redisdb.KeyDeleteAsync($"Products:Category={category.Id}");
+                    await _redisdb.KeyDeleteAsync(cacheKey);
+                    return Result.Fail(result.Errors.First().Message);
                 }
+
+                await _redisdb.StringSetAsync(cacheKey, JsonSerializer.Serialize(result.Value), TimeSpan.FromHours(24));
+                if (result.Value?.Categories != null)
+                {
+                    foreach (var category in result.Value.Categories)
+                    {
+                        await _redisdb.KeyDeleteAsync($"Products:Category={category.Id}");
+                    }
+                }
+                return result.Value;
             }
-            return result.Value;
+            catch (Exception ex) {
+
+                await _redisdb.KeyDeleteAsync(cacheKey);
+                return Result.Fail("Error Occured while HANDLING YOUR PROCESS");
+            }
         }
 
         public async Task<Result<bool>> DeleteProduct(int productId, CancellationToken ct)

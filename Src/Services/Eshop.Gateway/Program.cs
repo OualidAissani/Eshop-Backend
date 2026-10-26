@@ -49,11 +49,14 @@ builder.Services.AddRateLimiter(options =>
 });
 
 
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+    ?? ["https://maktabahislamiia.vercel.app"];
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("https://maktabahislamiia.vercel.app")
+        policy.WithOrigins(allowedOrigins)
        .AllowAnyHeader()
        .AllowAnyMethod()
        .WithExposedHeaders("Token-Expired");
@@ -68,7 +71,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     {
         option.Authority = builder.Configuration["Keycloak:Authority"];
         option.Audience = builder.Configuration["Keycloak:Audience"];
-        option.RequireHttpsMetadata = builder.Environment.IsProduction()?true:false;
+        option.RequireHttpsMetadata = builder.Configuration.GetValue(
+            "Keycloak:RequireHttpsMetadata",
+            builder.Environment.IsProduction());
         option.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateAudience = true,
@@ -98,14 +103,39 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 app.UseCors("AllowFrontend");
-app.UseForwardedHeaders(new ForwardedHeadersOptions
+
+var forwardedHeaders = new ForwardedHeadersOptions
 {
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
-    KnownProxies = { IPAddress.Parse("64.29.17.131") } 
-});
+    // Number of proxy hops to trust when resolving the client IP (used by rate limiting).
+    // 1 = only the edge proxy in front of the gateway (Traefik/Dokploy).
+    // 2 = Vercel's proxy + the edge proxy (browser -> Vercel rewrite -> VPS).
+    ForwardLimit = builder.Configuration.GetValue<int?>("ForwardedHeaders:ForwardLimit") ?? 1
+};
+
+var trustedProxies = builder.Configuration.GetSection("ForwardedHeaders:KnownProxies").Get<string[]>() ?? [];
+foreach (var trustedProxy in trustedProxies)
+{
+    if (IPAddress.TryParse(trustedProxy, out var address))
+    {
+        forwardedHeaders.KnownProxies.Add(address);
+    }
+}
+
+if (builder.Configuration.GetValue<bool>("ForwardedHeaders:TrustAll"))
+{
+    forwardedHeaders.KnownNetworks.Clear();
+    forwardedHeaders.KnownProxies.Clear();
+}
+
+app.UseForwardedHeaders(forwardedHeaders);
 
 app.UseRateLimiter();
-app.UseHttpsRedirection();
+
+if (!app.Environment.IsProduction())
+{
+    app.UseHttpsRedirection();
+}
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapReverseProxy();

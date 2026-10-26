@@ -1,10 +1,9 @@
 ﻿using Eshop.Catalog.Data.Enums;
 
-namespace Eshop.Catalog.Dtos
+namespace Eshop.Catalog.Dtos.DisocuntDtos
 {
-    public class DiscountReturnDto
+    public class DiscountDto
     {
-        public string Id { get; set; }
         public DiscountType Type { get; set; }
         public decimal Value { get; set; }
         public DateTime? StartsAt { get; set; }

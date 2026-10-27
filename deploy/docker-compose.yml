@@ -57,9 +57,13 @@ services:
     image: eshop/catalog:${TAG:-latest}
     environment:
       <<: *common-env
-      ConnectionStrings__CatalogDb: "Host=${PG_HOST:?};Port=${PG_PORT:?};Database=${CATALOG_DB:?};Username=${PG_USER:?};Password=${PG_PASSWORD:?};SSL Mode=${PG_SSL_MODE:?};Maximum Pool Size=10"
+      # One physical database (`postgres`) shared by all three services. Each
+      # service is pinned to its own schema through `Search Path`, so tables and
+      # EF's __EFMigrationsHistory stay separate. The schemas must exist first:
+      # see DEPLOYMENT.md §4.1.
+      ConnectionStrings__CatalogDb: "Host=${PG_HOST:?};Port=${PG_PORT:?};Database=postgres;Search Path=catalog;Username=${PG_USER:?};Password=${PG_PASSWORD:?};SSL Mode=${PG_SSL_MODE:?};Maximum Pool Size=10"
       ConnectionStrings__CatalogMongoDb: "${MONGO_CONNECTION:?}"
-      Mongo__Database: ${MONGO_DATABASE:?}
+      Mongo__Database: ${MONGO_DATABASE:-}
       UploadCare__PublicKey: ${UPLOADCARE_PUBLIC_KEY}
       UploadCare__SecretKey: ${UPLOADCARE_SECRET_KEY}
       UploadCare__Store: ${UPLOADCARE_STORE:-1}
@@ -75,7 +79,7 @@ services:
     image: eshop/inventory:${TAG:-latest}
     environment:
       <<: *common-env
-      ConnectionStrings__InventoryDb: "Host=${PG_HOST:?};Port=${PG_PORT:?};Database=${INVENTORY_DB:?};Username=${PG_USER:?};Password=${PG_PASSWORD:?};SSL Mode=${PG_SSL_MODE:?};Maximum Pool Size=10"
+      ConnectionStrings__InventoryDb: "Host=${PG_HOST:?};Port=${PG_PORT:?};Database=postgres;Search Path=inventory;Username=${PG_USER:?};Password=${PG_PASSWORD:?};SSL Mode=${PG_SSL_MODE:?};Maximum Pool Size=10"
     networks:
       - eshop
 
@@ -87,7 +91,7 @@ services:
     image: eshop/orders:${TAG:-latest}
     environment:
       <<: *common-env
-      ConnectionStrings__OrderDb: "Host=${PG_HOST:?};Port=${PG_PORT:?};Database=${ORDER_DB:?};Username=${PG_USER:?};Password=${PG_PASSWORD:?};SSL Mode=${PG_SSL_MODE:?};Maximum Pool Size=10"
+      ConnectionStrings__OrderDb: "Host=${PG_HOST:?};Port=${PG_PORT:?};Database=postgres;Search Path=orders;Username=${PG_USER:?};Password=${PG_PASSWORD:?};SSL Mode=${PG_SSL_MODE:?};Maximum Pool Size=10"
     networks:
       - eshop
 

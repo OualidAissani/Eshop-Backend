@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using MongoDB.Driver;
 using Scrutor;
 using StackExchange.Redis;
 var builder = WebApplication.CreateBuilder(args);
@@ -26,7 +27,26 @@ builder.Services.AddHttpClient();
 
 builder.AddNpgsqlDbContext<CatalogDbContext>("CatalogDb");
 builder.AddMongoDBClient("CatalogMongoDb");
-builder.Services.Configure<MongoSettings>(builder.Configuration.GetRequiredSection("Mongo"));
+builder.Services.Configure<MongoSettings>(builder.Configuration.GetSection("Mongo"));
+builder.Services.PostConfigure<MongoSettings>(settings =>
+{
+    // The database name can live in the connection string path
+    // (mongodb+srv://host/Eshop?...), so Mongo__Database is optional.
+    // An explicit value still wins.
+    if (!string.IsNullOrWhiteSpace(settings.Database))
+    {
+        return;
+    }
+
+    var connectionString = builder.Configuration.GetConnectionString("CatalogMongoDb")
+        ?? throw new InvalidOperationException("ConnectionStrings:CatalogMongoDb is not configured.");
+
+    settings.Database = MongoUrl.Create(connectionString).DatabaseName
+        ?? throw new InvalidOperationException(
+            "No MongoDB database selected. Put it in the connection string "
+            + "(mongodb+srv://user:pass@host/Eshop?retryWrites=true) or set Mongo__Database. "
+            + "Note: appName=... in the URI is only a client label, not the database.");
+});
 
 builder.Services.AddSingleton<MongoCatalogContext>();
 

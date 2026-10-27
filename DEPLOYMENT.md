@@ -111,24 +111,34 @@ Only Traefik listens on public ports. Keycloak and the services run in two separ
 
 ### 4.1 PostgreSQL
 
-Create one server/project and four databases:
+The three .NET services share **one database** (`postgres`) and are kept apart by **schema**:
+
+| Service | Schema | What it creates there |
+|---|---|---|
+| Catalog | `catalog` | `OutboxMessage`, `OutboxState`, `InboxState` |
+| Inventory | `inventory` | `Inventories` |
+| Orders | `orders` | `Carts`, `CartItems`, `Orders`, `OrderItems`, `OrderStates`, outbox tables |
+| Keycloak | `public` | its own realm/client/user tables |
+
+Create the schemas once, before the first deploy:
 
 ```sql
-CREATE DATABASE "EshopCatalogDb";
-CREATE DATABASE "EshopInventoryDb";
-CREATE DATABASE "EshopOrderDb";
-CREATE DATABASE "keycloak";
+CREATE SCHEMA IF NOT EXISTS catalog;
+CREATE SCHEMA IF NOT EXISTS inventory;
+CREATE SCHEMA IF NOT EXISTS orders;
 ```
 
-- **Neon:** create one project and run the `CREATE DATABASE` statements against the default database.
-- **Supabase:** run the statements in the SQL editor. On free plans the direct host (`db.<ref>.supabase.co`) is IPv6-only; either add the **IPv4 add-on** (keeps direct connections, recommended) or use the pooler host (IPv4, but EF migrations may fail on it).
-- **RDS / Aiven:** create the instance, then create the databases.
-- Use the **direct** (non-pooler) hostname. EF Core migrations take a session-level advisory lock, which is unreliable through a transaction-mode pooler such as Neon's `-pooler` endpoint or PgBouncer.
+Why: Catalog and Orders both create tables named `InboxState`, `OutboxMessage`, and `OutboxState`, and EF's `__EFMigrationsHistory` is per schema. Without separation the second service to start fails with `relation "InboxState" already exists`. The compose file pins each service with `Search Path=catalog` / `inventory` / `orders`, so **no code or migration change is needed** — the schema is chosen by the connection string.
+
+- **Supabase:** one project is enough. Use the **session pooler** (`aws-0-<region>.pooler.supabase.com`, port **5432**) and the pooler username `postgres.<project-ref>`. Port `6543` (transaction mode) breaks EF migrations. Run the `CREATE SCHEMA` statements in the SQL editor.
+- **Neon:** run the statements against the default database (`neondb`); change `Database=postgres` to `Database=neondb` in the compose file if you keep that name.
+- **RDS / Aiven:** create the instance; connect to the default database and run the statements.
+- Use the **direct** hostname where the provider offers one. EF Core migrations take a session-level advisory lock, which transaction-mode poolers do not preserve.
 - Connection limits are shared by Catalog, Inventory, and Orders (10 each via `Maximum Pool Size=10`) plus Keycloak (capped at 10 via `KC_DB_POOL_MAX_SIZE`). Raise these only after checking the provider's limit.
 - If you want stricter TLS, set `PG_SSL_MODE=VerifyFull` (Npgsql) and `PG_JDBC_SSLMODE=verify-full` (Keycloak). `Require` encrypts without validating the certificate.
 - Allow the **VPS public IP** on the provider if it enforces an allowlist.
 
-> `Database.Migrate()` runs at startup for Catalog, Inventory, and Orders, so the databases only need to exist and be empty. Keycloak creates its own tables.
+> `Database.Migrate()` runs at startup for Catalog, Inventory, and Orders, so the schemas only need to exist and be empty. If your provider supports multiple databases and you prefer that, replace `Database=postgres;Search Path=catalog` with `Database=EshopCatalogDb` (and likewise for the other two) — nothing else changes.
 
 ### 4.2 MongoDB (Atlas)
 
@@ -137,7 +147,9 @@ CREATE DATABASE "keycloak";
 3. Copy the `mongodb+srv://...` connection string and replace `<password>`.
 4. URL-encode special characters in the password (`@` → `%40`, `:` → `%3A`, `#` → `%23`, `/` → `%2F`).
 
-`EshopCatalogDb` is created on first write; `MONGO_DATABASE=EshopCatalogDb` selects it.
+The database name is the path segment of the URI — `…mongodb.net/Eshop?retryWrites=true` — and Atlas creates it (and the collections) on first write. `MONGO_DATABASE` is an optional override if you prefer to keep the URI path empty.
+
+> `appName=Eshop` in an Atlas URI is only a label for the client in Mongo's logs and monitoring. It is **not** the database name.
 
 ### 4.3 Redis (Upstash or Redis Cloud)
 
@@ -161,7 +173,7 @@ If CloudAMQP gives you `amqps://user:pass@host/vhost` without a port, add `:5671
 
 ### 4.5 Keycloak database
 
-Keycloak uses the same managed PostgreSQL. The `keycloak` database from 4.1 is enough. It can use the same user as the services (`PG_USER`) or its own — set `KEYCLOAK_DB_USER` / `KEYCLOAK_DB_PASSWORD` in the Keycloak service's environment (§7.3).
+Keycloak uses the same managed PostgreSQL, in the **`public`** schema (the default), so it does not touch the `catalog` / `inventory` / `orders` schemas. Set `KEYCLOAK_DB=postgres` and, unless Keycloak has its own user, the same credentials as the services — in the Keycloak service's environment (§7.3).
 
 ---
 
@@ -178,8 +190,8 @@ Fill in:
 
 - `API_DOMAIN`, `AUTH_DOMAIN` (no `https://`, no trailing slash)
 - `FRONTEND_ORIGIN` — exact Vercel production origin
-- `PG_*`, `CATALOG_DB`, `INVENTORY_DB`, `ORDER_DB`
-- `MONGO_CONNECTION`, `MONGO_DATABASE`
+- `PG_*` (host, port, user, password, SSL mode) — one database, three schemas
+- `MONGO_CONNECTION` — include the database name in the path (`…/Eshop?retryWrites=true`); `MONGO_DATABASE` only if you want to override it
 - `REDIS_CONNECTION`
 - `RABBITMQ_CONNECTION`
 - UploadCare and Brevo keys
@@ -191,7 +203,7 @@ Rules:
 - Keep the quotes in the template. `MONGO_CONNECTION`, `REDIS_CONNECTION`, and `RABBITMQ_CONNECTION` contain `&`, `?`, or `,`.
 - Do **not** use `$`, `'`, `#`, spaces, `;`, or `=` inside passwords. `$` breaks Compose interpolation; `'` breaks the quoting; `;` breaks Npgsql connection strings.
 - Do **not** commit `deploy/.env`.
-- Core variables (`API_DOMAIN`, `AUTH_DOMAIN`, `FRONTEND_ORIGIN`, `PG_*`, `*_DB`, `MONGO_*`, `REDIS_CONNECTION`, `RABBITMQ_CONNECTION`) use `${VAR:?}`, so a missing or empty value **aborts the deploy** with `required variable X is missing a value` instead of starting a broken container.
+- Core variables (`API_DOMAIN`, `AUTH_DOMAIN`, `FRONTEND_ORIGIN`, `PG_*`, `MONGO_*`, `REDIS_CONNECTION`, `RABBITMQ_CONNECTION`) use `${VAR:?}`, so a missing or empty value **aborts the deploy** with `required variable X is missing a value` instead of starting a broken container.
 - `UPLOADCARE_PUBLIC_KEY`, `UPLOADCARE_SECRET_KEY`, and `EMAIL_API_KEY` are intentionally blank in the template. They are **not** guarded: the stack starts without them, but image uploads and emails fail at runtime.
 
 You will paste these values into the **Eshop** service's Environment tab in §8.
@@ -358,7 +370,7 @@ If Keycloak uses the same database user as the services, `KEYCLOAK_DB_USER` / `K
 
 ### 7.3.1 If the database is Supabase
 
-Supabase does not let you create extra databases, so Keycloak lives in `postgres` and the provider-specific bits are:
+Supabase gives you a single database (`postgres`), which is exactly what the stack uses: Keycloak in `public`, the .NET services in `catalog` / `inventory` / `orders`. The provider-specific bits are:
 
 ```env
 PG_HOST=aws-0-<region>.pooler.supabase.com
@@ -371,7 +383,8 @@ KEYCLOAK_DB_PASSWORD=<database password>
 
 - **Port `5432` is the session pooler — use that one.** Port `6543` is transaction mode; Keycloak's schema migration and advisory locks do not survive it.
 - The pooler username is `postgres.<project-ref>`, not `postgres`.
-- The same pooler caveat as §4.1 applies to the .NET services: they must use the **direct** connection (or Supabase's IPv4 add-on) because EF Core migrations need a session-level lock.
+- The .NET services use the same host, port, user, and password (`PG_*` in the Eshop service) — only their `Search Path` differs, and that is already in the compose file.
+- Keycloak does not need a schema of its own: `public` holds no app tables, so there is nothing to collide with.
 
 ### 7.3.2 Do not add these
 
@@ -445,11 +458,11 @@ PostgreSQL:
 set -a; source deploy/.env; set +a
 
 docker run --rm -e PGPASSWORD="$PG_PASSWORD" postgres:17-alpine \
-  psql "host=$PG_HOST port=$PG_PORT dbname=$CATALOG_DB user=$PG_USER sslmode=require" \
-  -c 'select 1'
+  psql "host=$PG_HOST port=$PG_PORT dbname=postgres user=$PG_USER sslmode=require" \
+  -c '\dn'
 ```
 
-Expected: one row, value `1`.
+Expected: the schemas `catalog`, `inventory`, `orders` (plus `public`). If they are missing, the services fail at startup with `no schema has been selected to create in` — run the `CREATE SCHEMA` statements from §4.1.
 
 Redis:
 
@@ -615,22 +628,24 @@ esac
 export PGSSLMODE
 
 docker run --rm -e PGPASSWORD="$PG_PASSWORD" -e PGSSLMODE="$PGSSLMODE" postgres:17-alpine \
-  pg_dump -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d "$CATALOG_DB" \
+  pg_dump -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d postgres --schema=catalog \
   --no-owner --no-privileges --clean --if-exists | gzip > backups/$STAMP/catalog.sql.gz
 
 docker run --rm mongo:8 mongodump --uri "$MONGO_CONNECTION" --archive --gzip \
   > backups/$STAMP/mongo.archive.gz
 ```
 
-Repeat the `pg_dump` line for `INVENTORY_DB` and `ORDER_DB`. The Keycloak database (`KEYCLOAK_DB`) is backed up the same way, using the credentials from the Keycloak service's environment.
+Repeat the `pg_dump` line with `--schema=inventory` and `--schema=orders`. Keycloak lives in `public`, so dump it with `--schema=public` using the credentials from the Keycloak service's environment.
 
 Restore (stop the services in Dokploy first, or scale them to zero):
 
 ```bash
 gunzip -c backups/<stamp>/catalog.sql.gz | \
   docker run --rm -i -e PGPASSWORD="$PG_PASSWORD" -e PGSSLMODE=require postgres:17-alpine \
-  psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d "$CATALOG_DB"
+  psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d postgres
 ```
+
+The dump carries its `CREATE SCHEMA` statement, so restoring recreates `catalog` (or `inventory` / `orders`) before the tables.
 
 ### Disk usage
 
@@ -667,8 +682,9 @@ There are no database volumes on the VPS, so clearing Docker data cannot delete 
 | Keycloak exits at startup with a build-option error | The image was built with different build-time options than the runtime environment. `--optimized` requires them to match (for example `KC_DB=postgres` at build and at runtime) |
 | Login page shows the stock Keycloak theme | The theme jar is not in the image: `docker run --rm <image> ls /opt/keycloak/providers`. Also check the jar was built for this Keycloak version |
 | `Unable to parse URL jdbc:postgresql://:/?sslmode=` | The variables never reached Compose. Check they are in the **Keycloak** service's Environment tab (not the Eshop one), saved **and** redeployed. The `:?` guards in §7.2 make this fail at deploy time instead |
-| `database "keycloak" does not exist` | Supabase has no extra databases: set `KEYCLOAK_DB=postgres`. On other providers create the `keycloak` database |
-| Keycloak restarts or `database "keycloak" does not exist` | Create the `keycloak` database; verify `PG_HOST`, `PG_PORT`, `PG_JDBC_SSLMODE`, and the credentials. |
+| `no schema has been selected to create in` | The `catalog` / `inventory` / `orders` schemas do not exist. Run the `CREATE SCHEMA` statements from §4.1 |
+| `relation "InboxState" already exists` | Two services are in the same schema. Check that each connection string carries its own `Search Path` |
+| `database "keycloak" does not exist` | Set `KEYCLOAK_DB=postgres` — the stack uses one database for everything |
 | Keycloak never becomes healthy | First import is slow. Check its logs; the health port is `9000` (`KC_HEALTH_ENABLED=true`). |
 | Keycloak redirects to `http://` or the wrong host | `KC_HOSTNAME` must be `https://auth.<host>`; Traefik must pass `X-Forwarded-Proto`. Redeploy after changing it. |
 | CORS error in the browser | `FRONTEND_ORIGIN` must exactly match the origin; redeploy the stack. |

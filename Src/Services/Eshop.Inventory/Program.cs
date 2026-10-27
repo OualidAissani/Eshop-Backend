@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
@@ -133,5 +134,17 @@ void MigrateDatabase()
 {
     var scope = app.Services.CreateScope();
     var database = scope.ServiceProvider.GetRequiredService<InventoryDb>();
+    EnsureSchema(database);
     database.Database.Migrate();
+}
+
+void EnsureSchema(DbContext db)
+{
+    // `Search Path` can point at a schema that does not exist yet; Postgres then
+    // fails Migrate() with 3F000 "no schema has been selected to create in".
+    var schema = new NpgsqlConnectionStringBuilder(db.Database.GetConnectionString()).SearchPath;
+    if (!string.IsNullOrWhiteSpace(schema))
+    {
+        db.Database.ExecuteSqlRaw("CREATE SCHEMA IF NOT EXISTS \"" + schema.Replace("\"", "\"\"") + "\"");
+    }
 }

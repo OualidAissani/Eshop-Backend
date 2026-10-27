@@ -120,15 +120,17 @@ The three .NET services share **one database** (`postgres`) and are kept apart b
 | Orders | `orders` | `Carts`, `CartItems`, `Orders`, `OrderItems`, `OrderStates`, outbox tables |
 | Keycloak | `public` | its own realm/client/user tables |
 
-Create the schemas once, before the first deploy:
+**You do not create anything manually.** Each service reads `Search Path` from its own connection string and runs `CREATE SCHEMA IF NOT EXISTS` before `Database.Migrate()`, so the first start creates its schema, its `__EFMigrationsHistory`, and its tables.
+
+Why the separation is required: Catalog and Orders both create tables named `InboxState`, `OutboxMessage`, and `OutboxState`, and EF's `__EFMigrationsHistory` is per schema. Without it the second service to start fails with `relation "InboxState" already exists`. The compose file appends `Search Path=catalog` / `inventory` / `orders` to `PG_CONNECTION`, so **no migration change is needed**.
+
+If you prefer to create them up front, it is harmless:
 
 ```sql
 CREATE SCHEMA IF NOT EXISTS catalog;
 CREATE SCHEMA IF NOT EXISTS inventory;
 CREATE SCHEMA IF NOT EXISTS orders;
 ```
-
-Why: Catalog and Orders both create tables named `InboxState`, `OutboxMessage`, and `OutboxState`, and EF's `__EFMigrationsHistory` is per schema. Without separation the second service to start fails with `relation "InboxState" already exists`. The compose file pins each service with `Search Path=catalog` / `inventory` / `orders`, so **no code or migration change is needed** — the schema is chosen by the connection string.
 
 - **Supabase:** one project is enough. Use the **session pooler** (`aws-0-<region>.pooler.supabase.com`, port **5432**) and the pooler username `postgres.<project-ref>`. Port `6543` (transaction mode) breaks EF migrations. Run the `CREATE SCHEMA` statements in the SQL editor.
 - **Neon:** run the statements against the default database (`neondb`); set `Database=neondb` inside `PG_CONNECTION` if you keep that name.
@@ -462,7 +464,7 @@ docker run --rm postgres:17-alpine \
   -c '\dn'
 ```
 
-Expected: the schemas `catalog`, `inventory`, `orders` (plus `public`). If they are missing, the services fail at startup with `no schema has been selected to create in` — run the `CREATE SCHEMA` statements from §4.1.
+Expected: the schemas `catalog`, `inventory`, `orders` (plus `public`). They are created by each service on startup; if one is missing, that service failed before migrating — check its logs.
 
 Redis:
 
@@ -673,7 +675,7 @@ There are no database volumes on the VPS, so clearing Docker data cannot delete 
 | Keycloak exits at startup with a build-option error | The image was built with different build-time options than the runtime environment. `--optimized` requires them to match (for example `KC_DB=postgres` at build and at runtime) |
 | Login page shows the stock Keycloak theme | The theme jar is not in the image: `docker run --rm <image> ls /opt/keycloak/providers`. Also check the jar was built for this Keycloak version |
 | `Unable to parse URL jdbc:postgresql://:/?sslmode=` | The variables never reached Compose. Check they are in the **Keycloak** service's Environment tab (not the Eshop one), saved **and** redeployed. The `:?` guards in §7.2 make this fail at deploy time instead |
-| `no schema has been selected to create in` | The `catalog` / `inventory` / `orders` schemas do not exist. Run the `CREATE SCHEMA` statements from §4.1 |
+| `no schema has been selected to create in` | The service could not create its schema: the database user lacks `CREATE` on the database, or the running image predates the `CREATE SCHEMA IF NOT EXISTS` call. Grant `CREATE` or create the schema manually (§4.1) |
 | `relation "InboxState" already exists` | Two services are in the same schema. Check that each connection string carries its own `Search Path` |
 | `database "keycloak" does not exist` | Set `KEYCLOAK_DB=postgres` — the stack uses one database for everything |
 | Keycloak never becomes healthy | First import is slow. Check its logs; the health port is `9000` (`KC_HEALTH_ENABLED=true`). |

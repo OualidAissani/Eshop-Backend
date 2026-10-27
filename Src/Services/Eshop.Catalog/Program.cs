@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using MongoDB.Driver;
+using Npgsql;
 using Scrutor;
 using StackExchange.Redis;
 var builder = WebApplication.CreateBuilder(args);
@@ -183,6 +184,18 @@ void MigrateDatabase()
 {
     using var scope = app.Services.CreateScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
+    EnsureSchema(dbContext);
     dbContext.Database.Migrate();
+}
+
+void EnsureSchema(DbContext db)
+{
+    // `Search Path` can point at a schema that does not exist yet; Postgres then
+    // fails Migrate() with 3F000 "no schema has been selected to create in".
+    var schema = new NpgsqlConnectionStringBuilder(db.Database.GetConnectionString()).SearchPath;
+    if (!string.IsNullOrWhiteSpace(schema))
+    {
+        db.Database.ExecuteSqlRaw("CREATE SCHEMA IF NOT EXISTS \"" + schema.Replace("\"", "\"\"") + "\"");
+    }
 }
 

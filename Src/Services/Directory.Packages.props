@@ -62,7 +62,7 @@
 
     <!-- Analyzers: use one version consistently across projects -->
     <PackageVersion Include="SonarAnalyzer.CSharp" Version="10.35.0.4138" />
-    <PackageVersion Include="StyleCop.Analyzers" Version="1.1.118" />
+    <PackageVersion Include="StyleCop.Analyzers" Version="1.2.0-beta.556" />
 
     <!-- API documentation -->
     <PackageVersion Include="Swashbuckle.AspNetCore.Swagger" Version="10.2.3" />

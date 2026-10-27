@@ -45,7 +45,7 @@ These were the blockers between the repository and a working Dokploy deployment:
 | 10 | No TLS / public routing | Keycloak requires HTTPS in production | Traefik labels in the compose file + Dokploy's Let's Encrypt |
 | 11 | Secrets lived in local, git-ignored `appsettings.json` | A fresh clone has no config at all | All runtime config comes from environment variables |
 | 12 | Managed databases did not exist / were not reachable from the VPS | Services crash or time out at startup | Setup documented in §5 |
-| 13 | No TLS settings on the connection strings | Managed providers reject plaintext connections | `PG_SSL_MODE`, `ssl=True`, `amqps`, and `sslmode` are wired through the compose file |
+| 13 | No TLS settings on the connection strings | Managed providers reject plaintext connections | `SSL Mode=Require` inside `PG_CONNECTION`, plus `ssl=True` and `amqps` |
 | 14 | Catalog never applied its EF outbox migration | Publishing events from Catalog fails on a fresh database | `Database.Migrate()` added at startup |
 | 15 | No deployment automation | Every release was manual | Dokploy deploys on demand or on Git push |
 | 16 | Payment excluded | Online-payment orders cannot complete; COD still works | Documented, not deployed |
@@ -131,14 +131,14 @@ CREATE SCHEMA IF NOT EXISTS orders;
 Why: Catalog and Orders both create tables named `InboxState`, `OutboxMessage`, and `OutboxState`, and EF's `__EFMigrationsHistory` is per schema. Without separation the second service to start fails with `relation "InboxState" already exists`. The compose file pins each service with `Search Path=catalog` / `inventory` / `orders`, so **no code or migration change is needed** — the schema is chosen by the connection string.
 
 - **Supabase:** one project is enough. Use the **session pooler** (`aws-0-<region>.pooler.supabase.com`, port **5432**) and the pooler username `postgres.<project-ref>`. Port `6543` (transaction mode) breaks EF migrations. Run the `CREATE SCHEMA` statements in the SQL editor.
-- **Neon:** run the statements against the default database (`neondb`); change `Database=postgres` to `Database=neondb` in the compose file if you keep that name.
+- **Neon:** run the statements against the default database (`neondb`); set `Database=neondb` inside `PG_CONNECTION` if you keep that name.
 - **RDS / Aiven:** create the instance; connect to the default database and run the statements.
 - Use the **direct** hostname where the provider offers one. EF Core migrations take a session-level advisory lock, which transaction-mode poolers do not preserve.
 - Connection limits are shared by Catalog, Inventory, and Orders (10 each via `Maximum Pool Size=10`) plus Keycloak (capped at 10 via `KC_DB_POOL_MAX_SIZE`). Raise these only after checking the provider's limit.
-- If you want stricter TLS, set `PG_SSL_MODE=VerifyFull` (Npgsql) and `PG_JDBC_SSLMODE=verify-full` (Keycloak). `Require` encrypts without validating the certificate.
+- If you want stricter TLS, add `SSL Mode=VerifyFull` inside `PG_CONNECTION` (and `PG_JDBC_SSLMODE=verify-full` for Keycloak). `Require` encrypts without validating the certificate.
 - Allow the **VPS public IP** on the provider if it enforces an allowlist.
 
-> `Database.Migrate()` runs at startup for Catalog, Inventory, and Orders, so the schemas only need to exist and be empty. If your provider supports multiple databases and you prefer that, replace `Database=postgres;Search Path=catalog` with `Database=EshopCatalogDb` (and likewise for the other two) — nothing else changes.
+> `Database.Migrate()` runs at startup for Catalog, Inventory, and Orders, so the schemas only need to exist and be empty. If your provider supports multiple databases and you prefer that, point `Database=` in `PG_CONNECTION` at that database and delete `;Search Path=...` from the three `ConnectionStrings__*` lines in the compose file — nothing else changes.
 
 ### 4.2 MongoDB (Atlas)
 
@@ -173,7 +173,7 @@ If CloudAMQP gives you `amqps://user:pass@host/vhost` without a port, add `:5671
 
 ### 4.5 Keycloak database
 
-Keycloak uses the same managed PostgreSQL, in the **`public`** schema (the default), so it does not touch the `catalog` / `inventory` / `orders` schemas. Set `KEYCLOAK_DB=postgres` and, unless Keycloak has its own user, the same credentials as the services — in the Keycloak service's environment (§7.3).
+Keycloak uses the same managed PostgreSQL, in the **`public`** schema (the default), so it does not touch the `catalog` / `inventory` / `orders` schemas. Set `KEYCLOAK_DB=postgres` and, unless Keycloak has its own user, the same credentials as `PG_CONNECTION` — in the Keycloak service's environment (§7.3).
 
 ---
 
@@ -190,7 +190,7 @@ Fill in:
 
 - `API_DOMAIN`, `AUTH_DOMAIN` (no `https://`, no trailing slash)
 - `FRONTEND_ORIGIN` — exact Vercel production origin
-- `PG_*` (host, port, user, password, SSL mode) — one database, three schemas
+- `PG_CONNECTION` — one full Npgsql connection string (pasted as-is; the compose appends `Search Path`)
 - `MONGO_CONNECTION` — include the database name in the path (`…/Eshop?retryWrites=true`); `MONGO_DATABASE` only if you want to override it
 - `REDIS_CONNECTION`
 - `RABBITMQ_CONNECTION`
@@ -203,7 +203,7 @@ Rules:
 - Keep the quotes in the template. `MONGO_CONNECTION`, `REDIS_CONNECTION`, and `RABBITMQ_CONNECTION` contain `&`, `?`, or `,`.
 - Do **not** use `$`, `'`, `#`, spaces, `;`, or `=` inside passwords. `$` breaks Compose interpolation; `'` breaks the quoting; `;` breaks Npgsql connection strings.
 - Do **not** commit `deploy/.env`.
-- Core variables (`API_DOMAIN`, `AUTH_DOMAIN`, `FRONTEND_ORIGIN`, `PG_*`, `MONGO_*`, `REDIS_CONNECTION`, `RABBITMQ_CONNECTION`) use `${VAR:?}`, so a missing or empty value **aborts the deploy** with `required variable X is missing a value` instead of starting a broken container.
+- Core variables (`API_DOMAIN`, `AUTH_DOMAIN`, `FRONTEND_ORIGIN`, `PG_CONNECTION`, `MONGO_CONNECTION`, `REDIS_CONNECTION`, `RABBITMQ_CONNECTION`) use `${VAR:?}`, so a missing or empty value **aborts the deploy** with `required variable X is missing a value` instead of starting a broken container.
 - `UPLOADCARE_PUBLIC_KEY`, `UPLOADCARE_SECRET_KEY`, and `EMAIL_API_KEY` are intentionally blank in the template. They are **not** guarded: the stack starts without them, but image uploads and emails fail at runtime.
 
 You will paste these values into the **Eshop** service's Environment tab in §8.
@@ -383,7 +383,7 @@ KEYCLOAK_DB_PASSWORD=<database password>
 
 - **Port `5432` is the session pooler — use that one.** Port `6543` is transaction mode; Keycloak's schema migration and advisory locks do not survive it.
 - The pooler username is `postgres.<project-ref>`, not `postgres`.
-- The .NET services use the same host, port, user, and password (`PG_*` in the Eshop service) — only their `Search Path` differs, and that is already in the compose file.
+- The .NET services use the same connection string (`PG_CONNECTION` in the Eshop service) — only their `Search Path` differs, and that is already in the compose file.
 - Keycloak does not need a schema of its own: `public` holds no app tables, so there is nothing to collide with.
 
 ### 7.3.2 Do not add these
@@ -455,10 +455,10 @@ You will create **two** Compose services in the same project. Keycloak first (§
 PostgreSQL:
 
 ```bash
-set -a; source deploy/.env; set +a
-
-docker run --rm -e PGPASSWORD="$PG_PASSWORD" postgres:17-alpine \
-  psql "host=$PG_HOST port=$PG_PORT dbname=postgres user=$PG_USER sslmode=require" \
+# psql/pg_dump use the libpq URL, not the Npgsql string in PG_CONNECTION.
+# Copy the URI from the provider dashboard (Supabase: Connect -> URI).
+docker run --rm postgres:17-alpine \
+  psql "postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres?sslmode=require" \
   -c '\dn'
 ```
 
@@ -616,19 +616,11 @@ Neon, Atlas, Upstash, and CloudAMQP run their own backups — confirm the retent
 
 ```bash
 set -a; source deploy/.env; set +a
+PG_URL='postgresql://<user>:<password>@<host>:5432/postgres?sslmode=require'
 STAMP=$(date -u +%Y%m%dT%H%M%SZ); mkdir -p backups/$STAMP
 
-# libpq spelling of the Npgsql SSL Mode
-case "${PG_SSL_MODE,,}" in
-  verifyfull) PGSSLMODE=verify-full ;;
-  verifyca)   PGSSLMODE=verify-ca ;;
-  disable)    PGSSLMODE=disable ;;
-  *)          PGSSLMODE=require ;;
-esac
-export PGSSLMODE
-
-docker run --rm -e PGPASSWORD="$PG_PASSWORD" -e PGSSLMODE="$PGSSLMODE" postgres:17-alpine \
-  pg_dump -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d postgres --schema=catalog \
+docker run --rm postgres:17-alpine \
+  pg_dump "$PG_URL" --schema=catalog \
   --no-owner --no-privileges --clean --if-exists | gzip > backups/$STAMP/catalog.sql.gz
 
 docker run --rm mongo:8 mongodump --uri "$MONGO_CONNECTION" --archive --gzip \
@@ -641,8 +633,7 @@ Restore (stop the services in Dokploy first, or scale them to zero):
 
 ```bash
 gunzip -c backups/<stamp>/catalog.sql.gz | \
-  docker run --rm -i -e PGPASSWORD="$PG_PASSWORD" -e PGSSLMODE=require postgres:17-alpine \
-  psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d postgres
+  docker run --rm -i postgres:17-alpine psql "$PG_URL"
 ```
 
 The dump carries its `CREATE SCHEMA` statement, so restoring recreates `catalog` (or `inventory` / `orders`) before the tables.
@@ -668,10 +659,10 @@ There are no database volumes on the VPS, so clearing Docker data cannot delete 
 | Dokploy build fails with "context not found" | **Compose Path** must be `deploy/docker-compose.yml` in the repository; the build context is `..` (repo root). |
 | Domain returns `404` from Traefik | `gateway`/`keycloak` must be attached to `dokploy-network` (they are in the compose file); redeploy after changing domains; make sure you did not configure the domain both in labels and in the **Domains** tab. |
 | Every domain 404s after a Docker upgrade | Dokploy's Traefik must be `v3.6.7` or newer on Docker Engine 28+. Update Dokploy/Traefik. |
-| `required variable PG_HOST is missing a value` | Compose refused the deploy. Add the variable from `deploy/.env.example` to the **Eshop** service's Environment tab |
+| `required variable PG_CONNECTION is missing a value` | Compose refused the deploy. Add the variable from `deploy/.env.example` to the **Eshop** service's Environment tab |
 | `28P01: password authentication failed` | Password mismatch or unescaped characters. Re-copy the credential; avoid `$ ' # ;`. |
 | `too many clients already` / connection limit | Free tiers have low limits. The compose file caps the services at 10 connections each and Keycloak at 10; lower them further or upgrade. Do not switch to a transaction-mode pooler: EF migrations need a session-level lock. |
-| `The server does not support SSL connections` | Set `PG_SSL_MODE=Disable` (and `PG_JDBC_SSLMODE=disable`) only for a private/local server. |
+| `The server does not support SSL connections` | Set `SSL Mode=Disable` inside `PG_CONNECTION` (and `PG_JDBC_SSLMODE=disable` for Keycloak) only for a private/local server. |
 | Mongo `Server selection timed out` | Atlas **Network Access** must include the VPS IP; URL-encode the password; check that `+srv` DNS works from the VPS. |
 | Redis `NOAUTH` / TLS errors | `password=...` must be in `REDIS_CONNECTION`; managed Redis requires `ssl=True` and usually port `6379`. |
 | RabbitMQ `ACCESS_REFUSED` / `NOT_ALLOWED` | The path in the URI is the **virtual host**; port must be `5671` for `amqps`. |

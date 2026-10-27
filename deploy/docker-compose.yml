@@ -22,11 +22,13 @@
 
 x-common-env: &common-env
   ASPNETCORE_ENVIRONMENT: Production
-  Keycloak__Authority: https://${AUTH_DOMAIN}/realms/Eshop
+  # `:?` = Compose aborts the deploy if the variable is missing or empty,
+  # instead of passing "" to the app and failing later with a cryptic error.
+  Keycloak__Authority: https://${AUTH_DOMAIN:?}/realms/Eshop
   Keycloak__Audience: eshop-api
   Keycloak__RequireHttpsMetadata: "true"
-  ConnectionStrings__Rabbitmq: "${RABBITMQ_CONNECTION}"
-  ConnectionStrings__Redis: "${REDIS_CONNECTION}"
+  ConnectionStrings__Rabbitmq: "${RABBITMQ_CONNECTION:?}"
+  ConnectionStrings__Redis: "${REDIS_CONNECTION:?}"
 
 x-service: &service
   restart: unless-stopped
@@ -44,7 +46,7 @@ x-service: &service
     # services fetch its OIDC metadata from the public URL. Pinning that name to
     # the host gateway avoids relying on the VPS hairpin-NAT'ing its own public
     # IP back to itself (which AWS and some other clouds refuse to do).
-    - "${AUTH_DOMAIN}:host-gateway"
+    - "${AUTH_DOMAIN:?}:host-gateway"
 
 services:
   catalog:
@@ -55,9 +57,9 @@ services:
     image: eshop/catalog:${TAG:-latest}
     environment:
       <<: *common-env
-      ConnectionStrings__CatalogDb: "Host=${PG_HOST};Port=${PG_PORT};Database=${CATALOG_DB};Username=${PG_USER};Password=${PG_PASSWORD};SSL Mode=${PG_SSL_MODE};Maximum Pool Size=10"
-      ConnectionStrings__CatalogMongoDb: "${MONGO_CONNECTION}"
-      Mongo__Database: ${MONGO_DATABASE}
+      ConnectionStrings__CatalogDb: "Host=${PG_HOST:?};Port=${PG_PORT:?};Database=${CATALOG_DB:?};Username=${PG_USER:?};Password=${PG_PASSWORD:?};SSL Mode=${PG_SSL_MODE:?};Maximum Pool Size=10"
+      ConnectionStrings__CatalogMongoDb: "${MONGO_CONNECTION:?}"
+      Mongo__Database: ${MONGO_DATABASE:?}
       UploadCare__PublicKey: ${UPLOADCARE_PUBLIC_KEY}
       UploadCare__SecretKey: ${UPLOADCARE_SECRET_KEY}
       UploadCare__Store: ${UPLOADCARE_STORE:-1}
@@ -73,7 +75,7 @@ services:
     image: eshop/inventory:${TAG:-latest}
     environment:
       <<: *common-env
-      ConnectionStrings__InventoryDb: "Host=${PG_HOST};Port=${PG_PORT};Database=${INVENTORY_DB};Username=${PG_USER};Password=${PG_PASSWORD};SSL Mode=${PG_SSL_MODE};Maximum Pool Size=10"
+      ConnectionStrings__InventoryDb: "Host=${PG_HOST:?};Port=${PG_PORT:?};Database=${INVENTORY_DB:?};Username=${PG_USER:?};Password=${PG_PASSWORD:?};SSL Mode=${PG_SSL_MODE:?};Maximum Pool Size=10"
     networks:
       - eshop
 
@@ -85,7 +87,7 @@ services:
     image: eshop/orders:${TAG:-latest}
     environment:
       <<: *common-env
-      ConnectionStrings__OrderDb: "Host=${PG_HOST};Port=${PG_PORT};Database=${ORDER_DB};Username=${PG_USER};Password=${PG_PASSWORD};SSL Mode=${PG_SSL_MODE};Maximum Pool Size=10"
+      ConnectionStrings__OrderDb: "Host=${PG_HOST:?};Port=${PG_PORT:?};Database=${ORDER_DB:?};Username=${PG_USER:?};Password=${PG_PASSWORD:?};SSL Mode=${PG_SSL_MODE:?};Maximum Pool Size=10"
     networks:
       - eshop
 
@@ -98,7 +100,7 @@ services:
     environment:
       <<: *common-env
       EmailService__ApiKey: ${EMAIL_API_KEY}
-      EmailService__BaseUrl: ${EMAIL_BASE_URL}
+      EmailService__BaseUrl: ${EMAIL_BASE_URL:?}
       EmailService__SenderName: ${EMAIL_SENDER_NAME}
       EmailService__SenderEmail: ${EMAIL_SENDER_EMAIL}
     networks:
@@ -113,7 +115,7 @@ services:
     environment:
       <<: *common-env
       ForwardedHeaders__TrustAll: "true"
-      Cors__AllowedOrigins__0: ${FRONTEND_ORIGIN}
+      Cors__AllowedOrigins__0: ${FRONTEND_ORIGIN:?}
       ReverseProxy__Clusters__Paymentcluster__Destinations__destination1__Address: http://payment:8080
       ReverseProxy__Clusters__Catalogcluster__Destinations__destination1__Address: http://catalog:8080
       ReverseProxy__Clusters__Inventorycluster__Destinations__destination1__Address: http://inventory:8080
@@ -133,7 +135,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=dokploy-network"
-      - "traefik.http.routers.eshop-api.rule=Host(`${API_DOMAIN}`)"
+      - "traefik.http.routers.eshop-api.rule=Host(`${API_DOMAIN:?}`)"
       - "traefik.http.routers.eshop-api.entrypoints=websecure"
       - "traefik.http.routers.eshop-api.tls.certresolver=letsencrypt"
       - "traefik.http.services.eshop-api.loadbalancer.server.port=8080"

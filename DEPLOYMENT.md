@@ -191,7 +191,8 @@ Rules:
 - Keep the quotes in the template. `MONGO_CONNECTION`, `REDIS_CONNECTION`, and `RABBITMQ_CONNECTION` contain `&`, `?`, or `,`.
 - Do **not** use `$`, `'`, `#`, spaces, `;`, or `=` inside passwords. `$` breaks Compose interpolation; `'` breaks the quoting; `;` breaks Npgsql connection strings.
 - Do **not** commit `deploy/.env`.
-- If a variable is missing, Compose substitutes an empty string and the container fails at startup — check the deploy logs.
+- Core variables (`API_DOMAIN`, `AUTH_DOMAIN`, `FRONTEND_ORIGIN`, `PG_*`, `*_DB`, `MONGO_*`, `REDIS_CONNECTION`, `RABBITMQ_CONNECTION`) use `${VAR:?}`, so a missing or empty value **aborts the deploy** with `required variable X is missing a value` instead of starting a broken container.
+- `UPLOADCARE_PUBLIC_KEY`, `UPLOADCARE_SECRET_KEY`, and `EMAIL_API_KEY` are intentionally blank in the template. They are **not** guarded: the stack starts without them, but image uploads and emails fail at runtime.
 
 You will paste these values into the **Eshop** service's Environment tab in §8.
 
@@ -652,7 +653,7 @@ There are no database volumes on the VPS, so clearing Docker data cannot delete 
 | Dokploy build fails with "context not found" | **Compose Path** must be `deploy/docker-compose.yml` in the repository; the build context is `..` (repo root). |
 | Domain returns `404` from Traefik | `gateway`/`keycloak` must be attached to `dokploy-network` (they are in the compose file); redeploy after changing domains; make sure you did not configure the domain both in labels and in the **Domains** tab. |
 | Every domain 404s after a Docker upgrade | Dokploy's Traefik must be `v3.6.7` or newer on Docker Engine 28+. Update Dokploy/Traefik. |
-| Container exits at startup with an empty setting | A required environment variable is missing in Dokploy; Compose substitutes an empty string. Compare with `deploy/.env.example`. |
+| `required variable PG_HOST is missing a value` | Compose refused the deploy. Add the variable from `deploy/.env.example` to the **Eshop** service's Environment tab |
 | `28P01: password authentication failed` | Password mismatch or unescaped characters. Re-copy the credential; avoid `$ ' # ;`. |
 | `too many clients already` / connection limit | Free tiers have low limits. The compose file caps the services at 10 connections each and Keycloak at 10; lower them further or upgrade. Do not switch to a transaction-mode pooler: EF migrations need a session-level lock. |
 | `The server does not support SSL connections` | Set `PG_SSL_MODE=Disable` (and `PG_JDBC_SSLMODE=disable`) only for a private/local server. |

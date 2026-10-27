@@ -4,8 +4,8 @@
 
 | Layer | Where |
 |---|---|
-| Catalog, Inventory, Orders, Notification, Gateway | **VPS** (Dokploy, Docker) |
-| Keycloak | **VPS** (Dokploy, data in managed PostgreSQL, private theme image) |
+| Catalog, Inventory, Orders, Notification, Gateway | **VPS** — Dokploy service `eshop`, `deploy/docker-compose.yml` |
+| Keycloak | **VPS** — separate Dokploy service built from the private theme repo (§7) |
 | Traefik (TLS + routing) | **VPS** (installed and managed by Dokploy) |
 | PostgreSQL | **External / managed** (Neon, Supabase, RDS, ...) |
 | MongoDB | **External / managed** (Atlas, ...) |
@@ -16,9 +16,14 @@
 
 Payment is intentionally **not** deployed (it is no longer in the solution/AppHost). The gateway still has a `/api/Payment` route, so requests to it return `502`. COD orders never touch Payment; PayPal orders will not complete.
 
-Dokploy runs **6 containers**: Keycloak and the five .NET services. There is no Caddy and no local database.
+There are **two independent Dokploy services**, each with its own Git repo and compose file:
 
-The only deployment file you need is `deploy/docker-compose.yml`, plus the environment variables from `deploy/.env.example`.
+| Service | Containers | Repo |
+|---|---|---|
+| `eshop` | catalog, inventory, orders, notification, gateway | this repo |
+| `keycloak` | keycloak | private theme repo |
+
+For this repo, the only deployment file you need is `deploy/docker-compose.yml`, plus the environment variables from `deploy/.env.example`. Keycloak's Dockerfile, compose file, and variables are in §7.
 
 ---
 
@@ -64,7 +69,8 @@ These were the blockers between the repository and a working Dokploy deployment:
           |                                       |
    api.<host>                              auth.<host>
           |                                       |
-   gateway:8080                            keycloak:8080
+  [ eshop service ]                     [ keycloak service ]
+   gateway:8080                          keycloak:8080
           |                                       |
    +------+------+------+------+                 |
    |      |      |      |      |                 |
@@ -80,7 +86,7 @@ catalog inventory orders notif. |                 |
           +-------------------------> Redis (managed) + RabbitMQ (managed)
 ```
 
-Only Traefik listens on public ports. Keycloak and the services live on a private Docker network and reach the managed services over TLS on the public internet.
+Only Traefik listens on public ports. Keycloak and the services run in two separate Docker projects, each on its own private network, and reach the managed services over TLS on the public internet. The .NET services reach Keycloak through `https://${AUTH_DOMAIN}` (host-gateway), not through a shared Docker network.
 
 ---
 
@@ -155,7 +161,7 @@ If CloudAMQP gives you `amqps://user:pass@host/vhost` without a port, add `:5671
 
 ### 4.5 Keycloak database
 
-Keycloak uses the same managed PostgreSQL. The `keycloak` database from 4.1 is enough. If your provider uses separate users, set `KEYCLOAK_DB_USER` / `KEYCLOAK_DB_PASSWORD`; otherwise they default to `PG_USER` / `PG_PASSWORD`.
+Keycloak uses the same managed PostgreSQL. The `keycloak` database from 4.1 is enough. It can use the same user as the services (`PG_USER`) or its own — set `KEYCLOAK_DB_USER` / `KEYCLOAK_DB_PASSWORD` in the Keycloak service's environment (§7.3).
 
 ---
 
@@ -172,13 +178,13 @@ Fill in:
 
 - `API_DOMAIN`, `AUTH_DOMAIN` (no `https://`, no trailing slash)
 - `FRONTEND_ORIGIN` — exact Vercel production origin
-- `PG_*`, `CATALOG_DB`, `INVENTORY_DB`, `ORDER_DB`, `KEYCLOAK_DB`
+- `PG_*`, `CATALOG_DB`, `INVENTORY_DB`, `ORDER_DB`
 - `MONGO_CONNECTION`, `MONGO_DATABASE`
 - `REDIS_CONNECTION`
 - `RABBITMQ_CONNECTION`
-- `KEYCLOAK_IMAGE` — the private Keycloak image you pushed in §7
-- `KEYCLOAK_ADMIN_USER`, `KEYCLOAK_ADMIN_PASSWORD`
 - UploadCare and Brevo keys
+
+Keycloak's own variables (`KEYCLOAK_ADMIN_*`, `KEYCLOAK_DB`, `PG_JDBC_SSLMODE`, ...) are **not** here — they belong to the separate Keycloak service, listed in §7.3.
 
 Rules:
 
@@ -187,7 +193,7 @@ Rules:
 - Do **not** commit `deploy/.env`.
 - If a variable is missing, Compose substitutes an empty string and the container fails at startup — check the deploy logs.
 
-You will paste these values into Dokploy's **Environment** tab in the next step.
+You will paste these values into the **Eshop** service's Environment tab in §8.
 
 ---
 
@@ -215,11 +221,18 @@ Then:
 
 ---
 
-## 7. Build and publish the Keycloak image
+## 7. Keycloak as a separate Dokploy service
 
-Keycloak here is not the stock image: it carries your **login theme** and the **realm export**. Those live in a separate **private** repo with its own `Dockerfile`.
+Keycloak is **not** part of the Eshop stack. It lives in its own **private Git repo** (Dockerfile + theme jar + realm export + its own compose file) and runs as a second Dokploy **Compose** service.
 
-Dokploy cannot build it for you: a Compose service is bound to **one** Git repo (the Eshop repo), so it cannot `build:` a Dockerfile that lives in a different repository. The image therefore has to be built and pushed once, and referenced through `KEYCLOAK_IMAGE`.
+| Dokploy service | Git repo | Compose path | Containers |
+|---|---|---|---|
+| `eshop` | `Eshop-Backend` (this repo) | `deploy/docker-compose.yml` | catalog, inventory, orders, notification, gateway |
+| `keycloak` | private Keycloak repo | `docker-compose.yml` | keycloak |
+
+Each Dokploy Compose service is bound to exactly one Git repo, so the private repo builds its own Dockerfile directly: **no image registry and no `docker login`** are involved.
+
+The two stacks do not share a Docker network. The .NET services reach Keycloak over its public URL (`https://${AUTH_DOMAIN}`), which `extra_hosts: ${AUTH_DOMAIN}:host-gateway` resolves to the VPS, where Traefik routes it. That is why the Eshop compose still needs `AUTH_DOMAIN`.
 
 ### 7.1 Dockerfile (private Keycloak repo)
 
@@ -261,55 +274,161 @@ Differences from the Render version:
 | Single stage | Multi-stage + `--optimized` keeps startup at a few seconds instead of re-augmenting on every boot |
 | `26.5.7` | `26.8.1` to match the deployment. If the Keycloakify theme renders wrong, rebuild the jar against the same version |
 
-### 7.2 Build and push
+### 7.2 `docker-compose.yml` (private Keycloak repo)
 
-```bash
-docker build -t ghcr.io/<owner>/eshop-keycloak:26.8.1 .
-echo "<GHCR_PAT>" | docker login ghcr.io -u <owner> --password-stdin
-docker push ghcr.io/<owner>/eshop-keycloak:26.8.1
+```yaml
+services:
+  keycloak:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: eshop-keycloak:${KEYCLOAK_VERSION:-26.8.1}
+    restart: unless-stopped
+    environment:
+      # `:?` makes Compose refuse to deploy when a value is missing. Without it
+      # the message becomes jdbc:postgresql://:/?sslmode= inside Keycloak, which
+      # looks like a Keycloak bug but is really an empty variable.
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER:?}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?}
+      KC_DB: postgres
+      KC_DB_URL: "jdbc:postgresql://${PG_HOST:?}:${PG_PORT:?}/${KEYCLOAK_DB:?}?sslmode=${PG_JDBC_SSLMODE:?}"
+      KC_DB_USERNAME: ${KEYCLOAK_DB_USER:?}
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?}
+      KC_DB_POOL_INITIAL_SIZE: "2"
+      KC_DB_POOL_MAX_SIZE: "10"
+      KC_HOSTNAME: https://${AUTH_DOMAIN:?}
+      KC_PROXY_HEADERS: xforwarded
+      KC_HTTP_ENABLED: "true"
+      KC_HEALTH_ENABLED: "true"
+      KC_LOG_LEVEL: INFO
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/9000'"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 90s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=dokploy-network"
+      - "traefik.http.routers.eshop-auth.rule=Host(`${AUTH_DOMAIN:?}`)"
+      - "traefik.http.routers.eshop-auth.entrypoints=websecure"
+      - "traefik.http.routers.eshop-auth.tls.certresolver=letsencrypt"
+      - "traefik.http.services.eshop-auth.loadbalancer.server.port=8080"
+    networks:
+      - dokploy-network
+
+networks:
+  dokploy-network:
+    external: true
 ```
 
-The tag should always equal the Keycloak version, and `KEYCLOAK_IMAGE` in `deploy/.env` must point at it:
+No `ports:` — Traefik reaches it through `dokploy-network`, exactly like the Eshop gateway. Docker builds the image on the VPS from this repo; nothing is pushed anywhere.
+
+If you would rather paste one value instead of five, replace the whole `KC_DB_URL` line with:
+
+```yaml
+      KC_DB_URL: "jdbc:postgresql://aws-0-eu-central-1.pooler.supabase.com:5432/postgres?sslmode=require"
+```
+
+### 7.3 Environment variables for the Keycloak service
+
+These go in the **Keycloak** service's Environment tab. They are deliberately not in the Eshop stack:
 
 ```env
-KEYCLOAK_IMAGE=ghcr.io/<owner>/eshop-keycloak:26.8.1
+AUTH_DOMAIN=auth.203.0.113.10.sslip.io
+
+KEYCLOAK_ADMIN_USER=admin
+KEYCLOAK_ADMIN_PASSWORD=change-me-keycloak
+
+PG_HOST=ep-cool-name-123456.eu-central-1.aws.neon.tech
+PG_PORT=5432
+PG_JDBC_SSLMODE=require
+
+KEYCLOAK_DB=keycloak
+KEYCLOAK_DB_USER=eshop
+KEYCLOAK_DB_PASSWORD=change-me-postgres
+
+KEYCLOAK_VERSION=26.8.1
 ```
 
-Docker Hub works the same way (`docker.io/<user>/eshop-keycloak:26.8.1`), just with a private repo there too.
+If Keycloak uses the same database user as the services, `KEYCLOAK_DB_USER` / `KEYCLOAK_DB_PASSWORD` can be the same values.
 
-### 7.3 Give the VPS access to the private image
+### 7.3.1 If the database is Supabase
 
-Pick one:
+Supabase does not let you create extra databases, so Keycloak lives in `postgres` and the provider-specific bits are:
 
-- **Dokploy UI:** **Settings → Registry** → registry `ghcr.io`, username `<owner>`, password = a GitHub PAT with `read:packages`.
-- **On the VPS:** `docker login ghcr.io -u <owner> -p <PAT>`.
+```env
+PG_HOST=aws-0-<region>.pooler.supabase.com
+PG_PORT=5432
+PG_JDBC_SSLMODE=require
+KEYCLOAK_DB=postgres
+KEYCLOAK_DB_USER=postgres.<project-ref>
+KEYCLOAK_DB_PASSWORD=<database password>
+```
 
-If the deploy fails with `unauthorized` / `denied` / `manifest unknown`, this is the step that is missing.
+- **Port `5432` is the session pooler — use that one.** Port `6543` is transaction mode; Keycloak's schema migration and advisory locks do not survive it.
+- The pooler username is `postgres.<project-ref>`, not `postgres`.
+- The same pooler caveat as §4.1 applies to the .NET services: they must use the **direct** connection (or Supabase's IPv4 add-on) because EF Core migrations need a session-level lock.
 
-### 7.4 When the theme or realm changes
+### 7.3.2 Do not add these
 
-Rebuild, push with a new tag (for example `26.8.1-2`), update `KEYCLOAK_IMAGE`, redeploy. The realm import still only runs against an **empty** Keycloak database — later realm changes have to be applied in the admin console.
+Two settings cause exactly the failure they look like they would fix:
 
-`Src/Services/Eshop.AppHost/realms/` still holds a copy of the theme jar and the realm export, but only for local Aspire development. In production the copies **inside the image** win, so keep the two in sync when you change the theme or the realm.
+| Don't set | Why |
+|---|---|
+| `KC_PROXY=edge` | Removed in Keycloak 26 and ignored. The compose file already sets `KC_PROXY_HEADERS=xforwarded`; adding both makes the proxy behaviour depend on which one wins |
+| `--hostname-strict=false` / `KC_HOSTNAME_STRICT=false` | Only needed when the hostname is unknown. `KC_HOSTNAME` is set explicitly, so strict mode is correct and stops host-header attacks |
+
+`KC_LOG_LEVEL=INFO` is right for production; `DEBUG` logs full request headers and grows quickly.
+
+### 7.4 Deploy order
+
+1. Deploy the **keycloak** service first and wait for it to be healthy:
+   ```bash
+   curl -fsS https://auth.<host>/realms/Eshop/.well-known/openid-configuration
+   ```
+2. Then deploy the **eshop** service.
+
+After the first deploy the two are independent: redeploying Keycloak does not restart the API, and redeploying the API does not touch Keycloak. The only ordering that matters is the very first start, because the .NET services fetch the OIDC metadata from `https://auth.<host>`.
+
+### 7.5 When the theme or realm changes
+
+Commit to the private repo and redeploy **that** service only. The realm import only runs against an **empty** Keycloak database — later realm changes have to be applied in the admin console.
+
+`Src/Services/Eshop.AppHost/realms/` still holds a copy of the theme jar and the realm export, but only for local Aspire development. The copies in the private repo are what production runs, so keep the two in sync.
+
+Deleting or redeploying the Keycloak service never deletes data: the realm lives in the managed PostgreSQL (`KEYCLOAK_DB`).
 
 ---
 
-## 8. Create the Compose service in Dokploy
+## 8. Create the two Compose services in Dokploy
 
-1. **Projects → Create Project → Create Service → Compose**.
+You will create **two** Compose services in the same project. Keycloak first (§7.4).
+
+### 8.1 Keycloak
+
+1. **Create Service → Compose**.
+2. **Provider → Git → GitHub**: pick the **private** Keycloak repo and branch `main`.
+   - If the repo does not appear, install/authorize the Dokploy GitHub App for that repository.
+3. **Compose Path**: `docker-compose.yml` (from §7.2 — commit it to that repo).
+4. **Environment**: the variables from §7.3.
+5. **Domains**: the compose file already carries the `auth.<host>` Traefik labels. If you prefer the UI instead, delete the `labels:` block and add `auth.<host>` → service `keycloak`, port `8080`, HTTPS on. Never both.
+6. **Deploy** and wait until it is healthy (first realm import takes 30–90 s).
+
+### 8.2 Eshop
+
+1. **Create Service → Compose**.
 2. **Provider → Git**:
    - Repository: `https://github.com/OualidAissani/Eshop-Backend.git`
    - Branch: `main`
 3. **Compose Path**: `deploy/docker-compose.yml`
    - The file uses `context: ..` for the five .NET builds, so it must be deployed from the repository layout. Do not upload a standalone copy of the YAML.
-4. **Environment**: paste the full contents of your `deploy/.env` (including `KEYCLOAK_IMAGE` from §7).
+4. **Environment**: paste the full contents of your `deploy/.env`.
 5. **Domains** — choose one approach, not both:
-   - **Labels (already in the compose file):** nothing to do. `api.<host>` → `gateway:8080`, `auth.<host>` → `keycloak:8080`, with `certresolver=letsencrypt`.
-   - **Dokploy UI:** delete the two `labels:` blocks from the compose file, then add in the **Domains** tab:
-     - `api.<host>` → service `gateway`, port `8080`, HTTPS on
-     - `auth.<host>` → service `keycloak`, port `8080`, HTTPS on
+   - **Labels (already in the compose file):** nothing to do. `api.<host>` → `gateway:8080` with `certresolver=letsencrypt`.
+   - **Dokploy UI:** delete the `labels:` block from the compose file, then add in the **Domains** tab `api.<host>` → service `gateway`, port `8080`, HTTPS on.
 6. Optional: click **Preview Compose** to see how Dokploy injects its labels/network.
-7. Click **Deploy** and watch the build logs. The first build produces five .NET images and takes several minutes; Keycloak is pulled from your registry (§7). Keycloak's first realm import takes 30–90 s.
+7. **Deploy** and watch the build logs. The first build produces five .NET images and takes several minutes.
 
 ---
 
@@ -323,7 +442,7 @@ PostgreSQL:
 set -a; source deploy/.env; set +a
 
 docker run --rm -e PGPASSWORD="$PG_PASSWORD" postgres:17-alpine \
-  psql "host=$PG_HOST port=$PG_PORT dbname=$CATALOG_DB user=$PG_USER sslmode=${PG_JDBC_SSLMODE}" \
+  psql "host=$PG_HOST port=$PG_PORT dbname=$CATALOG_DB user=$PG_USER sslmode=require" \
   -c 'select 1'
 ```
 
@@ -456,11 +575,16 @@ Options:
 
 ### Deploy a new version
 
-Push to `main`, then click **Deploy** in Dokploy (or enable auto-deploy on push in the service settings). A redeploy rebuilds changed images and recreates containers.
+Each service deploys independently:
+
+- **Eshop**: push to `main` of this repo → **Deploy** on the `eshop` service.
+- **Keycloak**: push to the private repo → **Deploy** on the `keycloak` service.
+
+A redeploy rebuilds changed images and recreates that stack's containers only.
 
 ### Environment changes
 
-Editing a variable in Dokploy only saves it; **redeploy** for it to reach the containers.
+Editing a variable in Dokploy only saves it; **redeploy** for it to reach the containers. `AUTH_DOMAIN` exists in both services — change it in both, or the API validates tokens from the wrong issuer.
 
 ### Rollback
 
@@ -478,7 +602,16 @@ Neon, Atlas, Upstash, and CloudAMQP run their own backups — confirm the retent
 set -a; source deploy/.env; set +a
 STAMP=$(date -u +%Y%m%dT%H%M%SZ); mkdir -p backups/$STAMP
 
-docker run --rm -e PGPASSWORD="$PG_PASSWORD" -e PGSSLMODE="$PG_JDBC_SSLMODE" postgres:17-alpine \
+# libpq spelling of the Npgsql SSL Mode
+case "${PG_SSL_MODE,,}" in
+  verifyfull) PGSSLMODE=verify-full ;;
+  verifyca)   PGSSLMODE=verify-ca ;;
+  disable)    PGSSLMODE=disable ;;
+  *)          PGSSLMODE=require ;;
+esac
+export PGSSLMODE
+
+docker run --rm -e PGPASSWORD="$PG_PASSWORD" -e PGSSLMODE="$PGSSLMODE" postgres:17-alpine \
   pg_dump -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d "$CATALOG_DB" \
   --no-owner --no-privileges --clean --if-exists | gzip > backups/$STAMP/catalog.sql.gz
 
@@ -486,13 +619,13 @@ docker run --rm mongo:8 mongodump --uri "$MONGO_CONNECTION" --archive --gzip \
   > backups/$STAMP/mongo.archive.gz
 ```
 
-Repeat the `pg_dump` line for `INVENTORY_DB`, `ORDER_DB`, and `KEYCLOAK_DB`.
+Repeat the `pg_dump` line for `INVENTORY_DB` and `ORDER_DB`. The Keycloak database (`KEYCLOAK_DB`) is backed up the same way, using the credentials from the Keycloak service's environment.
 
 Restore (stop the services in Dokploy first, or scale them to zero):
 
 ```bash
 gunzip -c backups/<stamp>/catalog.sql.gz | \
-  docker run --rm -i -e PGPASSWORD="$PG_PASSWORD" -e PGSSLMODE="$PG_JDBC_SSLMODE" postgres:17-alpine \
+  docker run --rm -i -e PGPASSWORD="$PG_PASSWORD" -e PGSSLMODE=require postgres:17-alpine \
   psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d "$CATALOG_DB"
 ```
 
@@ -525,9 +658,13 @@ There are no database volumes on the VPS, so clearing Docker data cannot delete 
 | Redis `NOAUTH` / TLS errors | `password=...` must be in `REDIS_CONNECTION`; managed Redis requires `ssl=True` and usually port `6379`. |
 | RabbitMQ `ACCESS_REFUSED` / `NOT_ALLOWED` | The path in the URI is the **virtual host**; port must be `5671` for `amqps`. |
 | `502` from the gateway | Check the target service's logs in Dokploy. `/api/Payment` is expected to be `502` because Payment is not deployed. |
-| Keycloak image cannot be pulled (`unauthorized`, `denied`, `manifest unknown`) | The image is private: configure **Settings → Registry** in Dokploy or run `docker login ghcr.io` on the VPS (§7.3); check the tag in `KEYCLOAK_IMAGE` exists |
+| Keycloak service fails to build | The private repo must be authorized in Dokploy's GitHub App; the theme jar and `realm-export.json` must be committed next to the `Dockerfile` |
+| `auth.<host>` returns 404 | Keycloak service must carry the Traefik labels from §7.2 (or the domain in the Domains tab, not both) and be on `dokploy-network` |
+| The API returns 401/500 and the logs mention OIDC/`jwks` | Keycloak is not running or `AUTH_DOMAIN` is wrong in the **Eshop** service. Deploy Keycloak first (§7.4); inside a container test with `docker compose exec gateway curl -I https://$AUTH_DOMAIN/realms/Eshop` |
 | Keycloak exits at startup with a build-option error | The image was built with different build-time options than the runtime environment. `--optimized` requires them to match (for example `KC_DB=postgres` at build and at runtime) |
 | Login page shows the stock Keycloak theme | The theme jar is not in the image: `docker run --rm <image> ls /opt/keycloak/providers`. Also check the jar was built for this Keycloak version |
+| `Unable to parse URL jdbc:postgresql://:/?sslmode=` | The variables never reached Compose. Check they are in the **Keycloak** service's Environment tab (not the Eshop one), saved **and** redeployed. The `:?` guards in §7.2 make this fail at deploy time instead |
+| `database "keycloak" does not exist` | Supabase has no extra databases: set `KEYCLOAK_DB=postgres`. On other providers create the `keycloak` database |
 | Keycloak restarts or `database "keycloak" does not exist` | Create the `keycloak` database; verify `PG_HOST`, `PG_PORT`, `PG_JDBC_SSLMODE`, and the credentials. |
 | Keycloak never becomes healthy | First import is slow. Check its logs; the health port is `9000` (`KC_HEALTH_ENABLED=true`). |
 | Keycloak redirects to `http://` or the wrong host | `KC_HOSTNAME` must be `https://auth.<host>`; Traefik must pass `X-Forwarded-Proto`. Redeploy after changing it. |

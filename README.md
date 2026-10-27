@@ -100,13 +100,20 @@ Aspire handles service discovery, RabbitMQ, Redis, and PostgreSQL startup automa
 
 ## Production deployment
 
-The deployment targets **Dokploy** on a VPS. Dokploy runs the stack and its own Traefik for TLS; the VPS hosts Keycloak and the five .NET services. PostgreSQL, MongoDB, Redis, and RabbitMQ are managed services hosted outside the VPS, wired in through environment variables.
+The deployment targets **Dokploy** on a VPS, as **two independent Compose services**:
 
-Everything needed is in `deploy/`:
+| Dokploy service | Contents | Source |
+|---|---|---|
+| `eshop` | catalog, inventory, orders, notification, gateway | this repo — `deploy/docker-compose.yml` |
+| `keycloak` | Keycloak with the login theme and realm export baked in | a separate private repo (Dockerfile + `docker-compose.yml`) |
 
-- `deploy/docker-compose.yml` — the stack Dokploy deploys
-- `deploy/.env.example` — the environment variables to paste into Dokploy
+PostgreSQL, MongoDB, Redis, and RabbitMQ are managed services hosted outside the VPS, wired in through environment variables. Dokploy's Traefik provides TLS for `api.<host>` (gateway) and `auth.<host>` (Keycloak).
 
-Keycloak is not the stock image: the login theme and the realm export are baked into a private image built from a separate repo, referenced by `KEYCLOAK_IMAGE` (see §7 of the guide).
+For this repo:
 
-See **[DEPLOYMENT.md](DEPLOYMENT.md)** for the step-by-step guide: managed services, environment variables, the Keycloak image, Dokploy setup, domain routing, and troubleshooting.
+- `deploy/docker-compose.yml` — the Eshop stack
+- `deploy/.env.example` — the environment variables to paste into the **Eshop** service
+
+Keycloak's Dockerfile, compose file, and its own variable list are in §7 of the guide.
+
+See **[DEPLOYMENT.md](DEPLOYMENT.md)** for the step-by-step guide: managed services, environment variables, the Keycloak service, Dokploy setup, domain routing, and troubleshooting.

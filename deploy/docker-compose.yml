@@ -1,19 +1,22 @@
 # ---------------------------------------------------------------------------
-# Eshop production stack for Dokploy.
+# Eshop application stack for Dokploy.
 #
-# Runs on the VPS: Keycloak + the five .NET services.
+# Contains ONLY the five .NET services. Keycloak is a separate Dokploy
+# Compose service built from the private theme repo (see DEPLOYMENT.md §7),
+# so the two have independent lifecycles and can be redeployed separately.
+#
 # Managed services (external): PostgreSQL, MongoDB, Redis, RabbitMQ.
 #
-# Dokploy's Traefik owns ports 80/443 and terminates TLS, so there is no Caddy
-# here. `gateway` and `keycloak` join the external `dokploy-network` so Traefik
-# can reach them.
+# Dokploy's Traefik owns ports 80/443 and terminates TLS. `gateway` joins the
+# external `dokploy-network` so Traefik can reach it; the other services stay
+# on the private `eshop` bridge.
 #
 # In the Dokploy UI:
 #   Compose Path: deploy/docker-compose.yml
 #   Environment:  the contents of deploy/.env
 #
 # Domain routing uses the Traefik labels below. If you prefer the Dokploy
-# "Domains" tab, delete both `labels:` blocks and add the domains there
+# "Domains" tab, delete the `labels:` block and add the domain there
 # instead (do not do both).
 # ---------------------------------------------------------------------------
 
@@ -29,48 +32,12 @@ x-service: &service
   restart: unless-stopped
   stop_grace_period: 30s
   extra_hosts:
-    # Lets containers reach the public Keycloak URL through the host's Traefik.
+    # Keycloak runs in another Dokploy stack. Containers reach it through its
+    # public URL (https://${AUTH_DOMAIN}) resolved to the host, where Traefik
+    # routes it. No shared Docker network is needed.
     - "${AUTH_DOMAIN}:host-gateway"
 
 services:
-  keycloak:
-    # Built from the private theme repo (Dockerfile + keycloak-theme.jar +
-    # realm-export.json), pushed to a registry. See DEPLOYMENT.md §7.
-    # The image already contains the theme and the realm import, so there are
-    # no file mounts here, and its CMD is `start --import-realm --optimized`.
-    image: ${KEYCLOAK_IMAGE:?KEYCLOAK_IMAGE must point at the private Keycloak image}
-    restart: unless-stopped
-    environment:
-      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER}
-      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
-      KC_DB: postgres
-      KC_DB_URL: "jdbc:postgresql://${PG_HOST}:${PG_PORT}/${KEYCLOAK_DB}?sslmode=${PG_JDBC_SSLMODE}"
-      KC_DB_USERNAME: "${KEYCLOAK_DB_USER:-${PG_USER}}"
-      KC_DB_PASSWORD: "${KEYCLOAK_DB_PASSWORD:-${PG_PASSWORD}}"
-      KC_DB_POOL_INITIAL_SIZE: "2"
-      KC_DB_POOL_MAX_SIZE: "10"
-      KC_HOSTNAME: https://${AUTH_DOMAIN}
-      KC_PROXY_HEADERS: xforwarded
-      KC_HTTP_ENABLED: "true"
-      KC_HEALTH_ENABLED: "true"
-      KC_LOG_LEVEL: INFO
-    healthcheck:
-      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/9000'"]
-      interval: 15s
-      timeout: 5s
-      retries: 20
-      start_period: 90s
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=dokploy-network"
-      - "traefik.http.routers.eshop-auth.rule=Host(`${AUTH_DOMAIN}`)"
-      - "traefik.http.routers.eshop-auth.entrypoints=websecure"
-      - "traefik.http.routers.eshop-auth.tls.certresolver=letsencrypt"
-      - "traefik.http.services.eshop-auth.loadbalancer.server.port=8080"
-    networks:
-      - eshop
-      - dokploy-network
-
   catalog:
     <<: *service
     build:
@@ -86,9 +53,6 @@ services:
       UploadCare__SecretKey: ${UPLOADCARE_SECRET_KEY}
       UploadCare__Store: ${UPLOADCARE_STORE:-1}
       UploadCare__UploadCareBaseUrl: ${UPLOADCARE_BASE_URL}
-    depends_on:
-      keycloak:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
       interval: 20s
@@ -107,9 +71,6 @@ services:
     environment:
       <<: *common-env
       ConnectionStrings__InventoryDb: "Host=${PG_HOST};Port=${PG_PORT};Database=${INVENTORY_DB};Username=${PG_USER};Password=${PG_PASSWORD};SSL Mode=${PG_SSL_MODE};Maximum Pool Size=10"
-    depends_on:
-      keycloak:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
       interval: 20s
@@ -128,9 +89,6 @@ services:
     environment:
       <<: *common-env
       ConnectionStrings__OrderDb: "Host=${PG_HOST};Port=${PG_PORT};Database=${ORDER_DB};Username=${PG_USER};Password=${PG_PASSWORD};SSL Mode=${PG_SSL_MODE};Maximum Pool Size=10"
-    depends_on:
-      keycloak:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
       interval: 20s
@@ -152,9 +110,6 @@ services:
       EmailService__BaseUrl: ${EMAIL_BASE_URL}
       EmailService__SenderName: ${EMAIL_SENDER_NAME}
       EmailService__SenderEmail: ${EMAIL_SENDER_EMAIL}
-    depends_on:
-      keycloak:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
       interval: 20s
@@ -182,8 +137,6 @@ services:
       ReverseProxy__Clusters__CategoryCluster__Destinations__destination1__Address: http://catalog:8080
       ReverseProxy__Clusters__DiscountCluster__Destinations__destination1__Address: http://catalog:8080
     depends_on:
-      keycloak:
-        condition: service_healthy
       catalog:
         condition: service_healthy
       inventory:

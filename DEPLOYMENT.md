@@ -234,6 +234,8 @@ Each Dokploy Compose service is bound to exactly one Git repo, so the private re
 
 The two stacks do not share a Docker network. The .NET services reach Keycloak over its public URL (`https://${AUTH_DOMAIN}`), which `extra_hosts: ${AUTH_DOMAIN}:host-gateway` resolves to the VPS, where Traefik routes it. That is why the Eshop compose still needs `AUTH_DOMAIN`.
 
+`extra_hosts` is not redundant with normal DNS. Without it the container resolves the public hostname to the VPS's **public** IP and has to hairpin-NAT back into the host — which AWS and some other clouds refuse to do, so the OIDC metadata fetch fails and every API request returns 401/500. Pinning the name to the host gateway makes the path deterministic. You may drop it only if you have verified that the VPS can reach its own public IP.
+
 ### 7.1 Dockerfile (private Keycloak repo)
 
 ```dockerfile

@@ -31,10 +31,19 @@ x-common-env: &common-env
 x-service: &service
   restart: unless-stopped
   stop_grace_period: 30s
+  healthcheck:
+    # /health comes from MapDefaultEndpoints (Eshop.ServiceDefaults) and only
+    # runs the "self" check, so it answers as soon as the process is up.
+    test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+    interval: 20s
+    timeout: 5s
+    retries: 10
+    start_period: 60s
   extra_hosts:
-    # Keycloak runs in another Dokploy stack. Containers reach it through its
-    # public URL (https://${AUTH_DOMAIN}) resolved to the host, where Traefik
-    # routes it. No shared Docker network is needed.
+    # Not redundant with DNS: Keycloak lives in the other Dokploy stack, and the
+    # services fetch its OIDC metadata from the public URL. Pinning that name to
+    # the host gateway avoids relying on the VPS hairpin-NAT'ing its own public
+    # IP back to itself (which AWS and some other clouds refuse to do).
     - "${AUTH_DOMAIN}:host-gateway"
 
 services:
@@ -53,12 +62,6 @@ services:
       UploadCare__SecretKey: ${UPLOADCARE_SECRET_KEY}
       UploadCare__Store: ${UPLOADCARE_STORE:-1}
       UploadCare__UploadCareBaseUrl: ${UPLOADCARE_BASE_URL}
-    healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
-      interval: 20s
-      timeout: 5s
-      retries: 10
-      start_period: 90s
     networks:
       - eshop
 
@@ -71,12 +74,6 @@ services:
     environment:
       <<: *common-env
       ConnectionStrings__InventoryDb: "Host=${PG_HOST};Port=${PG_PORT};Database=${INVENTORY_DB};Username=${PG_USER};Password=${PG_PASSWORD};SSL Mode=${PG_SSL_MODE};Maximum Pool Size=10"
-    healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
-      interval: 20s
-      timeout: 5s
-      retries: 10
-      start_period: 90s
     networks:
       - eshop
 
@@ -89,12 +86,6 @@ services:
     environment:
       <<: *common-env
       ConnectionStrings__OrderDb: "Host=${PG_HOST};Port=${PG_PORT};Database=${ORDER_DB};Username=${PG_USER};Password=${PG_PASSWORD};SSL Mode=${PG_SSL_MODE};Maximum Pool Size=10"
-    healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
-      interval: 20s
-      timeout: 5s
-      retries: 10
-      start_period: 90s
     networks:
       - eshop
 
@@ -110,12 +101,6 @@ services:
       EmailService__BaseUrl: ${EMAIL_BASE_URL}
       EmailService__SenderName: ${EMAIL_SENDER_NAME}
       EmailService__SenderEmail: ${EMAIL_SENDER_EMAIL}
-    healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
-      interval: 20s
-      timeout: 5s
-      retries: 10
-      start_period: 60s
     networks:
       - eshop
 
@@ -145,12 +130,6 @@ services:
         condition: service_healthy
       notification:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
-      interval: 20s
-      timeout: 5s
-      retries: 10
-      start_period: 60s
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=dokploy-network"

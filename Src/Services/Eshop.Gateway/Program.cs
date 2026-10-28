@@ -18,34 +18,53 @@ var proxy = builder.Services.AddReverseProxy()
 if (builder.Environment.IsDevelopment())
     proxy.AddServiceDiscoveryDestinationResolver();
 
+var rateLimiting = builder.Configuration.GetSection("RateLimiting");
+var rateLimitingEnabled = rateLimiting.GetValue("Enabled", true);
+var globalPermitLimit = rateLimiting.GetValue("GlobalPermitLimit", 600);
+var orderCreationPermitLimit = rateLimiting.GetValue("OrderCreationPermitLimit", 20);
+
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
-    // Baseline: applies automatically to every route that doesn't set its own policy
-    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
-    RateLimitPartition.GetSlidingWindowLimiter(
-        partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-        factory: _ => new SlidingWindowRateLimiterOptions
-        {
-            PermitLimit = 100,
-            Window = TimeSpan.FromMinutes(1),
-            SegmentsPerWindow = 6,       // window sliced into 6×10s buckets; oldest slice drops off each tick instead of the whole window resetting at once
-            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-            QueueLimit = 2
-        }));
+    options.OnRejected = (context, _) =>
+    {
+        var http = context.HttpContext;
+        http.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("RateLimiter").LogWarning(
+            "429 {Method} {Path} remote={Remote} xff={Xff}",
+            http.Request.Method, http.Request.Path, http.Connection.RemoteIpAddress,
+            http.Request.Headers["X-Forwarded-For"].ToString());
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+            http.Response.Headers.RetryAfter = ((int)retryAfter.TotalSeconds).ToString();
+        return ValueTask.CompletedTask;
+    };
 
-    // Strict, named policy — only attached to order creation
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+        rateLimitingEnabled
+            ? RateLimitPartition.GetSlidingWindowLimiter(
+                partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                factory: _ => new SlidingWindowRateLimiterOptions
+                {
+                    PermitLimit = globalPermitLimit,
+                    Window = TimeSpan.FromMinutes(1),
+                    SegmentsPerWindow = 6,
+                    QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                    QueueLimit = 2
+                })
+            : RateLimitPartition.GetNoLimiter("rate-limiting-off"));
+
     options.AddPolicy("order-creation", httpContext =>
-        RateLimitPartition.GetSlidingWindowLimiter(
-            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-            factory: _ => new SlidingWindowRateLimiterOptions
-            {
-                PermitLimit = 5,
-                Window = TimeSpan.FromMinutes(1),
-                SegmentsPerWindow = 4,
-                QueueLimit = 0
-            }));
+        rateLimitingEnabled
+            ? RateLimitPartition.GetSlidingWindowLimiter(
+                partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                factory: _ => new SlidingWindowRateLimiterOptions
+                {
+                    PermitLimit = orderCreationPermitLimit,
+                    Window = TimeSpan.FromMinutes(1),
+                    SegmentsPerWindow = 4,
+                    QueueLimit = 0
+                })
+            : RateLimitPartition.GetNoLimiter("rate-limiting-off"));
 });
 
 

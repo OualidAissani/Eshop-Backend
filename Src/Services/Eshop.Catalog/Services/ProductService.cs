@@ -224,7 +224,8 @@ namespace Eshop.Catalog.Services;
 
         public async Task<List<ProductDto>> ProductSearch(string tag,CancellationToken ct)
         {
-           var regex = new BsonRegularExpression(tag, "i");
+          var escapedTag = System.Text.RegularExpressions.Regex.Escape(tag);
+           var regex = new BsonRegularExpression(escapedTag, "i");
            var filterBuilder = Builders<ProductDocument>.Filter;
            var filter = filterBuilder.Or(
                filterBuilder.Regex(p => p.Title, regex),

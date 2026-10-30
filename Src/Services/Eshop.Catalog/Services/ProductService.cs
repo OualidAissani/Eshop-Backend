@@ -47,9 +47,15 @@ namespace Eshop.Catalog.Services;
 
             var discountFilter = Builders<DiscountDocument>.Filter.In(d => d.ProductId, ProductIds) & Builders<DiscountDocument>.Filter.Lte(d => d.StartsAt, DateTime.UtcNow) & Builders<DiscountDocument>.Filter.Gt(d => d.ExpiresAt, DateTime.UtcNow);
 
-            var products = await _mongoContext.Products.Find(productFilter).ToListAsync(ct);
 
-            var discount = await _mongoContext.Discounts.Find(discountFilter).ToListAsync(ct);
+            var productsTask =  _mongoContext.Products.Find(productFilter).ToListAsync(ct);
+
+            var discountTask =  _mongoContext.Discounts.Find(discountFilter).ToListAsync(ct);
+
+            await Task.WhenAll(productsTask,discountTask);
+
+            var products=await productsTask;
+            var discount=await discountTask;
 
            var discountDictionary= discount.ToDictionary(d => d.ProductId);
 
@@ -263,6 +269,7 @@ namespace Eshop.Catalog.Services;
                 items.RemoveAt(items.Count - 1);
                 nextCursor = items[^1].ProductId;
             }
+            
 
         // so what was done is at first you fetched products with discounts then made them in a dictionarry
         // then you used in the origianl product list to match using product and alter the price of them .

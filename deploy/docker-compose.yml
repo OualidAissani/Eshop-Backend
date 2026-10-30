@@ -140,6 +140,8 @@ services:
       - "traefik.http.routers.eshop-api.entrypoints=websecure"
       - "traefik.http.routers.eshop-api.tls.certresolver=letsencrypt"
       - "traefik.http.services.eshop-api.loadbalancer.server.port=8080"
+      - "traefik.http.middlewares.eshop-compress.compress=true"
+      - "traefik.http.routers.eshop-api.middlewares=eshop-compress"
     networks:
       - eshop
       - dokploy-network

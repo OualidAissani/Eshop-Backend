@@ -10,7 +10,7 @@ public class Order
     public string OrderNumber { get; set; } = "ORD-"+Guid.NewGuid().ToString("N")[..8];
     public string CustomerName { get; set; }
     public decimal TotalPrice { get; set; }
-    public string Email { get; set; }
+    public string? Email { get; set; }
 
     public OrderStatus Status { get; set; }
 

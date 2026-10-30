@@ -31,9 +31,9 @@ builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.Decorate<IOrderService,CachedOrderService>();
 
 
-builder.Services.AddSingleton<IConnectionMultiplexer>(
+builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
     ConnectionMultiplexer.Connect(
-        builder.Configuration.GetConnectionString("Redis")!));
+        sp.GetRequiredService<IConfiguration>().GetConnectionString("Redis")!));
 
 builder.Services.AddSingleton<IDatabase>(sp =>
 {

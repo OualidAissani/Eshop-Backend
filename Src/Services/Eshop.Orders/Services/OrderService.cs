@@ -74,14 +74,14 @@ namespace Eshop.Orders.Services
 
         public async Task<List<OrderResponseDto>> GetAllUserOrderAsync(string userId, CancellationToken ct)
         {
-            var orders=await _context
+            var orders = await _context
                 .Orders
                 .Include(o => o.OrderItems)
                 .Where(i => i.UserId == userId)
                 .AsSplitQuery()
                 .AsNoTracking()
                 .ToListAsync(ct);
-            return orders.Select(s=>MapOrderToDto(s)).ToList();
+            return orders.Select(s => MapOrderToDto(s)).ToList();
 
         }
         public async Task<OrderResponseDto?> GetOrderById(int orderId, string userId, CancellationToken ct)
@@ -128,7 +128,11 @@ namespace Eshop.Orders.Services
                     var correlationId = Guid.NewGuid();
 
                     await PublishingConfimredOrderEvent(newOrder, inventoryParameter, paymentItems, correlationId);
-                    await NotifyCustomerOfOrderCreating(newOrder, ct);
+
+                    if (order.Email != null && order.Email.Contains("@"))
+                    {
+                        await NotifyCustomerOfOrderCreating(newOrder, ct);
+                    }
 
                     await _context.SaveChangesAsync(ct);
 
@@ -203,7 +207,7 @@ namespace Eshop.Orders.Services
                     "تم إنشاء طلبك بنجاح",
                     Eshop.Orders.Services.EmailTemplates.OrderConfirmationEmail.Build(newOrder)
                 ));
-                
+
             });
         }
 
@@ -222,7 +226,7 @@ namespace Eshop.Orders.Services
                             });
         }
 
-        private  void MappingOrderEnitites(OrderDto order, Dictionary<int, ProductInventoryItem> inventoryDict, Dictionary<int, GetProductResponseDto> pricesDict, out List<OrderItem> orderItems, out Order newOrder, out List<Events.InventoryUpdateDto> inventoryParameter)
+        private void MappingOrderEnitites(OrderDto order, Dictionary<int, ProductInventoryItem> inventoryDict, Dictionary<int, GetProductResponseDto> pricesDict, out List<OrderItem> orderItems, out Order newOrder, out List<Events.InventoryUpdateDto> inventoryParameter)
         {
             orderItems = order.Products
                                 .Select(p => new OrderItem
@@ -250,7 +254,7 @@ namespace Eshop.Orders.Services
                 Wilaya = order.Wilaya,
                 Commune = order.Commune,
                 PayementMethod = payementMethodEnum,
-                Email = order.Email,
+                Email = string.IsNullOrWhiteSpace(order.Email) ? null : order.Email.Trim(),
                 TotalPrice = orderItems.Sum(i => i.FullPrice)
             };
             inventoryParameter = order.Products.Select(s => new Events.InventoryUpdateDto
@@ -260,7 +264,7 @@ namespace Eshop.Orders.Services
             }).ToList();
         }
 
-        private  List<Events.OrderItemSagaDto> ItemsToPay(List<OrderItem> orderItems, Order newOrder)
+        private List<Events.OrderItemSagaDto> ItemsToPay(List<OrderItem> orderItems, Order newOrder)
         {
             var paymentItems = new List<Events.OrderItemSagaDto>();
             if (newOrder.PayementMethod != Data.Enums.PaymentMethods.CashOnDelivery)
@@ -282,7 +286,7 @@ namespace Eshop.Orders.Services
             return paymentItems;
         }
 
-        public async Task<Result<bool>> DeleteOrder(int orderId,string userId, CancellationToken ct) //change
+        public async Task<Result<bool>> DeleteOrder(int orderId, string userId, CancellationToken ct) //change
         {
             if (orderId <= 0)
             {
@@ -383,11 +387,16 @@ namespace Eshop.Orders.Services
             var productIds = order.Products.Select(p => p.ProductId).ToList();
             try
             {
-                var inventoryResponse = await _client2.GetResponse<ProductInventoryAvailibityForOrderResponse>(
-             new ProductInventoryAvailibityForOrderRequest(productIds), ct);
+                var inventoryTask = _client2.GetResponse<ProductInventoryAvailibityForOrderResponse>(
+                                    new ProductInventoryAvailibityForOrderRequest(productIds), ct);
 
-                var pricesResponse = await _client.GetResponse<GetProductResponse>(
+                var pricesTask = _client.GetResponse<GetProductResponse>(
                     new GetProductRequest(productIds), ct);
+
+                await Task.WhenAll(inventoryTask, pricesTask);
+
+                var inventoryResponse = await inventoryTask;   
+                var pricesResponse = await pricesTask;
 
                 var inventoryDict = inventoryResponse.Message.Items
                     .ToDictionary(i => i.ProductId, i => i);

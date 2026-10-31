@@ -72,7 +72,8 @@ public class OrderServiceTests : IDisposable
         _createPaymentClientImposter = IRequestClient<CreatePaymentRecordRequest>.Imposter();
         _createPaymentOrderClient = _createPaymentClientImposter.Instance();
 
-        _sut = new OrderService(_context, _productClient, _inventoryClient, _publishEndpoint,_logger);
+        _sut = new OrderService(_context, _productClient, _inventoryClient, _publishEndpoint, _logger,
+            new DeliveryPriceService(_context));
     }
 
     public void Dispose() => _context.Dispose();
@@ -368,6 +369,68 @@ public class OrderServiceTests : IDisposable
         result.Should().NotBeNull();
         result.Value.Order.TotalPrice.Should().Be(65.00m); // (2 * 10) + (3 * 15)
         result.Value.Order.OrderItems.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task CreateOrder_WithConfiguredDeliveryPrice_AddsShippingToTotal()
+    {
+        _context.DeliveryPrices.Add(new DeliveryPrice
+        {
+            WilayaCode = 16,
+            DeliveryType = Orders.Data.Enums.DeliveryType.Home,
+            PriceDzd = 600m
+        });
+        await _context.SaveChangesAsync();
+
+        var orderDto = new OrderDto
+        {
+            Products = [new OrderItemDto { ProductId = 1, Quantity = 2 }],
+            PayementMethod = "CashOnDelivery",
+            ShippingAddress = "123 Main St",
+            UserId = "user1",
+            Commune = "COMMUNE",
+            CustomerName = "customer1",
+            Email = "ESHOP@gmail.com",
+            Phone = "0123456789",
+            Wilaya = "Alger",
+            WilayaCode = 16,
+            DeliveryType = "Home"
+        };
+
+        SetupImpostorResponses(
+            inventoryItems: [new ProductInventoryItem(1, 10, 100)],
+            products: [new GetProductResponseDto(1, 25.00m, "Widget")]);
+
+        var result = await _sut.CreateOrder(orderDto, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Order.ShippingPrice.Should().Be(600m);
+        result.Value.Order.TotalPrice.Should().Be(650m);
+        result.Value.Order.DeliveryType.Should().Be(Orders.Data.Enums.DeliveryType.Home);
+    }
+
+    [Fact]
+    public async Task CreateOrder_WithMissingDeliveryPrice_ReturnsFailure()
+    {
+        var orderDto = new OrderDto
+        {
+            Products = [new OrderItemDto { ProductId = 1, Quantity = 1 }],
+            PayementMethod = "CashOnDelivery",
+            ShippingAddress = "123 Main St",
+            UserId = "user1",
+            Wilaya = "Alger",
+            WilayaCode = 16,
+            DeliveryType = "Home"
+        };
+
+        SetupImpostorResponses(
+            inventoryItems: [new ProductInventoryItem(1, 10, 100)],
+            products: [new GetProductResponseDto(1, 25.00m, "Widget")]);
+
+        var result = await _sut.CreateOrder(orderDto, CancellationToken.None);
+
+        result.IsFailed.Should().BeTrue();
+        result.Errors.Should().ContainSingle();
     }
 
     [Fact]

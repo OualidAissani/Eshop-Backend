@@ -27,6 +27,7 @@ builder.Services.AddControllers().AddJsonOptions(options =>
 builder.Services.AddOpenApi();
 
 builder.Services.AddScoped<IOrderService, OrderService>();
+builder.Services.AddScoped<IDeliveryPriceService, DeliveryPriceService>();
 
 builder.Services.Decorate<IOrderService,CachedOrderService>();
 

@@ -22,6 +22,31 @@ namespace Eshop.Orders.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Eshop.Orders.Entities.DeliveryPrice", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("DeliveryType")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("PriceDzd")
+                        .HasColumnType("numeric");
+
+                    b.Property<int>("WilayaCode")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WilayaCode", "DeliveryType")
+                        .IsUnique();
+
+                    b.ToTable("DeliveryPrices");
+                });
+
             modelBuilder.Entity("Eshop.Orders.Entities.Order", b =>
                 {
                     b.Property<int>("Id")
@@ -40,6 +65,9 @@ namespace Eshop.Orders.Migrations
 
                     b.Property<DateTime?>("DeliveredAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("DeliveryType")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Email")
                         .HasColumnType("text");
@@ -65,6 +93,9 @@ namespace Eshop.Orders.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<decimal>("ShippingPrice")
+                        .HasColumnType("numeric");
+
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
@@ -79,11 +110,14 @@ namespace Eshop.Orders.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int>("WilayaCode")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Orders", (string)null);
+                    b.ToTable("Orders");
                 });
 
             modelBuilder.Entity("Eshop.Orders.Entities.OrderItem", b =>
@@ -122,7 +156,7 @@ namespace Eshop.Orders.Migrations
 
                     b.HasIndex("ProductId");
 
-                    b.ToTable("OrderItems", (string)null);
+                    b.ToTable("OrderItems");
                 });
 
             modelBuilder.Entity("Eshop.Orders.Models.Cart", b =>
@@ -148,7 +182,7 @@ namespace Eshop.Orders.Migrations
                     b.HasIndex("UserId")
                         .IsUnique();
 
-                    b.ToTable("Carts", (string)null);
+                    b.ToTable("Carts");
                 });
 
             modelBuilder.Entity("Eshop.Orders.Models.CartItem", b =>
@@ -179,7 +213,7 @@ namespace Eshop.Orders.Migrations
 
                     b.HasIndex("CartId");
 
-                    b.ToTable("CartItems", (string)null);
+                    b.ToTable("CartItems");
                 });
 
             modelBuilder.Entity("Eshop.Orders.Sagas.OrderState", b =>
@@ -216,7 +250,7 @@ namespace Eshop.Orders.Migrations
 
                     b.HasKey("CorrelationId");
 
-                    b.ToTable("OrderStates", (string)null);
+                    b.ToTable("OrderStates");
                 });
 
             modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.InboxState", b =>
@@ -263,7 +297,7 @@ namespace Eshop.Orders.Migrations
 
                     b.HasIndex("Delivered");
 
-                    b.ToTable("InboxState", (string)null);
+                    b.ToTable("InboxState");
                 });
 
             modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxMessage", b =>
@@ -354,7 +388,7 @@ namespace Eshop.Orders.Migrations
                     b.HasIndex("InboxMessageId", "InboxConsumerId", "SequenceNumber")
                         .IsUnique();
 
-                    b.ToTable("OutboxMessage", (string)null);
+                    b.ToTable("OutboxMessage");
                 });
 
             modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxState", b =>
@@ -384,7 +418,7 @@ namespace Eshop.Orders.Migrations
 
                     b.HasIndex("Created");
 
-                    b.ToTable("OutboxState", (string)null);
+                    b.ToTable("OutboxState");
                 });
 
             modelBuilder.Entity("Eshop.Orders.Entities.OrderItem", b =>

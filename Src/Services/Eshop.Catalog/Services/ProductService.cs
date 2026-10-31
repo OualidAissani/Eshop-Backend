@@ -45,7 +45,12 @@ namespace Eshop.Catalog.Services;
         {
             var productFilter = Builders<ProductDocument>.Filter.In(p => p.ProductId, ProductIds);
 
-            var discountFilter = Builders<DiscountDocument>.Filter.In(d => d.ProductId, ProductIds) & Builders<DiscountDocument>.Filter.Lte(d => d.StartsAt, DateTime.UtcNow) & Builders<DiscountDocument>.Filter.Gt(d => d.ExpiresAt, DateTime.UtcNow);
+            var now = DateTime.UtcNow;
+
+            var discountFilter = Builders<DiscountDocument>.Filter.In(d => d.ProductId, ProductIds)
+                & Builders<DiscountDocument>.Filter.Where(d =>
+                    (d.StartsAt == null || d.StartsAt <= now)
+                    && (d.ExpiresAt == null || d.ExpiresAt > now));
 
 
             var productsTask =  _mongoContext.Products.Find(productFilter).ToListAsync(ct);
@@ -57,13 +62,18 @@ namespace Eshop.Catalog.Services;
             var products=await productsTask;
             var discount=await discountTask;
 
-           var discountDictionary= discount.ToDictionary(d => d.ProductId);
+           // Only one discount per product should be active; older versions
+           // allowed duplicates, so keep the most recent one instead of throwing.
+           var discountsByProductId = discount
+                .GroupBy(d => d.ProductId)
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(d => d.StartsAt).First());
 
-        
             return products.Select(i => new ProductPriceDto
             {
                 Id = i.ProductId,
-                Price = discountDictionary.TryGetValue(i.ProductId,out var newprice)?newprice.ApplyDiscount(i.Price):i.Price,
+                Price = discountsByProductId.TryGetValue(i.ProductId, out var productDiscount)
+                    ? productDiscount.ApplyDiscount(i.Price)
+                    : i.Price,
                 Name = i.Title
             }).ToList();
         }
@@ -278,11 +288,15 @@ namespace Eshop.Catalog.Services;
         var now = DateTime.UtcNow;
         var activeDiscounts = await _mongoContext.Discounts
             .Find(d => productIds.Contains(d.ProductId)
-                    && (d.StartsAt <= now)
-                    && (d.ExpiresAt >= now))
+                    && (d.StartsAt == null || d.StartsAt <= now)
+                    && (d.ExpiresAt == null || d.ExpiresAt > now))
             .ToListAsync(ct);
 
-        var discountsByProductId = activeDiscounts.ToDictionary(d => d.ProductId);
+        // Only one discount per product should be active; older versions
+        // allowed duplicates, so keep the most recent one instead of throwing.
+        var discountsByProductId = activeDiscounts
+            .GroupBy(d => d.ProductId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(d => d.StartsAt).First());
 
         var dtos = items.Select(item =>
         {

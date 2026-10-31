@@ -18,11 +18,14 @@ namespace Eshop.Orders.Controllers
     {
         private readonly IOrderService _orderService;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IDeliveryPriceService _deliveryPriceService;
 
-        public OrderController(IOrderService orderService, IHttpContextAccessor httpContextAccessor)
+        public OrderController(IOrderService orderService, IHttpContextAccessor httpContextAccessor,
+            IDeliveryPriceService deliveryPriceService)
         {
             _orderService = orderService;
             _httpContextAccessor = httpContextAccessor;
+            _deliveryPriceService = deliveryPriceService;
         }
         [Authorize(Roles = "Admin")]
         [HttpGet("GetAllOrders")]
@@ -87,7 +90,12 @@ namespace Eshop.Orders.Controllers
             [FromHeader(Name = "x-Idempotency-Key")] string key,CancellationToken ct)
         {
             
-             order.UserId= _httpContextAccessor.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
+             if (order.WilayaCode is < 1 or > 58)
+            {
+                return BadRequest("A valid wilaya code is required.");
+            }
+
+            order.UserId= _httpContextAccessor.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
             order.IdempontencyKey = key;
             try
             {
@@ -130,6 +138,57 @@ namespace Eshop.Orders.Controllers
         {
             return Ok(await _orderService.GetOrderByOrderNumber(code, phone, ct));
         }
-      
+
+        /// <summary>
+        /// Returns the delivery price for a destination wilaya and delivery type.
+        /// The chart is maintained by the shop owner from the delivery company's grid.
+        /// </summary>
+        [AllowAnonymous]
+        [HttpGet("delivery-price")]
+        public async Task<IActionResult> GetDeliveryPrice([FromQuery] int wilayaCode,
+            [FromQuery] Data.Enums.DeliveryType deliveryType, CancellationToken ct)
+        {
+            var price = await _deliveryPriceService.GetPriceAsync(wilayaCode, deliveryType, ct);
+            if (price is null)
+            {
+                return NotFound(new
+                {
+                    message = $"No delivery price configured for wilaya {wilayaCode} ({deliveryType})."
+                });
+            }
+
+            return Ok(new
+            {
+                wilayaCode,
+                deliveryType,
+                priceDzd = price.Value
+            });
+        }
+
+        [Authorize(Roles = "Admin")]
+        [HttpGet("delivery-prices")]
+        public async Task<IActionResult> GetDeliveryPrices(CancellationToken ct)
+        {
+            return Ok(await _deliveryPriceService.GetAllAsync(ct));
+        }
+
+        /// <summary>
+        /// Bulk insert/update the delivery chart. Send the full grid once to load it.
+        /// </summary>
+        [Authorize(Roles = "Admin")]
+        [HttpPut("delivery-prices")]
+        public async Task<IActionResult> UpsertDeliveryPrices([FromBody] List<DeliveryPriceDto> prices,
+            CancellationToken ct)
+        {
+            try
+            {
+                await _deliveryPriceService.UpsertAsync(prices, ct);
+                return NoContent();
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
     }
 }

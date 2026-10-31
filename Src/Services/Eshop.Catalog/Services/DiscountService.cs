@@ -46,6 +46,20 @@ namespace Eshop.Catalog.Services
                 }
             }            
 
+            var now = DateTime.UtcNow;
+
+            var existingActiveDiscount = await _context.Discounts
+                .Find(d => d.ProductId == discount.ProductId
+                        && (d.StartsAt == null || d.StartsAt <= now)
+                        && (d.ExpiresAt == null || d.ExpiresAt > now))
+                .FirstOrDefaultAsync(ct);
+
+            if (existingActiveDiscount != null)
+            {
+                return Result.Fail<DiscountDocument>(
+                    "This product already has an active discount. Update it instead of adding a new one.");
+            }
+
             var discounts = new DiscountDocument
             {
                 ProductId=discount.ProductId,
@@ -68,8 +82,15 @@ namespace Eshop.Catalog.Services
                 return Result.Fail<bool>("Invalid discount ID");
             }
 
-            var deleteResult = await _context.Discounts.DeleteOneAsync(d => d.ProductId == productId, ct);
-            if (deleteResult.DeletedCount == 0)
+            // Discounts are kept as history for analytics, so deleting only
+            // expires the current/future rows instead of removing them.
+            var now = DateTime.UtcNow;
+            var updateResult = await _context.Discounts.UpdateManyAsync(
+                d => d.ProductId == productId && (d.ExpiresAt == null || d.ExpiresAt > now),
+                Builders<DiscountDocument>.Update.Set(d => d.ExpiresAt, now),
+                cancellationToken: ct);
+
+            if (updateResult.ModifiedCount == 0)
             {
                 return Result.Fail<bool>("Discount not found");
             }
@@ -84,7 +105,13 @@ namespace Eshop.Catalog.Services
                 return Result.Fail<DiscountDocument>("Invalid product ID");
             }
 
-            var discount = await _context.Discounts.Find(d => d.ProductId == id && d.StartsAt <= DateTime.UtcNow && d.ExpiresAt > DateTime.UtcNow).FirstOrDefaultAsync();
+            var now = DateTime.UtcNow;
+
+            var discount = await _context.Discounts
+                .Find(d => d.ProductId == id
+                        && (d.StartsAt == null || d.StartsAt <= now)
+                        && (d.ExpiresAt == null || d.ExpiresAt > now))
+                .FirstOrDefaultAsync(ct);
             if(discount == null)
             {
                 return Result.Fail<DiscountDocument>("Discount not found");
@@ -95,8 +122,19 @@ namespace Eshop.Catalog.Services
 
         public async Task<Result<List<DiscountDocument>>> GetDiscounts(CancellationToken ct)
         {
-            var discounts = await _context.Discounts.Find(_ => _.StartsAt <= DateTime.UtcNow && _.ExpiresAt > DateTime.UtcNow).ToListAsync();
-            return discounts;
+            var now = DateTime.UtcNow;
+
+            var discounts = await _context.Discounts
+                .Find(d => (d.StartsAt == null || d.StartsAt <= now)
+                        && (d.ExpiresAt == null || d.ExpiresAt > now))
+                .ToListAsync(ct);
+
+            // A product can only have one active discount; legacy duplicates
+            // are collapsed to the most recent one for the API response.
+            return discounts
+                .GroupBy(d => d.ProductId)
+                .Select(g => g.OrderByDescending(d => d.StartsAt).First())
+                .ToList();
         }
 
         public async Task<Result<DiscountDocument>> UpdateDiscount(DiscountDto discount, CancellationToken ct)
@@ -106,7 +144,14 @@ namespace Eshop.Catalog.Services
                 return Result.Fail<DiscountDocument>("Invalid discount data");
             }
 
-            var existingDiscount = await _context.Discounts.Find(d => d.ProductId == discount.ProductId).FirstOrDefaultAsync();
+            var now = DateTime.UtcNow;
+
+            var existingDiscount = await _context.Discounts
+                .Find(d => d.ProductId == discount.ProductId
+                        && (d.StartsAt == null || d.StartsAt <= now)
+                        && (d.ExpiresAt == null || d.ExpiresAt > now))
+                .FirstOrDefaultAsync(ct);
+
             if (existingDiscount == null)
             {
                 return Result.Fail<DiscountDocument>("Discount not found");
@@ -118,7 +163,7 @@ namespace Eshop.Catalog.Services
             existingDiscount.Type = discount.Type;
             existingDiscount.Value = discount.Value;
 
-            await _context.Discounts.ReplaceOneAsync(d => d.ProductId == discount.ProductId, existingDiscount, cancellationToken: ct);
+            await _context.Discounts.ReplaceOneAsync(d => d.Id == existingDiscount.Id, existingDiscount, cancellationToken: ct);
 
             return existingDiscount;
         }

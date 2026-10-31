@@ -20,7 +20,13 @@ public class Order
 
     public string Wilaya { get; set; }
 
+    public int WilayaCode { get; set; }
+
     public string Commune { get; set; }
+
+    public DeliveryType DeliveryType { get; set; }
+
+    public decimal ShippingPrice { get; set; }
 
     public PaymentMethods PayementMethod { get; set; }
 

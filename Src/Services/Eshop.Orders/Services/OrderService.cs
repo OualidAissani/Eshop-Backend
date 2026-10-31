@@ -19,15 +19,18 @@ namespace Eshop.Orders.Services
         private readonly IRequestClient<ProductInventoryAvailibityForOrderRequest> _client2;
         private readonly IPublishEndpoint _publishEndpoint;
         private readonly ILogger<OrderService> _logger;
+        private readonly IDeliveryPriceService _deliveryPriceService;
 
         public OrderService(OrderDbContext context, IRequestClient<GetProductRequest> client,
-            IRequestClient<ProductInventoryAvailibityForOrderRequest> client2, IPublishEndpoint publishEndpoint, ILogger<OrderService> logger)
+            IRequestClient<ProductInventoryAvailibityForOrderRequest> client2, IPublishEndpoint publishEndpoint,
+            ILogger<OrderService> logger, IDeliveryPriceService deliveryPriceService)
         {
             _context = context;
             _client = client;
             _client2 = client2;
             _publishEndpoint = publishEndpoint;
             _logger = logger;
+            _deliveryPriceService = deliveryPriceService;
         }
 
         public async Task<PaginatedResult<OrderResponseDto>> GetAllOrdersPagination(PaginationParams paginationParams, CancellationToken ct)
@@ -103,10 +106,29 @@ namespace Eshop.Orders.Services
 
             (Dictionary<int, ProductInventoryItem> inventoryDict, Dictionary<int, GetProductResponseDto> pricesDict) = await OrderValidations(order, ct);
 
+            if (!Enum.TryParse<Data.Enums.DeliveryType>(order.DeliveryType, true, out var deliveryType))
+            {
+                return Result.Fail<CreateOrderResponseDto>($"Invalid delivery type: {order.DeliveryType}");
+            }
+
+            decimal shippingPrice = 0m;
+            if (order.WilayaCode > 0)
+            {
+                var price = await _deliveryPriceService.GetPriceAsync(order.WilayaCode, deliveryType, ct);
+                if (price is null)
+                {
+                    return Result.Fail<CreateOrderResponseDto>(
+                        $"Delivery is not available for wilaya {order.WilayaCode} ({deliveryType}).");
+                }
+
+                shippingPrice = price.Value;
+            }
+
             List<OrderItem> orderItems;
             Order newOrder;
             List<Events.InventoryUpdateDto> inventoryParameter;
-            MappingOrderEnitites(order, inventoryDict, pricesDict, out orderItems, out newOrder, out inventoryParameter);
+            MappingOrderEnitites(order, inventoryDict, pricesDict, deliveryType, shippingPrice,
+                out orderItems, out newOrder, out inventoryParameter);
 
             var strategy = _context.Database.CreateExecutionStrategy();
 
@@ -180,6 +202,9 @@ namespace Eshop.Orders.Services
                 Status = newOrder.Status,
                 TotalPrice = newOrder.TotalPrice,
                 Wilaya = newOrder.Wilaya,
+                WilayaCode = newOrder.WilayaCode,
+                DeliveryType = newOrder.DeliveryType,
+                ShippingPrice = newOrder.ShippingPrice,
                 ShippedAt = newOrder.ShippedAt,
                 UserId = newOrder.UserId
 
@@ -226,7 +251,7 @@ namespace Eshop.Orders.Services
                             });
         }
 
-        private void MappingOrderEnitites(OrderDto order, Dictionary<int, ProductInventoryItem> inventoryDict, Dictionary<int, GetProductResponseDto> pricesDict, out List<OrderItem> orderItems, out Order newOrder, out List<Events.InventoryUpdateDto> inventoryParameter)
+        private void MappingOrderEnitites(OrderDto order, Dictionary<int, ProductInventoryItem> inventoryDict, Dictionary<int, GetProductResponseDto> pricesDict, Data.Enums.DeliveryType deliveryType, decimal shippingPrice, out List<OrderItem> orderItems, out Order newOrder, out List<Events.InventoryUpdateDto> inventoryParameter)
         {
             orderItems = order.Products
                                 .Select(p => new OrderItem
@@ -252,10 +277,13 @@ namespace Eshop.Orders.Services
                 ShippingAddress = order.ShippingAddress,
                 Phone = order.Phone,
                 Wilaya = order.Wilaya,
+                WilayaCode = order.WilayaCode,
                 Commune = order.Commune,
+                DeliveryType = deliveryType,
+                ShippingPrice = shippingPrice,
                 PayementMethod = payementMethodEnum,
                 Email = string.IsNullOrWhiteSpace(order.Email) ? null : order.Email.Trim(),
-                TotalPrice = orderItems.Sum(i => i.FullPrice)
+                TotalPrice = orderItems.Sum(i => i.FullPrice) + shippingPrice
             };
             inventoryParameter = order.Products.Select(s => new Events.InventoryUpdateDto
             {
@@ -281,6 +309,21 @@ namespace Eshop.Orders.Services
                     }
 
                 }).ToList();
+
+                if (newOrder.ShippingPrice > 0)
+                {
+                    paymentItems.Add(new Events.OrderItemSagaDto
+                    {
+                        name = "Delivery",
+                        quantity = 1,
+                        description = $"Delivery to {newOrder.Wilaya} ({newOrder.DeliveryType})",
+                        unit_amount = new AmountDto
+                        {
+                            value = newOrder.ShippingPrice,
+                            currency_code = "USD"
+                        }
+                    });
+                }
             }
 
             return paymentItems;

@@ -45,6 +45,10 @@ namespace Eshop.Orders.Data
                 .HasIndex(c => c.UserId)
                 .IsUnique();
 
+            modelBuilder.Entity<DeliveryPrice>()
+                .HasIndex(p => new { p.WilayaCode, p.DeliveryType })
+                .IsUnique();
+
             modelBuilder.AddInboxStateEntity();
             modelBuilder.AddOutboxMessageEntity();
             modelBuilder.AddOutboxStateEntity();
@@ -64,6 +68,8 @@ namespace Eshop.Orders.Data
         public DbSet<Cart> Carts { get; set; }
 
         public DbSet<CartItem> CartItems { get; set; }
+
+        public DbSet<DeliveryPrice> DeliveryPrices { get; set; }
 
         public DbSet<OrderState> OrderStates { get; set; }
     }

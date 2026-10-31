@@ -10,7 +10,9 @@ public class OrderDto
     public string Phone { get; set; }
     public string ShippingAddress { get; set; }
     public string Wilaya { get; set; }
+    public int WilayaCode { get; set; }
     public string Commune { get; set; }
+    public string DeliveryType { get; set; } = "Desk";
     public string? UserId { get; set; }
     public string? IdempontencyKey { get; set; }
 }

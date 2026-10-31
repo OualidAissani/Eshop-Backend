@@ -39,6 +39,13 @@ namespace Eshop.Orders.Services
                 }
 
                 var createdOrder = await _orderService.CreateOrder(order, ct);
+
+                if (createdOrder.IsFailed)
+                {
+                    await _redisDb.KeyDeleteAsync(key);
+                    return Result.Fail(createdOrder.Errors.FirstOrDefault()?.Message ?? "Order creation failed.");
+                }
+
                 await _redisDb.StringSetAsync(key, JsonSerializer.Serialize(createdOrder.Value), TimeSpan.FromHours(24));
 
                 return createdOrder.Value;
